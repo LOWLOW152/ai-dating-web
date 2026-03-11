@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cream text-gray-800 antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-warm-500 hover:bg-warm-600 text-white font-medium py-3 px-8 rounded-full transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply bg-white hover:bg-warm-50 text-warm-600 font-medium py-3 px-8 rounded-full border-2 border-warm-200 transition-all duration-200;
+  }
+  
+  .chat-bubble-user {
+    @apply bg-warm-500 text-white rounded-2xl rounded-tr-sm px-5 py-3 max-w-xs md:max-w-md;
+  }
+  
+  .chat-bubble-ai {
+    @apply bg-white border border-warm-200 text-gray-700 rounded-2xl rounded-tl-sm px-5 py-3 max-w-xs md:max-w-md shadow-sm;
+  }
+  
+  .input-warm {
+    @apply w-full bg-white border-2 border-warm-200 rounded-2xl px-5 py-4 focus:outline-none focus:border-warm-400 focus:ring-2 focus:ring-warm-100 transition-all placeholder-gray-400;
+  }
+  
+  .progress-bar {
+    @apply h-2 bg-warm-200 rounded-full overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full bg-gradient-to-r from-warm-400 to-warm-500 rounded-full transition-all duration-500 ease-out;
+  }
+}
