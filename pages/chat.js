@@ -99,15 +99,20 @@ export default function Chat() {
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
-    utterance.rate = 0.9; // 稍微慢一点，更自然
-    utterance.pitch = 1;
+    utterance.rate = 0.85; // 更慢一点，更温柔
+    utterance.pitch = 1.15; // 音调高一点，更柔和
+    utterance.volume = 0.9; // 音量稍低，更亲切
     
-    // 尝试找中文女声
+    // 尝试找最温柔的中文女声
     const voices = synthRef.current.getVoices();
-    const zhVoice = voices.find(v => v.lang.includes('zh') && v.name.includes('Female'))
-                  || voices.find(v => v.lang.includes('zh'));
-    if (zhVoice) {
-      utterance.voice = zhVoice;
+    // 优先选择微软 Xiaoxiao（最温柔的中文女声）
+    const preferredVoice = voices.find(v => v.name.includes('Xiaoxiao')) 
+                        || voices.find(v => v.name.includes('Ting-Ting'))
+                        || voices.find(v => v.name.includes('Female') && v.lang.includes('zh'))
+                        || voices.find(v => v.lang.includes('zh-CN') || v.lang.includes('zh'));
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+      console.log('使用语音:', preferredVoice.name);
     }
     
     utterance.onstart = () => setIsSpeaking(true);
