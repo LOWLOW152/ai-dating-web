@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import ChatMessage from '../components/ChatMessage';
-import ProgressBar from '../components/ProgressBar';
 import { questions, getTotalQuestions } from '../lib/questions';
 import { generateFollowUp, generateAIResponse } from '../lib/logic';
 
@@ -10,7 +9,7 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const synthRef = useRef(null);
-  const audioRef = useRef(null); // 腾讯云 TTS 音频
+  const audioRef = useRef(null);
   
   const [messages, setMessages] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -22,7 +21,6 @@ export default function Chat() {
   const [showOptions, setShowOptions] = useState(false);
   const [currentOptions, setCurrentOptions] = useState([]);
   
-  // 语音相关状态
   const [voiceMode, setVoiceMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -30,6 +28,12 @@ export default function Chat() {
 
   const totalQuestions = getTotalQuestions();
   const currentQuestion = questions[currentQuestionIndex];
+
+  // 获取当前时间
+  const getCurrentTime = () => {
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  };
 
   // 检查浏览器是否支持语音
   useEffect(() => {
@@ -39,9 +43,7 @@ export default function Chat() {
       
       if (!SpeechRecognition || !speechSynthesis) {
         setVoiceSupported(false);
-        console.log('浏览器不支持语音功能');
       } else {
-        // 初始化语音识别
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = false;
@@ -53,7 +55,6 @@ export default function Chat() {
         recognitionRef.current.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           setInputValue(transcript);
-          // 自动发送
           setTimeout(() => handleSendWithText(transcript), 500);
         };
         
@@ -62,22 +63,18 @@ export default function Chat() {
           setIsListening(false);
         };
         
-        // 初始化语音合成
         synthRef.current = speechSynthesis;
       }
     }
   }, []);
 
-  // 初始化：显示第一个问题
+  // 初始化
   useEffect(() => {
     if (messages.length === 0) {
       const firstQuestion = currentQuestion.question;
       addMessage(firstQuestion, false);
       
-      // 如果开启语音模式，自动播报第一个问题
-      if (voiceMode) {
-        speakText(firstQuestion);
-      }
+      if (voiceMode) speakText(firstQuestion);
       
       if (currentQuestion.inputType === 'choice') {
         setCurrentOptions(currentQuestion.options);
@@ -91,11 +88,10 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 语音合成函数 - 使用腾讯云 TTS
+  // 腾讯云 TTS
   const speakText = useCallback(async (text) => {
     if (!voiceMode) return;
     
-    // 停止之前的播放
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -104,7 +100,6 @@ export default function Chat() {
     try {
       setIsSpeaking(true);
       
-      // 调用腾讯云 TTS API
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,7 +109,6 @@ export default function Chat() {
       const data = await response.json();
       
       if (data.success && data.audio) {
-        // 播放音频
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
         audioRef.current = audio;
         
@@ -124,9 +118,7 @@ export default function Chat() {
         };
         
         audio.onerror = () => {
-          console.error('音频播放失败');
           setIsSpeaking(false);
-          // 失败时降级到浏览器语音
           speakFallback(text);
         };
         
@@ -136,12 +128,10 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('腾讯云 TTS 失败:', error);
-      // 降级到浏览器语音
       speakFallback(text);
     }
   }, [voiceMode]);
   
-  // 备用语音（浏览器自带）
   const speakFallback = (text) => {
     if (!synthRef.current) {
       setIsSpeaking(false);
@@ -159,21 +149,17 @@ export default function Chat() {
                         || voices.find(v => v.name.includes('Ting-Ting'))
                         || voices.find(v => v.name.includes('Female') && v.lang.includes('zh'))
                         || voices.find(v => v.lang.includes('zh-CN') || v.lang.includes('zh'));
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
+    if (preferredVoice) utterance.voice = preferredVoice;
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
     
     synthRef.current.speak(utterance);
-  }, [voiceMode]);
+  };
 
-  // 开始语音识别
   const startListening = () => {
     if (!recognitionRef.current || isListening) return;
-    
     try {
       recognitionRef.current.start();
     } catch (err) {
@@ -181,17 +167,16 @@ export default function Chat() {
     }
   };
 
-  // 停止语音识别
   const stopListening = () => {
     if (!recognitionRef.current) return;
     recognitionRef.current.stop();
   };
 
   const addMessage = (text, isUser) => {
-    setMessages(prev => [...prev, { text, isUser, id: Date.now() }]);
+    const time = getCurrentTime();
+    setMessages(prev => [...prev, { text, isUser, id: Date.now(), time }]);
   };
 
-  // 用指定文本发送
   const handleSendWithText = async (text) => {
     if (!text.trim()) return;
 
@@ -200,14 +185,11 @@ export default function Chat() {
     setInputValue('');
     setIsTyping(true);
 
-    // 保存答案
     const newAnswers = { ...answers, [currentQuestion.field]: userAnswer };
     setAnswers(newAnswers);
 
-    // 等待一下模拟思考
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    // 检查是否需要追问
     if (!isFollowUp && (currentQuestion.needDeepDive || currentQuestion.checkVague)) {
       const followUp = generateFollowUp(currentQuestion, userAnswer, followUpCount);
       
@@ -215,10 +197,7 @@ export default function Chat() {
         setIsTyping(false);
         addMessage(followUp.message, false);
         
-        // 语音播报追问
-        if (voiceMode) {
-          speakText(followUp.message);
-        }
+        if (voiceMode) speakText(followUp.message);
         
         setIsFollowUp(true);
         setFollowUpCount(followUpCount + 1);
@@ -226,21 +205,15 @@ export default function Chat() {
       }
     }
 
-    // 进入下一个问题
     setIsTyping(false);
     setIsFollowUp(false);
     setFollowUpCount(0);
 
-    // 简单的AI回应
     const aiResponse = generateAIResponse();
     addMessage(aiResponse, false);
     
-    // 语音播报回应
-    if (voiceMode) {
-      speakText(aiResponse);
-    }
+    if (voiceMode) speakText(aiResponse);
 
-    // 进入下一题
     const nextIndex = currentQuestionIndex + 1;
     if (nextIndex < totalQuestions) {
       setTimeout(() => {
@@ -248,10 +221,7 @@ export default function Chat() {
         setCurrentQuestionIndex(nextIndex);
         addMessage(nextQuestion.question, false);
         
-        // 语音播报新问题
-        if (voiceMode) {
-          speakText(nextQuestion.question);
-        }
+        if (voiceMode) speakText(nextQuestion.question);
         
         if (nextQuestion.inputType === 'choice') {
           setCurrentOptions(nextQuestion.options);
@@ -261,13 +231,10 @@ export default function Chat() {
         }
       }, 1500);
     } else {
-      // 完成，跳转到结果页
       const completeMsg = '问卷完成！正在生成你的相亲档案...';
       addMessage(completeMsg, false);
       
-      if (voiceMode) {
-        speakText(completeMsg);
-      }
+      if (voiceMode) speakText(completeMsg);
       
       setTimeout(() => {
         router.push({
@@ -278,13 +245,9 @@ export default function Chat() {
     }
   };
 
-  const handleSend = () => {
-    handleSendWithText(inputValue);
-  };
+  const handleSend = () => handleSendWithText(inputValue);
 
-  const handleOptionClick = (option) => {
-    handleSendWithText(option);
-  };
+  const handleOptionClick = (option) => handleSendWithText(option);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -293,90 +256,70 @@ export default function Chat() {
     }
   };
 
-  // 切换语音模式
   const toggleVoiceMode = () => {
     const newMode = !voiceMode;
     setVoiceMode(newMode);
     
     if (newMode && synthRef.current) {
-      // 开启时播报提示
       speakText('语音模式已开启，点击麦克风按钮开始说话');
     } else if (!newMode && synthRef.current) {
-      // 关闭时停止播放
       synthRef.current.cancel();
       setIsSpeaking(false);
     }
   };
 
+  // 判断是否显示时间（每条消息都显示时间，或者间隔超过5分钟显示）
+  const shouldShowTime = (index) => {
+    return true; // 简化：每条都显示
+  };
+
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      {/* 头部 */}
-      <header className="bg-white border-b border-warm-100 px-4 py-3 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-warm-500 flex items-center justify-center text-white font-medium relative">
-                狗
-                {isSpeaking && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-pulse"></span>
-                )}
-              </div>
-              <div className="ml-3">
-                <p className="font-medium text-gray-800">狗蛋</p>
-                <p className="text-xs text-gray-400">
-                  {voiceMode ? '🔊 语音模式' : 'AI相亲助手'}
-                </p>
-              </div>
+    <div className="h-screen flex flex-col bg-[#f5f5f5]" style={{ backgroundColor: '#f5f5f5' }}>
+      {/* 微信风格顶部导航 */}
+      <header className="bg-[#ededed] border-b border-gray-300 px-4 py-3 sticky top-0 z-50">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          {/* 左侧返回 */}
+          <button 
+            onClick={() => router.push('/')}
+            className="flex items-center text-gray-700 hover:text-gray-900"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          {/* 中间标题 */}
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded bg-warm-500 flex items-center justify-center text-white text-sm font-bold mr-2 overflow-hidden">
+              <span>🐶</span>
             </div>
-            
-            <div className="flex items-center space-x-3">
-              {/* 语音模式开关 */}
-              {voiceSupported && (
-                <button
-                  onClick={toggleVoiceMode}
-                  className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-sm transition-all ${
-                    voiceMode 
-                      ? 'bg-warm-100 text-warm-600' 
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                  title={voiceMode ? '关闭语音模式' : '开启语音模式'}
-                >
-                  <span>{voiceMode ? '🔊' : '🔇'}</span>
-                  <span>{voiceMode ? '语音开' : '语音关'}</span>
-                </button>
-              )}
-              
-              <div className="text-right">
-                <p className="text-sm text-warm-600 font-medium">
-                  {Math.round((currentQuestionIndex / totalQuestions) * 100)}%
-                </p>
-              </div>
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">狗蛋</h1>
+              <p className="text-xs text-gray-500">AI相亲助手 · {Math.round((currentQuestionIndex / totalQuestions) * 100)}%</p>
             </div>
           </div>
-          <ProgressBar current={currentQuestionIndex} total={totalQuestions} />
+          
+          {/* 右侧语音开关 */}
+          <button
+            onClick={toggleVoiceMode}
+            className={`p-2 rounded-full transition-all ${
+              voiceMode 
+                ? 'bg-warm-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={voiceMode 
+                ? "M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                : "M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+              } />
+            </svg>
+          </button>
         </div>
       </header>
 
-      {/* 语音模式提示 */}
-      {voiceMode && voiceSupported && (
-        <div className="bg-warm-50 border-b border-warm-100 px-4 py-2">
-          <div className="max-w-2xl mx-auto flex items-center justify-center text-sm text-warm-700">
-            <span className="mr-2">🎤</span>
-            <span>点击麦克风按钮说话，我会语音回复你</span>
-          </div>
-        </div>
-      )}
-
-      {!voiceSupported && (
-        <div className="bg-yellow-50 border-b border-yellow-100 px-4 py-2">
-          <div className="max-w-2xl mx-auto text-center text-sm text-yellow-700">
-            你的浏览器不支持语音功能，请使用 Chrome/Edge/Safari 浏览器
-          </div>
-        </div>
-      )}
-
-      {/* 聊天区域 */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      {/* 聊天区域 - 微信风格 */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="max-w-2xl mx-auto">
           {messages.map((msg, index) => (
             <ChatMessage
@@ -384,6 +327,8 @@ export default function Chat() {
               message={msg.text}
               isUser={msg.isUser}
               isPlaying={!msg.isUser && isSpeaking && index === messages.length - 1}
+              showTime={shouldShowTime(index)}
+              time={msg.time}
             />
           ))}
           {isTyping && <ChatMessage isTyping={true} />}
@@ -391,17 +336,17 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* 输入区域 */}
-      <div className="bg-white border-t border-warm-100 px-4 py-4 sticky bottom-0">
+      {/* 微信风格底部输入区 */}
+      <div className="bg-[#f7f7f7] border-t border-gray-300 px-4 py-3 sticky bottom-0">
         <div className="max-w-2xl mx-auto">
-          {/* 选项按钮 */}
+          {/* 选项按钮 - 微信风格 */}
           {showOptions && currentOptions.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-3 px-1">
               {currentOptions.map((option) => (
                 <button
                   key={option}
                   onClick={() => handleOptionClick(option)}
-                  className="btn-secondary text-sm py-2 px-4"
+                  className="bg-white border border-gray-300 rounded px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
                   {option}
                 </button>
@@ -409,55 +354,56 @@ export default function Chat() {
             </div>
           )}
 
-          {/* 输入框 */}
+          {/* 输入框区域 - 微信风格 */}
           <div className="flex items-center space-x-3">
-            {/* 语音输入按钮 */}
-            {voiceSupported && voiceMode && (
+            {/* 语音按钮 */}
+            {voiceSupported && (
               <button
                 onClick={isListening ? stopListening : startListening}
                 disabled={isTyping || isSpeaking}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                   isListening 
                     ? 'bg-red-500 text-white animate-pulse' 
-                    : 'bg-warm-100 text-warm-600 hover:bg-warm-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-                title={isListening ? '点击停止' : '点击说话'}
+                    : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+                } disabled:opacity-50`}
               >
-                {isListening ? (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                )}
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 0 01-3 3z" />
+                </svg>
               </button>
             )}
             
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={isListening ? '正在听你说...' : '输入你的回答...'}
-              className="input-warm flex-1"
-              disabled={isTyping || isListening}
-            />
+            {/* 输入框 - 微信风格 */}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={isListening ? '正在听你说...' : '输入消息...'}
+                className="w-full bg-white border border-gray-300 rounded px-4 py-2.5 focus:outline-none focus:border-warm-400 text-base"
+                disabled={isTyping || isListening}
+              />
+            </div>
             
+            {/* 发送按钮 - 微信绿色 */}
             <button
               onClick={handleSend}
               disabled={!inputValue.trim() || isTyping || isListening}
-              className="btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 rounded text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ 
+                backgroundColor: inputValue.trim() && !isTyping && !isListening ? '#07c160' : '#e5e5e5',
+                color: inputValue.trim() && !isTyping && !isListening ? 'white' : '#999'
+              }}
             >
               发送
             </button>
           </div>
           
-          {/* 语音识别状态提示 */}
+          {/* 语音识别状态 */}
           {isListening && (
-            <p className="text-center text-sm text-warm-600 mt-2 animate-pulse">
-              🎤 正在听... 说完点发送或等自动识别
+            <p className="text-center text-sm text-warm-600 mt-2 animate-pulse flex items-center justify-center">
+              <span className="mr-1">🎤</span> 正在听... 说完点发送或等自动识别
             </p>
           )}
         </div>
