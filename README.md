@@ -108,4 +108,4 @@ ai-dating-web/
 
 ## 📄 License
 
-MIT
+MITThu Mar 12 06:19:33 PM CST 2026
