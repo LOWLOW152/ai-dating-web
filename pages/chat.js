@@ -10,6 +10,7 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const synthRef = useRef(null);
+  const audioRef = useRef(null); // 腾讯云 TTS 音频
   
   const [messages, setMessages] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -90,29 +91,76 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 语音合成函数
-  const speakText = useCallback((text) => {
-    if (!synthRef.current || !voiceMode) return;
+  // 语音合成函数 - 使用腾讯云 TTS
+  const speakText = useCallback(async (text) => {
+    if (!voiceMode) return;
     
     // 停止之前的播放
-    synthRef.current.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    
+    try {
+      setIsSpeaking(true);
+      
+      // 调用腾讯云 TTS API
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.audio) {
+        // 播放音频
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audioRef.current = audio;
+        
+        audio.onended = () => {
+          setIsSpeaking(false);
+          audioRef.current = null;
+        };
+        
+        audio.onerror = () => {
+          console.error('音频播放失败');
+          setIsSpeaking(false);
+          // 失败时降级到浏览器语音
+          speakFallback(text);
+        };
+        
+        await audio.play();
+      } else {
+        throw new Error('TTS API failed');
+      }
+    } catch (error) {
+      console.error('腾讯云 TTS 失败:', error);
+      // 降级到浏览器语音
+      speakFallback(text);
+    }
+  }, [voiceMode]);
+  
+  // 备用语音（浏览器自带）
+  const speakFallback = (text) => {
+    if (!synthRef.current) {
+      setIsSpeaking(false);
+      return;
+    }
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
-    utterance.rate = 0.85; // 更慢一点，更温柔
-    utterance.pitch = 1.15; // 音调高一点，更柔和
-    utterance.volume = 0.9; // 音量稍低，更亲切
+    utterance.rate = 0.85;
+    utterance.pitch = 1.15;
+    utterance.volume = 0.9;
     
-    // 尝试找最温柔的中文女声
     const voices = synthRef.current.getVoices();
-    // 优先选择微软 Xiaoxiao（最温柔的中文女声）
     const preferredVoice = voices.find(v => v.name.includes('Xiaoxiao')) 
                         || voices.find(v => v.name.includes('Ting-Ting'))
                         || voices.find(v => v.name.includes('Female') && v.lang.includes('zh'))
                         || voices.find(v => v.lang.includes('zh-CN') || v.lang.includes('zh'));
     if (preferredVoice) {
       utterance.voice = preferredVoice;
-      console.log('使用语音:', preferredVoice.name);
     }
     
     utterance.onstart = () => setIsSpeaking(true);
