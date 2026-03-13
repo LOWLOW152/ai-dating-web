@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import ResultCard from '../components/ResultCard';
-import { generateTags } from '../lib/logic';
+import Head from 'next/head';
 
 export default function Result() {
   const router = useRouter();
   const [answers, setAnswers] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,188 +12,348 @@ export default function Result() {
       try {
         const parsed = JSON.parse(router.query.answers);
         setAnswers(parsed);
-        generateProfile(parsed);
+        setLoading(false);
       } catch (e) {
         console.error('解析答案失败:', e);
       }
     }
   }, [router.query]);
 
-  const generateProfile = (data) => {
-    // 生成标签
-    const tags = generateTags(data);
-    
-    // 生成档案内容（简化版，实际可接Kimi API生成更丰富的内容）
-    const generatedProfile = {
-      tags,
-      basicInfo: {
-        nickname: data.nickname || '神秘用户',
-        age: data.birthYear ? new Date().getFullYear() - parseInt(data.birthYear) : '未知',
-        city: data.city || '未知',
-        occupation: data.occupation || '未知',
-      },
-      personality: generatePersonalityDescription(data),
-      needs: generateNeedsDescription(data),
-      compatibility: generateCompatibilityDescription(data),
-      summary: generateSummary(data),
-    };
-
-    setProfile(generatedProfile);
-    setLoading(false);
-  };
-
-  const generatePersonalityDescription = (data) => {
-    const parts = [];
-    if (data.sleepSchedule === '夜猫子') parts.push('你是个夜猫子');
-    if (data.sleepSchedule === '早睡早起') parts.push('你作息规律，是个晨型人');
-    if (data.planningStyle === '计划控') parts.push('喜欢把事情安排得井井有条');
-    if (data.planningStyle === '随性派') parts.push('更喜欢随性而为的生活态度');
-    if (data.solitudeFeeling === '充电回血') parts.push('独处对你来说是充电的方式');
-    
-    return parts.length > 0 
-      ? parts.join('，') + '。'
-      : '你的性格多元而独特，需要更多的相处才能了解真实的你。';
-  };
-
-  const generateNeedsDescription = (data) => {
-    const needs = [];
-    if (data.coreNeed) needs.push(`最看重：${data.coreNeed}`);
-    if (data.contactFrequency) needs.push(`理想的联系频率：${data.contactFrequency}`);
-    if (data.conflictHandling) needs.push(`处理冲突的方式：${data.conflictHandling}`);
-    
-    return needs.length > 0
-      ? needs.join('；') + '。'
-      : '你对亲密关系有自己的理解和期待。';
-  };
-
-  const generateCompatibilityDescription = (data) => {
-    const suggestions = [];
-    if (data.dealBreakers) suggestions.push(`不能接受：${data.dealBreakers}`);
-    if (data.acceptLongDistance) suggestions.push(`异地恋：${data.acceptLongDistance}`);
-    if (data.idealRelationship) suggestions.push(`理想关系特质：${data.idealRelationship}`);
-    
-    return suggestions.length > 0
-      ? `适合你的人应该：${suggestions.join('；')}。`
-      : '适合你的人会理解并尊重你的生活方式。';
-  };
-
-  const generateSummary = (data) => {
-    return `一个${data.city || ' somewhere '}的${data.occupation || '有趣的灵魂'}，正在寻找${data.idealRelationship ? '能' + data.idealRelationship + '的人' : '真正懂TA的人'}。`;
-  };
-
-  const handleShare = () => {
-    // 复制到剪贴板
-    const text = generateShareText();
-    navigator.clipboard.writeText(text).then(() => {
-      alert('已复制到剪贴板！');
-    });
-  };
-
-  const generateShareText = () => {
-    if (!profile) return '';
-    return `【AI相亲档案】\n\n我是${profile.basicInfo.nickname}，来自${profile.basicInfo.city}。\n\n个人标签：${profile.tags.join('、')}\n\n${profile.summary}\n\n——由狗蛋AI生成`;
-  };
-
   const handleRestart = () => {
     router.push('/');
   };
 
-  if (loading || !profile) {
+  const handleDownload = () => {
+    // 重新触发下载
+    const event = new CustomEvent('reDownloadProfile');
+    window.dispatchEvent(event);
+  };
+
+  if (loading || !answers) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-warm-200 border-t-warm-500 rounded-full animate-spin"></div>
-          <p className="text-gray-600">狗蛋正在生成你的档案...✨</p>
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f5f5f5',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            margin: '0 auto 16px',
+            border: '3px solid #e5e5e5',
+            borderTopColor: '#07c160',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <p style={{ color: '#666' }}>正在生成档案报告...</p>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
+  // 计算年龄
+  const age = answers.birthYear 
+    ? new Date().getFullYear() - parseInt(answers.birthYear) 
+    : '-';
+
+  // 生成档案摘要
+  const generateSummary = () => {
+    const parts = [];
+    if (answers.city) parts.push(answers.city);
+    if (answers.occupation) parts.push(answers.occupation);
+    if (parts.length === 0) parts.push('一位有趣的灵魂');
+    return parts.join(' · ');
+  };
+
+  // 提取关键标签
+  const tags = [
+    answers.gender,
+    age !== '-' ? `${age}岁` : null,
+    answers.education,
+    answers.sleepSchedule,
+    answers.planningStyle,
+  ].filter(Boolean);
+
   return (
-    <div className="min-h-screen bg-cream py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* 头部 */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto bg-warm-500 rounded-full flex items-center justify-center text-white text-3xl mb-4">
-            🐶
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            {profile.basicInfo.nickname} 的相亲档案
-          </h1>
-          <p className="text-gray-500">
-            由狗蛋AI生成
-          </p>
-        </div>
-
-        {/* 标签 */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
-          {profile.tags.map((tag, index) => (
-            <span
-              key={index}
-              className="bg-warm-100 text-warm-700 px-4 py-1 rounded-full text-sm font-medium"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-
-        {/* 档案内容 */}
-        <ResultCard
-          title="基础信息"
-          icon="👤"
-          content={
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-400">年龄：</span> {profile.basicInfo.age}岁</div>
-              <div><span className="text-gray-400">城市：</span> {profile.basicInfo.city}</div>
-              <div><span className="text-gray-400">职业：</span> {profile.basicInfo.occupation}</div>
-              <div><span className="text-gray-400">学历：</span> {answers?.education || '未填写'}</div>
+    <>
+      <Head>
+        <title>{answers.nickname || '用户'} - 相亲档案</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+      
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f5f5f5',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        padding: '20px'
+      }}>
+        <div style={{
+          maxWidth: '800px',
+          margin: '0 auto',
+          backgroundColor: '#fff',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          overflow: 'hidden'
+        }}>
+          {/* 报告头部 */}
+          <div style={{
+            background: 'linear-gradient(135deg, #1a1a1a 0%, #333 100%)',
+            color: '#fff',
+            padding: '40px 32px',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              margin: '0 auto 16px',
+              backgroundColor: '#07c160',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '40px'
+            }}>
+              🐶
             </div>
-          }
-        />
+            <h1 style={{
+              fontSize: '28px',
+              fontWeight: 600,
+              marginBottom: '8px'
+            }}>
+              AI相亲档案
+            </h1>
+            <p style={{
+              fontSize: '14px',
+              color: 'rgba(255,255,255,0.7)'
+            }}>
+              编号：{Date.now().toString(36).toUpperCase()} · 生成时间：{new Date().toLocaleDateString()}
+            </p>
+          </div>
 
-        <ResultCard
-          title="性格画像"
-          icon="🎨"
-          content={profile.personality}
-        />
+          {/* 基本信息区 */}
+          <div style={{ padding: '32px' }}>
+            {/* 姓名和摘要 */}
+            <div style={{
+              textAlign: 'center',
+              marginBottom: '32px',
+              paddingBottom: '24px',
+              borderBottom: '1px solid #f0f0f0'
+            }}>
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: 600,
+                color: '#333',
+                marginBottom: '8px'
+              }}>
+                {answers.nickname || '未填写昵称'}
+              </h2>
+              <p style={{
+                fontSize: '15px',
+                color: '#666'
+              }}>
+                {generateSummary()}
+              </p>
+              
+              {/* 标签 */}
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: '8px',
+                marginTop: '16px'
+              }}>
+                {tags.map((tag, i) => (
+                  <span key={i} style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#f5f5f5',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    color: '#666'
+                  }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
 
-        <ResultCard
-          title="情感需求"
-          icon="💝"
-          content={profile.needs}
-        />
+            {/* 信息表格 */}
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#333',
+                marginBottom: '16px',
+                paddingLeft: '12px',
+                borderLeft: '3px solid #07c160'
+              }}>
+                基础信息
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px'
+              }}>
+                {[
+                  { label: '性别', value: answers.gender },
+                  { label: '年龄', value: age !== '-' ? `${age}岁` : '-' },
+                  { label: '出生年份', value: answers.birthYear },
+                  { label: '所在城市', value: answers.city },
+                  { label: '职业领域', value: answers.occupation },
+                  { label: '学历', value: answers.education },
+                  { label: '能否接受异地', value: answers.acceptLongDistance },
+                  { label: '接受年龄差', value: answers.ageRange },
+                ].map((item, i) => (
+                  <div key={i} style={{
+                    padding: '12px 16px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#999',
+                      marginBottom: '4px'
+                    }}>
+                      {item.label}
+                    </div>
+                    <div style={{
+                      fontSize: '15px',
+                      color: '#333',
+                      fontWeight: 500
+                    }}>
+                      {item.value || '-'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <ResultCard
-          title="相处建议"
-          icon="🤝"
-          content={profile.compatibility}
-        />
+            {/* 深度画像 */}
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#333',
+                marginBottom: '16px',
+                paddingLeft: '12px',
+                borderLeft: '3px solid #07c160'
+              }}>
+                深度画像
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[
+                  { label: '兴趣爱好', value: answers.hobbyType },
+                  { label: '周末生活方式', value: answers.weekendStyle },
+                  { label: '长期坚持的事', value: answers.longTermHobby },
+                  { label: '旅行偏好', value: answers.travelStyle },
+                  { label: '独处时的思考', value: answers.spiritualEnjoyment },
+                  { label: '消费观', value: answers.spendingHabit || answers.recentInterest },
+                  { label: '交友偏好', value: answers.friendPreference },
+                  { label: '理想日常', value: answers.uniqueHobby },
+                  { label: '作息类型', value: answers.sleepSchedule },
+                  { label: '压力应对方式', value: answers.stressResponse },
+                  { label: '家庭关系', value: answers.familyRelationship },
+                  { label: '当前状态', value: answers.currentState },
+                  { label: '核心需求', value: answers.coreNeed },
+                  { label: '冲突处理方式', value: answers.conflictHandling },
+                  { label: '关系红线', value: answers.dealBreakers },
+                  { label: '理想关系', value: answers.idealRelationship },
+                ].filter(item => item.value).map((item, i) => (
+                  <div key={i} style={{
+                    padding: '16px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#999',
+                      marginBottom: '6px'
+                    }}>
+                      {item.label}
+                    </div>
+                    <div style={{
+                      fontSize: '15px',
+                      color: '#333',
+                      lineHeight: 1.6
+                    }}>
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <div className="bg-gradient-to-r from-warm-400 to-warm-500 rounded-2xl p-6 text-white mb-8">
-          <h3 className="text-lg font-semibold mb-3">💫 一句话总结</h3>
-          <p className="leading-relaxed">{profile.summary}</p>
+            {/* 备注说明 */}
+            <div style={{
+              padding: '20px',
+              backgroundColor: '#f5f5f5',
+              borderRadius: '6px',
+              marginBottom: '24px'
+            }}>
+              <h4 style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#333',
+                marginBottom: '8px'
+              }}>
+                📋 档案说明
+              </h4>
+              <p style={{
+                fontSize: '13px',
+                color: '#666',
+                lineHeight: 1.8
+              }}>
+                本档案由AI通过30道深度问题生成，涵盖基础信息、兴趣爱好、生活方式、人格特质、情感需求等维度。
+                深度题（核心需求、关系盲点、理想关系等）需要人工进一步追问和验证。
+                <br /><br />
+                <strong>下一步：</strong>将此档案发送给匹配顾问，进行人工审核和配对推荐。
+              </p>
+            </div>
+
+            {/* 操作按钮 */}
+            <div style={{
+              display: 'flex',
+              gap: '12px'
+            }}>
+              <button
+                onClick={handleRestart}
+                style={{
+                  flex: 1,
+                  padding: '14px 24px',
+                  backgroundColor: '#fff',
+                  color: '#666',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '6px',
+                  fontSize: '15px',
+                  cursor: 'pointer'
+                }}
+              >
+                返回首页
+              </button>
+            </div>
+          </div>
+
+          {/* 页脚 */}
+          <div style={{
+            padding: '20px 32px',
+            backgroundColor: '#fafafa',
+            textAlign: 'center',
+            borderTop: '1px solid #f0f0f0'
+          }}>
+            <p style={{
+              fontSize: '12px',
+              color: '#999'
+            }}>
+              由狗蛋AI生成 · 仅供相亲匹配参考
+            </p>
+          </div>
         </div>
-
-        {/* 操作按钮 */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleShare}
-            className="btn-primary flex-1"
-          >
-            复制分享文案
-          </button>
-          <button
-            onClick={handleRestart}
-            className="btn-secondary flex-1"
-          >
-            重新测试
-          </button>
-        </div>
-
-        <p className="text-center text-sm text-gray-400 mt-8">
-          档案仅供参考，真实的你需要在相处中被发现 💕
-        </p>
       </div>
-    </div>
+    </>
   );
 }
