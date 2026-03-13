@@ -1,4 +1,4 @@
-import { sql } from '../../../lib/db';
+import { sql } from '../../lib/db';
 import crypto from 'crypto';
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
