@@ -69,8 +69,7 @@ function CategoriesPage() {
   };
 
   const updateWeight = (key, weight) => {
-    setCategories(prev => prev.map(c =
-003e 
+    setCategories(prev => prev.map(c =>
       c.category_key === key ? { ...c, default_weight: weight } : c
     ));
   };

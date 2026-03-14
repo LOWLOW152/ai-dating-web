@@ -1,5 +1,5 @@
-import { sql } from '../../lib/db';
-import { validateSession } from './login';
+import { sql } from '../../../../lib/db';
+import { validateSession } from '../login';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

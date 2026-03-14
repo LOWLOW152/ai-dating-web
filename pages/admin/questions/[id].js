@@ -254,8 +254,9 @@ function QuestionEditPage() {
                   rows={6}
                   style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px', fontFamily: 'monospace', fontSize: '13px' }}
                 />
-                <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}
-003e格式：[{`{"value": "跑步", "label": "跑步"}`}]</p>
+                <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                  格式：[{`{"value": "跑步", "label": "跑步"}`}]
+                </p>
               </Section>
             )}
 
@@ -289,7 +290,7 @@ function QuestionEditPage() {
                   padding: '16px', 
                   background: '#f6ffed', 
                   borderRadius: '8px',
-                  border: '1px solid '#b7eb8f'
+                  border: '1px solid #b7eb8f'
                 }}>
                   <Section title="偏好问题文案">
                     <input
@@ -425,8 +426,9 @@ function QuestionEditPage() {
                   rows={4}
                   style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
                 />
-                <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}
-003e这个提示词会发送给AI，让它根据用户的回答进行追问</p>
+                <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+                  这个提示词会发送给AI，让它根据用户的回答进行追问
+                </p>
               </Section>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { validateSession } from '../login';
+import { validateSession } from './login';
 import { listAlgorithms, getAlgorithm } from '../../../lib/match-algorithms';
 import { applyPreferenceModifier } from '../../../lib/match-logic/preference';
 
