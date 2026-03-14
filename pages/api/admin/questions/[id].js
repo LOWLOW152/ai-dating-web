@@ -1,4 +1,4 @@
-import { sql } from '../../../../lib/db';
+import { sql } from '@vercel/postgres';
 import { validateSession } from '../login';
 
 export default async function handler(req, res) {
