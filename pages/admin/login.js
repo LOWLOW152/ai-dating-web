@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
 export default function AdminLogin() {
@@ -6,7 +6,24 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [redirectUrl, setRedirectUrl] = useState('/admin');
   const router = useRouter();
+
+  useEffect(() => {
+    // 如果已有token，直接跳转到后台
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      const match = router.asPath.match(/[?&]redirect=([^&]+)/);
+      const redirect = match ? decodeURIComponent(match[1]) : '/admin';
+      router.push(redirect);
+      return;
+    }
+    
+    // 从 URL 参数获取 redirect 地址
+    if (router.query.redirect) {
+      setRedirectUrl(router.query.redirect);
+    }
+  }, [router.query, router.asPath]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,7 +41,10 @@ export default function AdminLogin() {
 
       if (data.success) {
         localStorage.setItem('adminToken', data.token);
-        router.push('/admin');
+        // 从 router.asPath 读取 redirect 参数
+        const match = router.asPath.match(/[?&]redirect=([^&]+)/);
+        const redirect = match ? decodeURIComponent(match[1]) : '/admin';
+        router.push(redirect);
       } else {
         setError(data.message || '登录失败');
       }

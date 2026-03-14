@@ -1,0 +1,1052 @@
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+
+// 统一导航配置
+const NAV_ITEMS = [
+  { key: 'profiles', label: '档案管理', icon: '📋', href: '/admin' },
+  { key: 'invite-codes', label: '邀请码', icon: '🔑', href: '/admin' },
+  { key: 'questions', label: '题库管理', icon: '📝', href: '/admin/questions' }
+];
+
+const CATEGORY_LABELS = {
+  basic: '基础条件',
+  interest: '兴趣话题',
+  social: '社交偏好',
+  lifestyle: '生活方式',
+  values: '价值观',
+  emotion: '情感核心',
+  personality: '人格特质'
+};
+
+const PART_LABELS = {
+  1: 'Auto (程序自动)',
+  2: 'Semi (程序+抽查)',
+  3: 'Dog (狗蛋全程)'
+};
+
+function QuestionBankContent() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('questions'); // questions | traits | verify
+  
+  // 题目相关状态
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [debugLogs, setDebugLogs] = useState([]);
+  
+  // 特质相关状态
+  const [traits, setTraits] = useState([]);
+  const [traitsLoading, setTraitsLoading] = useState(false);
+  
+  // 印证题相关状态
+  const [verifyQuestions, setVerifyQuestions] = useState([]);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+
+  const addLog = (message, type = 'info') => {
+    setDebugLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), message, type }]);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'questions') fetchQuestions();
+    else if (activeTab === 'traits') fetchTraits();
+    else if (activeTab === 'verify') fetchVerifyQuestions();
+  }, [activeTab]);
+
+  const fetchQuestions = async () => {
+    addLog('开始获取题目列表...');
+    setLoading(true);
+    setError('');
+    setErrorDetails(null);
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      addLog(`Token: ${token ? '已获取' : '未获取'}`);
+      
+      if (!token) {
+        addLog('未登录，跳转登录页', 'error');
+        router.push('/admin/login');
+        return;
+      }
+
+      addLog('发送请求: GET /api/admin/questions');
+      const res = await fetch('/api/admin/questions', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      addLog(`响应状态: ${res.status} ${res.statusText}`);
+
+      if (res.status === 401) {
+        addLog('Token过期，需要重新登录', 'error');
+        localStorage.removeItem('adminToken');
+        router.push('/admin/login');
+        return;
+      }
+
+      let data;
+      try {
+        data = await res.json();
+        addLog(`响应数据: ${JSON.stringify(data).substring(0, 200)}...`);
+      } catch (parseErr) {
+        addLog(`JSON解析失败: ${parseErr.message}`, 'error');
+        const text = await res.text();
+        addLog(`原始响应: ${text.substring(0, 500)}`, 'error');
+        throw new Error('服务器返回数据格式错误');
+      }
+      
+      if (data.success) {
+        addLog(`成功获取 ${data.questions?.length || 0} 条题目`);
+        setQuestions(data.questions || []);
+      } else {
+        const errMsg = data.error || data.message || '获取题目失败';
+        addLog(`服务器错误: ${errMsg}`, 'error');
+        setError(errMsg);
+        setErrorDetails(data.details || data.stack || null);
+      }
+    } catch (err) {
+      addLog(`请求异常: ${err.message}`, 'error');
+      console.error('获取题目失败:', err);
+      setError(`网络错误: ${err.message}`);
+      setErrorDetails(err.stack || null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTraits = async () => {
+    setTraitsLoading(true);
+    try {
+      const res = await fetch('/api/admin/traits');
+      const data = await res.json();
+      if (res.ok) {
+        setTraits(data.traits || []);
+      }
+    } catch (err) {
+      console.error('获取特质失败:', err);
+    } finally {
+      setTraitsLoading(false);
+    }
+  };
+
+  const fetchVerifyQuestions = async () => {
+    setVerifyLoading(true);
+    try {
+      const res = await fetch('/api/admin/verify-questions');
+      const data = await res.json();
+      if (res.ok) {
+        setVerifyQuestions(data.questions || []);
+      }
+    } catch (err) {
+      console.error('获取印证题失败:', err);
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const toggleTraitActive = async (id, currentStatus) => {
+    try {
+      const res = await fetch(`/api/admin/traits/${id}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      if (res.ok) fetchTraits();
+    } catch (err) {
+      console.error('切换特质状态失败:', err);
+    }
+  };
+
+  const toggleVerifyActive = async (id, currentStatus) => {
+    try {
+      const res = await fetch(`/api/admin/verify-questions/${id}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      if (res.ok) fetchVerifyQuestions();
+    } catch (err) {
+      console.error('切换印证题状态失败:', err);
+    }
+  };
+
+  const toggleActive = async (id, currentStatus) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`/api/admin/questions/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+
+      if (res.ok) {
+        fetchQuestions();
+      }
+    } catch (err) {
+      console.error('更新失败:', err);
+    }
+  };
+
+  const deleteQuestion = async (id) => {
+    if (!confirm('确定要删除这道题吗？')) return;
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`/api/admin/questions/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        fetchQuestions();
+      }
+    } catch (err) {
+      console.error('删除失败:', err);
+    }
+  };
+
+  const filteredQuestions = activeCategory === 'all' 
+    ? questions 
+    : questions.filter(q => q.category === activeCategory);
+
+  const groupedQuestions = filteredQuestions.reduce((acc, q) => {
+    if (!acc[q.category]) acc[q.category] = [];
+    acc[q.category].push(q);
+    return acc;
+  }, {});
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        加载中...
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: '-apple-system, sans-serif' }}>
+      {/* 头部导航 */}
+      <div style={{ background: 'white', padding: '16px 24px', borderBottom: '1px solid #e8e8e8' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>狗蛋相亲实验室 - 后台管理</h1>
+          </div>
+          <Link href="/admin/login">
+            <button style={{
+              padding: '8px 16px',
+              background: 'transparent',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              color: '#666'
+            }}>
+              退出登录
+            </button>
+          </Link>
+        </div>
+        
+        {/* 统一导航栏 */}
+        <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid #e8e8e8', margin: '0 -24px', padding: '0 24px' }}>
+          {NAV_ITEMS.map(item => {
+            const isActive = item.key === 'questions';
+            return (
+              <Link key={item.key} href={item.href} style={{ textDecoration: 'none' }}>
+                <div style={{
+                  padding: '12px 20px',
+                  color: isActive ? '#07c160' : '#666',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: isActive ? 500 : 'normal',
+                  borderBottom: isActive ? '2px solid #07c160' : '2px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+        {/* 页面标题和标签切换 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setActiveTab('questions')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '4px',
+                background: activeTab === 'questions' ? '#07c160' : '#e8e8e8',
+                color: activeTab === 'questions' ? 'white' : '#333',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'questions' ? 500 : 'normal'
+              }}
+            >
+              📝 30题题库
+            </button>
+            <button
+              onClick={() => setActiveTab('traits')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '4px',
+                background: activeTab === 'traits' ? '#07c160' : '#e8e8e8',
+                color: activeTab === 'traits' ? 'white' : '#333',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'traits' ? 500 : 'normal'
+              }}
+            >
+              🎭 人格特质
+            </button>
+            <button
+              onClick={() => setActiveTab('verify')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '4px',
+                background: activeTab === 'verify' ? '#07c160' : '#e8e8e8',
+                color: activeTab === 'verify' ? 'white' : '#333',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'verify' ? 500 : 'normal'
+              }}
+            >
+              ✅ 印证题目
+            </button>
+          </div>
+          {activeTab === 'questions' && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{
+                padding: '8px 16px',
+                background: '#07c160',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              + 添加题目
+            </button>
+          )}
+        </div>
+
+        {/* 分类筛选 */}
+        {error && (
+          <div style={{ 
+            padding: '16px', 
+            background: '#fff1f0', 
+            color: '#ff4d4f', 
+            borderRadius: '4px', 
+            marginBottom: '16px',
+            border: '1px solid #ffa39e'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>❌ 出错了</div>
+            <div style={{ marginBottom: errorDetails ? '8px' : 0 }}>{error}</div>
+            
+            {errorDetails && (
+              <div style={{ 
+                marginTop: '8px', 
+                padding: '8px', 
+                background: '#fff', 
+                borderRadius: '4px',
+                fontSize: '12px',
+                color: '#666',
+                maxHeight: '150px',
+                overflow: 'auto',
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}
+              </div>
+            )}
+            
+            <div style={{ marginTop: '12px' }}>
+              <button
+                onClick={fetchQuestions}
+                style={{
+                  padding: '6px 12px',
+                  background: '#ff4d4f',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '13px'
+                }}
+              >
+                重试
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 调试日志 */}
+        {debugLogs.length > 0 && (
+          <div style={{ 
+            marginBottom: '16px', 
+            background: '#f6ffed', 
+            border: '1px solid #b7eb8f',
+            borderRadius: '4px',
+            overflow: 'hidden'
+          }}>
+            <div 
+              style={{ 
+                padding: '8px 12px', 
+                background: '#d9f7be',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onClick={() => setDebugLogs([])}
+            >
+              <span>调试日志 ({debugLogs.length}条)</span>
+              <span style={{ fontSize: '12px', color: '#666' }}>点击清空</span>
+            </div>
+            <div style={{ maxHeight: '200px', overflow: 'auto', padding: '8px 12px' }}>
+              {debugLogs.map((log, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    fontSize: '11px', 
+                    marginBottom: '4px',
+                    color: log.type === 'error' ? '#ff4d4f' : '#666',
+                    fontFamily: 'monospace'
+                  }}
+                >
+                  <span style={{ color: '#999' }}>[{log.time}]</span> {log.message}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 分类筛选 */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setActiveCategory('all')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '4px',
+              border: 'none',
+              background: activeCategory === 'all' ? '#07c160' : '#e8e8e8',
+              color: activeCategory === 'all' ? 'white' : '#333',
+              cursor: 'pointer'
+            }}
+          >
+            全部 ({questions.length})
+          </button>
+          {Object.entries(CATEGORY_LABELS).map(([key, label]) => {
+            const count = questions.filter(q => q.category === key).length;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveCategory(key)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: activeCategory === key ? '#07c160' : '#e8e8e8',
+                  color: activeCategory === key ? 'white' : '#333',
+                  cursor: 'pointer'
+                }}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 题目列表 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {Object.entries(groupedQuestions).map(([category, qs]) => (
+            <div key={category} style={{ background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{
+                padding: '12px 16px',
+                background: '#f8f8f8',
+                borderBottom: '1px solid #e8e8e8',
+                fontWeight: 500,
+                color: '#333'
+              }}>
+                {CATEGORY_LABELS[category]} ({qs.length}题)
+              </div>
+              <div>
+                {qs.sort((a, b) => a.display_order - b.display_order).map((q, idx) => (
+                  <div
+                    key={q.id}
+                    style={{
+                      padding: '16px',
+                      borderBottom: '1px solid #f0f0f0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      opacity: q.is_active ? 1 : 0.5
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ color: '#999', fontSize: '12px' }}>#{idx + 1}</span>
+                        <span style={{ fontWeight: 500 }}>{q.question_text}</span>
+                        {!q.is_active && (
+                          <span style={{
+                            fontSize: '11px',
+                            padding: '2px 6px',
+                            background: '#ff4d4f',
+                            color: 'white',
+                            borderRadius: '10px'
+                          }}>
+                            已禁用
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                        类型: {q.question_type} | 
+                        部分: {PART_LABELS[q.part]} |
+                        AI监控: {q.is_ai_monitored ? '是' : '否'}
+                        {q.is_preference_for && (
+                          <span style={{ color: '#1890ff', marginLeft: '8px' }}>
+                            ⚙️ 偏好题
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#999' }}>
+                        key: {q.question_key}
+                        {q.question_group && ` | 分组: ${q.question_group}`}
+                        {q.is_preference_for && ` | 对应: ${q.is_preference_for}`}
+                      </div>
+                      {q.options && (
+                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                          选项: {Array.isArray(q.options) ? q.options.map(o => o.label).join(', ') : ''}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => setEditingQuestion(q)}
+                        style={{
+                          padding: '4px 12px',
+                          fontSize: '12px',
+                          border: '1px solid #d9d9d9',
+                          background: 'white',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => toggleActive(q.id, q.is_active)}
+                        style={{
+                          padding: '4px 12px',
+                          fontSize: '12px',
+                          border: 'none',
+                          background: q.is_active ? '#ff4d4f' : '#07c160',
+                          color: 'white',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {q.is_active ? '禁用' : '启用'}
+                      </button>
+                      <button
+                        onClick={() => deleteQuestion(q.id)}
+                        style={{
+                          padding: '4px 12px',
+                          fontSize: '12px',
+                          border: '1px solid #ff4d4f',
+                          background: 'white',
+                          color: '#ff4d4f',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 编辑/添加弹窗 */}
+      {(editingQuestion || showAddModal) && (
+        <QuestionEditModal
+          question={editingQuestion}
+          onClose={() => {
+            setEditingQuestion(null);
+            setShowAddModal(false);
+          }}
+          onSave={() => {
+            fetchQuestions();
+            setEditingQuestion(null);
+            setShowAddModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuestionEditModal({ question, onClose, onSave }) {
+  const isEditing = !!question;
+  const [formData, setFormData] = useState({
+    question_key: question?.question_key || '',
+    category: question?.category || 'basic',
+    part: question?.part || 1,
+    question_group: question?.question_group || '',
+    question_text: question?.question_text || '',
+    question_type: question?.question_type || 'text',
+    options: question?.options || [],
+    is_required: question?.is_required ?? true,
+    is_ai_monitored: question?.is_ai_monitored || false,
+    is_preference_for: question?.is_preference_for || '',
+    ai_prompt: question?.ai_prompt || '',
+    match_logic: question?.match_logic || {},
+    display_order: question?.display_order || 0,
+    is_active: question?.is_active ?? true
+  });
+  const [newOption, setNewOption] = useState({ value: '', label: '' });
+  const [saving, setSaving] = useState(false);
+
+  const addOption = () => {
+    if (!newOption.value || !newOption.label) return;
+    setFormData({
+      ...formData,
+      options: [...formData.options, { ...newOption }]
+    });
+    setNewOption({ value: '', label: '' });
+  };
+
+  const removeOption = (idx) => {
+    setFormData({
+      ...formData,
+      options: formData.options.filter((_, i) => i !== idx)
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const url = isEditing 
+        ? `/api/admin/questions/${question.id}` 
+        : '/api/admin/questions';
+      
+      const res = await fetch(url, {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (res.ok) {
+        onSave();
+      } else {
+        const data = await res.json();
+        alert(data.error || '保存失败');
+      }
+    } catch (err) {
+      alert('网络错误');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '20px'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '8px',
+        width: '100%',
+        maxWidth: '600px',
+        maxHeight: '90vh',
+        overflow: 'auto'
+      }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid #e8e8e8' }}>
+          <h2 style={{ margin: 0, fontSize: '18px' }}>
+            {isEditing ? '编辑题目' : '添加题目'}
+          </h2>
+        </div>
+
+        <div style={{ padding: '20px' }}>
+          {/* 题目标识 */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+              题目标识 (唯一，英文) *
+            </label>
+            <input
+              type="text"
+              value={formData.question_key}
+              onChange={(e) => setFormData({ ...formData, question_key: e.target.value })}
+              disabled={isEditing}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+              placeholder="如: accept_long_distance"
+            />
+          </div>
+
+          {/* 问题内容 */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+              问题内容 *
+            </label>
+            <input
+              type="text"
+              value={formData.question_text}
+              onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+
+          {/* 分类和部分 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+                分类 *
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+                所属部分 *
+              </label>
+              <select
+                value={formData.part}
+                onChange={(e) => setFormData({ ...formData, part: parseInt(e.target.value) })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value={1}>1 - Auto (程序自动)</option>
+                <option value={2}>2 - Semi (程序+抽查)</option>
+                <option value={3}>3 - Dog (狗蛋全程)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 题目分组和偏好设置 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+                题目分组
+                <span style={{ fontSize: '11px', color: '#999', marginLeft: '4px' }}>(用于关联配对题)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.question_group}
+                onChange={(e) => setFormData({ ...formData, question_group: e.target.value })}
+                placeholder="如: hobby, spending, sleep"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+                这是哪道题的偏好题？
+                <span style={{ fontSize: '11px', color: '#999', marginLeft: '4px' }}>(留空则不是偏好题)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.is_preference_for}
+                onChange={(e) => setFormData({ ...formData, is_preference_for: e.target.value })}
+                placeholder="填写对应题的 question_key"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 题目类型 */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+              题目类型 *
+            </label>
+            <select
+              value={formData.question_type}
+              onChange={(e) => setFormData({ ...formData, question_type: e.target.value, options: [] })}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="text">文本输入</option>
+              <option value="radio">单选</option>
+              <option value="checkbox">多选</option>
+              <option value="select">下拉选择</option>
+              <option value="number">数字</option>
+            </select>
+          </div>
+
+          {/* 选项配置 */}
+          {(formData.question_type === 'radio' || formData.question_type === 'select' || formData.question_type === 'checkbox') && (
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#f8f8f8', borderRadius: '4px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '8px' }}>
+                选项配置
+              </label>
+              
+              {formData.options.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  {formData.options.map((opt, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px' }}>{opt.label} ({opt.value})</span>
+                      <button
+                        onClick={() => removeOption(idx)}
+                        style={{
+                          fontSize: '11px',
+                          color: '#ff4d4f',
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="选项值"
+                  value={newOption.value}
+                  onChange={(e) => setNewOption({ ...newOption, value: e.target.value })}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '4px',
+                    fontSize: '13px'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="显示文字"
+                  value={newOption.label}
+                  onChange={(e) => setNewOption({ ...newOption, label: e.target.value })}
+                  style={{
+                    flex: 2,
+                    padding: '6px 10px',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '4px',
+                    fontSize: '13px'
+                  }}
+                />
+                <button
+                  onClick={addOption}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#07c160',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  添加
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* AI监控 */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={formData.is_ai_monitored}
+                onChange={(e) => setFormData({ ...formData, is_ai_monitored: e.target.checked })}
+              />
+              <span style={{ fontSize: '14px' }}>需要AI监控追问</span>
+            </label>
+          </div>
+
+          {/* AI追问提示词 */}
+          {formData.is_ai_monitored && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+                AI追问提示词
+              </label>
+              <textarea
+                value={formData.ai_prompt}
+                onChange={(e) => setFormData({ ...formData, ai_prompt: e.target.value })}
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  resize: 'vertical'
+                }}
+                placeholder="当AI检测到模糊回答时，用这个提示词来追问..."
+              />
+            </div>
+          )}
+
+          {/* 匹配逻辑 */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+              匹配逻辑类型
+            </label>
+            <select
+              value={formData.match_logic?.type || ''}
+              onChange={(e) => setFormData({ ...formData, match_logic: { ...formData.match_logic, type: e.target.value } })}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="">无匹配逻辑</option>
+              <option value="deal_breaker">硬性条件（0或100分）</option>
+              <option value="deal_breaker_check">红线检查</option>
+              <option value="age_match">年龄匹配</option>
+              <option value="age_range_match">年龄差匹配</option>
+              <option value="location_match">位置匹配</option>
+              <option value="similarity_match">相似度匹配</option>
+              <option value="consistency_match">一致性匹配</option>
+              <option value="semantic_similarity">语义相似度</option>
+            </select>
+            <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+              用于匹配详情页的自动评分
+            </div>
+          </div>
+
+          {/* 排序 */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+              显示顺序
+            </label>
+            <input
+              type="number"
+              value={formData.display_order}
+              onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) || 0 })}
+              style={{
+                width: '100px',
+                padding: '8px 12px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* 按钮 */}
+        <div style={{ padding: '16px 20px', borderTop: '1px solid #e8e8e8', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px 20px',
+              border: '1px solid #d9d9d9',
+              background: 'white',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !formData.question_key || !formData.question_text}
+            style={{
+              padding: '8px 20px',
+              background: '#07c160',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.6 : 1
+            }}
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default dynamic(() => Promise.resolve(QuestionBankContent), { ssr: false });

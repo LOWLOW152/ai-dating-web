@@ -1,6 +1,6 @@
 import { sql } from '../../../lib/db';
 import { validateSession } from './login';
-import { calculateMatch, findBestMatches, DEFAULT_WEIGHTS } from '../../../lib/match';
+import { calculateMatch, findBestMatches, DEFAULT_WEIGHTS, calculateBidirectionalMatch, calculateRelationshipCurve } from '../../../lib/match';
 import { getWeightExplanationPart2, getWeightExplanationPart3 } from '../../../lib/weights';
 
 export default async function handler(req, res) {
@@ -44,7 +44,16 @@ export default async function handler(req, res) {
       
       // 使用档案中存储的权重，如果没有则使用默认权重
       let weights = profile.match_weights;
-      if (!weights || typeof weights !== 'object') {
+      
+      // 如果是字符串则解析，如果是 null/undefined 则使用默认
+      if (typeof weights === 'string') {
+        try {
+          weights = JSON.parse(weights);
+        } catch (e) {
+          weights = DEFAULT_WEIGHTS;
+        }
+      }
+      if (!weights || typeof weights !== 'object' || Array.isArray(weights)) {
         weights = DEFAULT_WEIGHTS;
       }
       
@@ -56,18 +65,51 @@ export default async function handler(req, res) {
         }
       }
       
+      console.log('DEBUG: weights =', JSON.stringify(weights));
+      
       // 获取所有候选（异性、同城市或能接受异地）
-      const candidatesRes = await sql`
-        SELECT * FROM profiles 
-        WHERE id != ${profileId} 
-        AND gender != ${profile.gender}
-        AND status != '不合适'
-      `;
+      let candidatesRes;
+      try {
+        candidatesRes = await sql`
+          SELECT * FROM profiles 
+          WHERE id != ${profileId} 
+          AND gender != ${profile.gender}
+          AND status != '不合适'
+        `;
+      } catch (dbErr) {
+        console.error('数据库查询错误:', dbErr);
+        return res.status(500).json({ error: '数据库查询失败', message: dbErr.message });
+      }
       
       const candidates = candidatesRes.rows;
+      console.log('DEBUG: candidates count =', candidates.length);
       
       // 计算匹配度
-      const matches = findBestMatches(profile, candidates, parseInt(limit), weights);
+      let matches;
+      try {
+        matches = findBestMatches(profile, candidates, parseInt(limit), weights);
+      } catch (matchErr) {
+        console.error('匹配计算错误:', matchErr);
+        return res.status(500).json({ 
+          error: '匹配计算失败', 
+          message: matchErr.message,
+          stack: matchErr.stack 
+        });
+      }
+      
+      // 转换 snake_case 为 camelCase 用于权重说明
+      const answers = {
+        hobbyMatchPreference: profile.hobby_match_preference,
+        travelMatchPreference: profile.travel_match_preference,
+        socialCirclePreference: profile.social_circle_preference,
+        socialRolePreference: profile.social_role_preference,
+        spendingConsistency: profile.spending_consistency,
+        sleepConsistency: profile.sleep_consistency,
+        tidinessConsistency: profile.tidiness_consistency,
+        stressConsistency: profile.stress_consistency,
+        familyConsistency: profile.family_consistency,
+        lifeConsistency: profile.life_consistency
+      };
       
       return res.status(200).json({
         success: true,
@@ -77,19 +119,41 @@ export default async function handler(req, res) {
           gender: profile.gender,
           weights: weights,
           weightExplanations: {
-            part2: getWeightExplanationPart2(profile),
-            part3: getWeightExplanationPart3(profile)
+            part2: getWeightExplanationPart2(answers),
+            part3: getWeightExplanationPart3(answers)
           }
         },
-        matches: matches.map(m => ({
-          profileId: m.profile.id,
-          nickname: m.profile.nickname,
-          gender: m.profile.gender,
-          age: m.profile.birth_year ? new Date().getFullYear() - m.profile.birth_year : null,
-          city: m.profile.city,
-          score: m.score,
-          dimensions: m.dimensions
-        }))
+        matches: matches.map(m => {
+          // 计算双向匹配
+          const bidirectional = calculateBidirectionalMatch(
+            profile, 
+            m.profile, 
+            weights,
+            m.profile.match_weights
+          );
+          // 计算关系发展曲线
+          const relationshipCurve = calculateRelationshipCurve(profile, m.profile);
+          
+          return {
+            profileId: m.profile.id,
+            nickname: m.profile.nickname,
+            gender: m.profile.gender,
+            age: m.profile.birth_year ? new Date().getFullYear() - m.profile.birth_year : null,
+            city: m.profile.city,
+            // 我的视角分数
+            myScore: m.score,
+            // 对方视角分数
+            theirScore: bidirectional.fromB.score,
+            // 双向综合分数
+            bidirectionalScore: bidirectional.bidirectionalScore,
+            // 各维度详情
+            dimensions: m.dimensions,
+            // 关系发展曲线数据
+            relationshipCurve: relationshipCurve,
+            // 匹配洞察
+            insights: relationshipCurve.insights
+          };
+        })
       });
     }
     

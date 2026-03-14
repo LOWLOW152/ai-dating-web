@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { questions, getTotalQuestions } from '../lib/questions';
 import { validateQuestion } from '../lib/validation';
 
 export default function Chat() {
@@ -10,9 +9,14 @@ export default function Chat() {
   const recognitionRef = useRef(null);
   const synthRef = useRef(null);
   
+  // 题库相关
+  const [questions, setQuestions] = useState([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [questionsError, setQuestionsError] = useState('');
+  
   const [messages, setMessages] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const currentQuestionIndexRef = useRef(0); // 用于追踪最新值
+  const currentQuestionIndexRef = useRef(0);
   const [inputValue, setInputValue] = useState('');
   const [answers, setAnswers] = useState({});
   const [isTyping, setIsTyping] = useState(false);
@@ -27,15 +31,79 @@ export default function Chat() {
   // 验证状态
   const [validationWarning, setValidationWarning] = useState(null);
   const [pendingAnswer, setPendingAnswer] = useState(null);
+  
+  // 多选题状态
+  const [selectedOptions, setSelectedOptions] = useState([]);
 
-  const totalQuestions = getTotalQuestions();
+  const totalQuestions = questions.length;
+  const currentQuestion = questions[currentQuestionIndex];
+
+  // 获取题库
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const fetchQuestions = async () => {
+    try {
+      setLoadingQuestions(true);
+      const res = await fetch('/api/questions?is_active=true');
+      const data = await res.json();
+      
+      if (data.success) {
+        // 转换题库格式为前端可用格式
+        // 按 part 和 group 排序，确保配对的题目在一起
+        const sortedQuestions = data.questions.sort((a, b) => {
+          if (a.part !== b.part) return a.part - b.part;
+          if (a.question_group && b.question_group && a.question_group === b.question_group) {
+            // 同一组内，偏好题放后面
+            if (a.is_preference_for && !b.is_preference_for) return 1;
+            if (!a.is_preference_for && b.is_preference_for) return -1;
+          }
+          return a.display_order - b.display_order || a.id - b.id;
+        });
+        
+        const formattedQuestions = sortedQuestions.map(q => ({
+          id: q.question_key,
+          type: q.part === 1 ? 'auto' : q.part === 2 ? 'semi' : 'dog',
+          category: getCategoryLabel(q.category),
+          question: q.question_text,
+          questionType: q.question_type,
+          options: q.options,
+          isAiMonitored: q.is_ai_monitored,
+          aiPrompt: q.ai_prompt,
+          part: q.part,
+          questionGroup: q.question_group,
+          isPreferenceFor: q.is_preference_for
+        }));
+        
+        setQuestions(formattedQuestions);
+      } else {
+        setQuestionsError(data.error || '获取题目失败');
+      }
+    } catch (err) {
+      console.error('获取题目失败:', err);
+      setQuestionsError('网络错误，请刷新重试');
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+
+  const getCategoryLabel = (category) => {
+    const map = {
+      basic: '基础信息',
+      interest: '兴趣话题',
+      social: '社交偏好',
+      lifestyle: '生活方式',
+      values: '价值观',
+      emotion: '情感核心'
+    };
+    return map[category] || category;
+  };
   
   // 同步 ref 和 state
   useEffect(() => {
     currentQuestionIndexRef.current = currentQuestionIndex;
   }, [currentQuestionIndex]);
-  
-  const currentQuestion = questions[currentQuestionIndex];
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -63,15 +131,15 @@ export default function Chat() {
     }
   }, []);
 
-  // 初始化：显示欢迎语和第一题
+  // 初始化：显示欢迎语和第一题（等题目加载完成后）
   useEffect(() => {
-    if (messages.length === 0) {
-      addMessage('哈喽～我是狗蛋 🐶\n\n接下来30个轻松问题，一起探索真实的你。准备好了吗？', false, 'welcome');
+    if (!loadingQuestions && questions.length > 0 && messages.length === 0) {
+      addMessage(`哈喽～我是狗蛋 🐶\n\n接下来${questions.length}个轻松问题，一起探索真实的你。准备好了吗？`, false, 'welcome');
       setTimeout(() => {
         askQuestionByIndex(0);
       }, 1000);
     }
-  }, []);
+  }, [loadingQuestions, questions]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -372,6 +440,9 @@ export default function Chat() {
     const currentIdx = currentQuestionIndexRef.current;
     const nextIndex = currentIdx + 1;
     
+    // 清空多选状态
+    setSelectedOptions([]);
+    
     if (nextIndex < totalQuestions) {
       setCurrentQuestionIndex(nextIndex);
       currentQuestionIndexRef.current = nextIndex;
@@ -410,11 +481,43 @@ export default function Chat() {
     if (q.type === 'dog') {
       questionText = '【深度题】' + questionText;
     }
+    
+    // 偏好题特殊提示
+    if (q.isPreferenceFor) {
+      questionText = '【匹配偏好】' + questionText;
+    }
 
     setTimeout(() => {
       addMessage(questionText, false, 'question');
       if (voiceMode) speakText(questionText);
     }, 500);
+  };
+
+  // 选择选项
+  const handleOptionSelect = (value) => {
+    setInputValue(value);
+    // 自动发送
+    setTimeout(() => handleSendWithText(value), 100);
+  };
+
+  // 多选题选择
+  const handleMultiSelect = (value) => {
+    setSelectedOptions(prev => {
+      if (prev.includes(value)) {
+        return prev.filter(v => v !== value);
+      }
+      return [...prev, value];
+    });
+  };
+
+  // 多选题提交
+  const handleMultiSubmit = () => {
+    if (selectedOptions.length < 3) {
+      return;
+    }
+    const value = selectedOptions.join('、');
+    handleSendWithText(value);
+    setSelectedOptions([]); // 清空选择
   };
 
   // 完成问卷
@@ -702,7 +805,35 @@ export default function Chat() {
         {/* 聊天区域 */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
           <div style={{ maxWidth: '680px', margin: '0 auto' }}>
-            {messages.map((msg) => (
+            {/* 加载中 */}
+            {loadingQuestions && (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+                <div style={{ marginBottom: '16px' }}>📚 正在加载题目...</div>
+                <div style={{ fontSize: '14px' }}>请稍候</div>
+              </div>
+            )}
+            
+            {/* 错误提示 */}
+            {questionsError && (
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ color: '#ff4d4f', marginBottom: '16px' }}>❌ {questionsError}</div>
+                <button
+                  onClick={fetchQuestions}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#07c160',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  重新加载
+                </button>
+              </div>
+            )}
+            
+            {!loadingQuestions && !questionsError && messages.map((msg) => (
               <div key={msg.id} style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -750,6 +881,13 @@ export default function Chat() {
               </div>
             ))}
             
+            {/* 空状态 - 等待题目加载 */}
+            {!loadingQuestions && !questionsError && messages.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+                <div>正在准备题目...</div>
+              </div>
+            )}
+            
             {/* 正在输入 */}
             {isTyping && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -785,10 +923,88 @@ export default function Chat() {
                 marginBottom: '8px',
                 textAlign: 'center'
               }}>
+                {currentQuestion.isPreferenceFor && '⚙️ 匹配偏好题 · '}
                 {currentQuestion.type === 'auto' && '💬 基础题'}
                 {currentQuestion.type === 'semi' && '🌿 探索题'}
                 {currentQuestion.type === 'dog' && '💭 深度题 - 慢慢想'}
                 {isFollowUp && ' · 追问中'}
+              </div>
+            )}
+            
+            {/* 选项按钮区域 */}
+            {currentQuestion?.options && currentQuestion.options.length > 0 && !isFollowUp && (
+              <div style={{ marginBottom: '12px' }}>
+                {/* 多选题提示 */}
+                {currentQuestion.questionType === 'checkbox' && (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: selectedOptions.length >= 3 ? '#07c160' : '#ff9800',
+                    marginBottom: '8px',
+                    textAlign: 'center'
+                  }}>
+                    已选 {selectedOptions.length} 项
+                    {selectedOptions.length < 3 && '（至少选3个）'}
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {currentQuestion.options.map((opt, idx) => {
+                    const isMulti = currentQuestion.questionType === 'checkbox';
+                    const isSelected = isMulti 
+                      ? selectedOptions.includes(opt.value)
+                      : inputValue === opt.value;
+                    
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => isMulti 
+                          ? handleMultiSelect(opt.value) 
+                          : handleOptionSelect(opt.value)
+                        }
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '16px',
+                          border: isSelected ? '2px solid #07c160' : '1px solid #d9d9d9',
+                          backgroundColor: isSelected ? '#07c160' : '#fff',
+                          color: isSelected ? '#fff' : '#333',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        {isMulti && (
+                          <span>{isSelected ? '☑' : '☐'}</span>
+                        )}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* 多选题确认按钮 */}
+                {currentQuestion.questionType === 'checkbox' && selectedOptions.length > 0 && (
+                  <button
+                    onClick={handleMultiSubmit}
+                    disabled={selectedOptions.length < 3}
+                    style={{
+                      width: '100%',
+                      marginTop: '12px',
+                      padding: '10px',
+                      backgroundColor: selectedOptions.length >= 3 ? '#07c160' : '#e5e5e5',
+                      color: selectedOptions.length >= 3 ? '#fff' : '#999',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: selectedOptions.length >= 3 ? 'pointer' : 'not-allowed',
+                      fontSize: '15px'
+                    }}
+                  
+                  >
+                    确认选择 ({selectedOptions.length})
+                  </button>
+                )}
               </div>
             )}
             
@@ -811,11 +1027,14 @@ export default function Chat() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={isListening ? '正在听你说...' : '输入消息...'}
+                placeholder={isListening ? '正在听你说...' : 
+                  (currentQuestion?.options?.length > 0 && !isFollowUp ? '请选择上方选项...' : '输入消息...')}
+                disabled={currentQuestion?.options?.length > 0 && !isFollowUp || isListening}
                 style={{
                   flex: 1, height: '40px', padding: '0 12px',
                   border: '1px solid #d9d9d9', borderRadius: '4px',
-                  fontSize: '15px', outline: 'none'
+                  fontSize: '15px', outline: 'none',
+                  backgroundColor: currentQuestion?.options?.length > 0 && !isFollowUp ? '#f5f5f5' : '#fff'
                 }}
               />
               
