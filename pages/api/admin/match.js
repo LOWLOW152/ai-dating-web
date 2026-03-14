@@ -40,7 +40,20 @@ export default async function handler(req, res) {
       }
       
       const profile = profileRes.rows[0];
-      profile.match_weights = profile.match_weights || DEFAULT_WEIGHTS;
+      
+      // 使用档案中存储的权重，如果没有则使用默认权重
+      let weights = profile.match_weights;
+      if (!weights || typeof weights !== 'object') {
+        weights = DEFAULT_WEIGHTS;
+      }
+      
+      // 确保所有维度都有值
+      const validDimensions = ['basic', 'emotion', 'values', 'lifestyle', 'interest', 'social'];
+      for (const dim of validDimensions) {
+        if (weights[dim] === undefined || weights[dim] === null) {
+          weights[dim] = DEFAULT_WEIGHTS[dim];
+        }
+      }
       
       // 获取所有候选（异性、同城市或能接受异地）
       const candidatesRes = await sql`
@@ -53,7 +66,7 @@ export default async function handler(req, res) {
       const candidates = candidatesRes.rows;
       
       // 计算匹配度
-      const matches = findBestMatches(profile, candidates, parseInt(limit));
+      const matches = findBestMatches(profile, candidates, parseInt(limit), weights);
       
       return res.status(200).json({
         success: true,
@@ -61,7 +74,7 @@ export default async function handler(req, res) {
           id: profile.id,
           nickname: profile.nickname,
           gender: profile.gender,
-          weights: profile.match_weights
+          weights: weights
         },
         matches: matches.map(m => ({
           profileId: m.profile.id,

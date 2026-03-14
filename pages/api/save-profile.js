@@ -1,5 +1,6 @@
 import { sql } from '../../lib/db';
 import { sendWecomNotification, formatNewProfileMessage } from '../../lib/wecom';
+import { calculateWeights } from '../../lib/weights';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,6 +24,9 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: '该邀请码已完成答题' });
     }
     
+    // 计算动态权重
+    const matchWeights = calculateWeights(answers);
+    
     // 插入档案到数据库
     const result = await sql`
       INSERT INTO profiles (
@@ -36,7 +40,7 @@ export default async function handler(req, res) {
         achievement_source, solitude_feeling, life_preference,
         current_state, trusted_for, understood_moment, relationship_blindspot, ideal_relationship,
         core_need, conflict_handling, contact_frequency, deal_breakers, future_vision,
-        followup_logs, status
+        followup_logs, status, match_weights
       ) VALUES (
         ${profileId}, ${inviteCode}, ${timestamp || new Date().toISOString()},
         ${answers.nickname}, ${answers.gender}, 
@@ -50,7 +54,8 @@ export default async function handler(req, res) {
         ${answers.achievementSource}, ${answers.solitudeFeeling}, ${answers.lifePreference},
         ${answers.currentState}, ${answers.trustedFor}, ${answers.understoodMoment}, ${answers.relationshipBlindspot}, ${answers.idealRelationship},
         ${answers.coreNeed}, ${answers.conflictHandling}, ${answers.contactFrequency}, ${answers.dealBreakers}, ${answers.futureVision},
-        ${JSON.stringify(profile.followupLogs || [])}, '待处理'
+        ${JSON.stringify(profile.followupLogs || [])}, '待处理',
+        ${JSON.stringify(matchWeights)}
       )
       RETURNING *
     `;
@@ -70,6 +75,7 @@ export default async function handler(req, res) {
     res.status(200).json({ 
       success: true, 
       profileId,
+      matchWeights,
       message: '档案已保存'
     });
     
