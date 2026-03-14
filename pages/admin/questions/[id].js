@@ -242,21 +242,11 @@ function QuestionEditPage() {
             </Section>
 
             {(form.main_type === 'radio' || form.main_type === 'select' || form.main_type === 'multiple') && (
-              <Section title="选项配置 (JSON格式)">
-                <textarea
-                  value={form.main_options ? JSON.stringify(form.main_options, null, 2) : '[]'}
-                  onChange={(e) => {
-                    try {
-                      const parsed = JSON.parse(e.target.value);
-                      updateForm('main_options', parsed);
-                    } catch {}
-                  }}
-                  rows={6}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px', fontFamily: 'monospace', fontSize: '13px' }}
+              <Section title="选项配置">
+                <OptionsEditor 
+                  options={form.main_options || []}
+                  onChange={(newOptions) => updateForm('main_options', newOptions)}
                 />
-                <p style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-                  格式：[{`{"value": "跑步", "label": "跑步"}`}]
-                </p>
               </Section>
             )}
 
@@ -443,6 +433,182 @@ function Section({ title, children }) {
     <div style={{ marginBottom: '20px' }}>
       <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>{title}</label>
       {children}
+    </div>
+  );
+}
+
+// 选项编辑器组件
+function OptionsEditor({ options, onChange }) {
+  const [localOptions, setLocalOptions] = useState(options);
+  
+  // 同步外部变化
+  useEffect(() => {
+    setLocalOptions(options);
+  }, [options]);
+  
+  const addOption = () => {
+    const newOption = { value: '', label: '' };
+    const newOptions = [...localOptions, newOption];
+    setLocalOptions(newOptions);
+    onChange(newOptions);
+  };
+  
+  const removeOption = (index) => {
+    const newOptions = localOptions.filter((_, i) => i !== index);
+    setLocalOptions(newOptions);
+    onChange(newOptions);
+  };
+  
+  const updateOption = (index, field, value) => {
+    const newOptions = localOptions.map((opt, i) => 
+      i === index ? { ...opt, [field]: value } : opt
+    );
+    setLocalOptions(newOptions);
+    onChange(newOptions);
+  };
+  
+  const moveOption = (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === localOptions.length - 1) return;
+    
+    const newOptions = [...localOptions];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newOptions[index], newOptions[targetIndex]] = [newOptions[targetIndex], newOptions[index]];
+    setLocalOptions(newOptions);
+    onChange(newOptions);
+  };
+  
+  return (
+    <div style={{ background: '#fafafa', borderRadius: '8px', padding: '16px' }}>
+      {localOptions.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
+          暂无选项，点击下方按钮添加
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {localOptions.map((option, index) => (
+            <div 
+              key={index}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                background: 'white',
+                padding: '12px',
+                borderRadius: '6px',
+                border: '1px solid #e8e8e8'
+              }}
+            >
+              <span style={{ 
+                width: '24px', 
+                height: '24px', 
+                background: '#07c160', 
+                color: 'white',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                flexShrink: 0
+              }}>
+                {index + 1}
+              </span>
+              
+              <div style={{ flex: 1, display: 'flex', gap: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="选项值（英文/代码）"
+                  value={option.value || ''}
+                  onChange={(e) => updateOption(index, 'value', e.target.value)}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    border: '1px solid #d9d9d9', 
+                    borderRadius: '4px',
+                    fontSize: '13px'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="选项文案（显示给用户）"
+                  value={option.label || ''}
+                  onChange={(e) => updateOption(index, 'label', e.target.value)}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    border: '1px solid #d9d9d9', 
+                    borderRadius: '4px',
+                    fontSize: '13px'
+                  }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  onClick={() => moveOption(index, 'up')}
+                  disabled={index === 0}
+                  style={{ 
+                    padding: '4px 8px', 
+                    border: '1px solid #d9d9d9', 
+                    background: 'white',
+                    borderRadius: '4px',
+                    cursor: index === 0 ? 'not-allowed' : 'pointer',
+                    opacity: index === 0 ? 0.5 : 1,
+                    fontSize: '12px'
+                  }}
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => moveOption(index, 'down')}
+                  disabled={index === localOptions.length - 1}
+                  style={{ 
+                    padding: '4px 8px', 
+                    border: '1px solid #d9d9d9', 
+                    background: 'white',
+                    borderRadius: '4px',
+                    cursor: index === localOptions.length - 1 ? 'not-allowed' : 'pointer',
+                    opacity: index === localOptions.length - 1 ? 0.5 : 1,
+                    fontSize: '12px'
+                  }}
+                >
+                  ↓
+                </button>
+                <button
+                  onClick={() => removeOption(index)}
+                  style={{ 
+                    padding: '4px 8px', 
+                    border: '1px solid #ff4d4f', 
+                    background: '#fff2f0',
+                    color: '#ff4d4f',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      <button
+        onClick={addOption}
+        style={{ 
+          marginTop: '12px',
+          padding: '8px 16px',
+          background: '#07c160',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '14px'
+        }}
+      >
+        + 添加选项
+      </button>
     </div>
   );
 }
