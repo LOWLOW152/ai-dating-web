@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { questions, getTotalQuestions } from '../lib/questions';
+import { validateQuestion } from '../lib/validation';
 
 export default function Chat() {
   const router = useRouter();
@@ -22,6 +23,10 @@ export default function Chat() {
   const [isFollowUp, setIsFollowUp] = useState(false);
   const [followUpCount, setFollowUpCount] = useState(0);
   const [dogQuestionsQueue, setDogQuestionsQueue] = useState([]);
+  
+  // 验证状态
+  const [validationWarning, setValidationWarning] = useState(null);
+  const [pendingAnswer, setPendingAnswer] = useState(null);
 
   const totalQuestions = getTotalQuestions();
   
@@ -169,6 +174,65 @@ export default function Chat() {
     
     addMessage(userAnswer, true);
     setInputValue('');
+
+    // 验证答案（非Test模式）
+    if (!isTestMode && currentQuestion.validation) {
+      const validation = validateQuestion(currentQuestion, userAnswer);
+      
+      // 阻断式验证：有错误则阻止继续
+      if (!validation.isValid && validation.errors.length > 0) {
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 400));
+        setIsTyping(false);
+        
+        // 显示错误提示
+        addMessage(`⚠️ ${validation.errors[0]}\n\n请重新回答这题～`, false, 'error');
+        if (voiceMode) speakText(validation.errors[0] + '，请重新回答这题');
+        return; // 不保存答案，不进入下一题
+      }
+      
+      // 警告式验证：有警告则提示但允许继续
+      if (validation.warnings.length > 0) {
+        setValidationWarning(validation.warnings[0]);
+        setPendingAnswer(userAnswer);
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 400));
+        setIsTyping(false);
+        
+        // 显示警告提示，等待用户确认
+        addMessage(`⚠️ ${validation.warnings[0]}\n\n回复「确认」继续，或重新输入修改`, false, 'warning');
+        if (voiceMode) speakText(validation.warnings[0] + '，回复确认继续，或重新输入修改');
+        return; // 等待用户确认
+      }
+    }
+    
+    // 如果有待确认的警告答案，且用户回复"确认"
+    if (validationWarning && (userAnswer === '确认' || userAnswer === '确定')) {
+      setValidationWarning(null);
+      const answerToSave = pendingAnswer;
+      setPendingAnswer(null);
+      // 继续处理保存逻辑
+      await processAnswer(answerToSave, false);
+      return;
+    }
+    
+    // 如果有待确认的警告答案，但用户输入了新内容（放弃之前的）
+    if (validationWarning) {
+      setValidationWarning(null);
+      setPendingAnswer(null);
+      // 用新答案重新验证
+      if (currentQuestion.validation) {
+        const validation = validateQuestion(currentQuestion, userAnswer);
+        if (!validation.isValid && validation.errors.length > 0) {
+          setIsTyping(true);
+          await new Promise(resolve => setTimeout(resolve, 400));
+          setIsTyping(false);
+          addMessage(`⚠️ ${validation.errors[0]}\n\n请重新回答这题～`, false, 'error');
+          return;
+        }
+      }
+    }
+    
     setIsTyping(true);
 
     // 保存答案
@@ -178,6 +242,11 @@ export default function Chat() {
     };
     setAnswers(newAnswers);
 
+    await processAnswer(userAnswer, isTestMode);
+  };
+  
+  // 处理答案（验证后的逻辑）
+  const processAnswer = async (userAnswer, isTestMode) => {
     await new Promise(resolve => setTimeout(resolve, 600));
 
     // Test 模式：直接过，不追问
