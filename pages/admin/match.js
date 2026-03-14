@@ -27,6 +27,7 @@ export default function MatchPage() {
   const [profile, setProfile] = useState(null);
   const [matches, setMatches] = useState([]);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
+  const [weightExplanations, setWeightExplanations] = useState({ part2: [], part3: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -59,6 +60,7 @@ export default function MatchPage() {
         setProfile(data.profile);
         setMatches(data.matches);
         setWeights(data.profile.weights || DEFAULT_WEIGHTS);
+        setWeightExplanations(data.profile.weightExplanations || { part2: [], part3: [] });
       }
     } catch (err) {
       console.error('获取匹配失败:', err);
@@ -164,11 +166,52 @@ export default function MatchPage() {
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  marginBottom: '16px'
                 }}
               >
                 {saving ? '保存中...' : '更新权重并重新匹配'}
               </button>
+
+              {/* 权重说明 */}
+              {(weightExplanations.part2.length > 0 || weightExplanations.part3.length > 0) && (
+                <div style={{ 
+                  background: '#f5f5f5', 
+                  padding: '12px 16px', 
+                  borderRadius: '6px',
+                  fontSize: '13px'
+                }}>
+                  <div style={{ fontWeight: 500, marginBottom: '8px', color: '#333' }}>
+                    权重来源分析
+                  </div>
+                  
+                  {weightExplanations.part2.length > 0 && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ color: '#666', marginBottom: '4px' }}>
+                        <strong>第二部分（兴趣话题）影响：</strong>
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: '20px', color: '#666' }}>
+                        {weightExplanations.part2.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {weightExplanations.part3.length > 0 && (
+                    <div>
+                      <div style={{ color: '#666', marginBottom: '4px' }}>
+                        <strong>第三部分（生活底色）影响：</strong>
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: '20px', color: '#666' }}>
+                        {weightExplanations.part3.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 匹配结果 */}

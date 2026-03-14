@@ -1,6 +1,7 @@
 import { sql } from '../../../lib/db';
 import { validateSession } from './login';
 import { calculateMatch, findBestMatches, DEFAULT_WEIGHTS } from '../../../lib/match';
+import { getWeightExplanationPart2, getWeightExplanationPart3 } from '../../../lib/weights';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -74,7 +75,11 @@ export default async function handler(req, res) {
           id: profile.id,
           nickname: profile.nickname,
           gender: profile.gender,
-          weights: weights
+          weights: weights,
+          weightExplanations: {
+            part2: getWeightExplanationPart2(profile),
+            part3: getWeightExplanationPart3(profile)
+          }
         },
         matches: matches.map(m => ({
           profileId: m.profile.id,
