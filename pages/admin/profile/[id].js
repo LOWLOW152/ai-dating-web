@@ -1,0 +1,210 @@
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
+
+export default function ProfileDetail() {
+  const router = useRouter();
+  const { id } = router.query;
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [newStatus, setNewStatus] = useState('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
+    
+    fetchProfile(token, id);
+  }, [id]);
+
+  const fetchProfile = async (token, profileId) => {
+    try {
+      const res = await fetch(`/api/admin/profile/${profileId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        router.push('/admin/login');
+        return;
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        setProfile(data.profile);
+        setNewStatus(data.profile.status);
+        setNotes(data.profile.notes || '');
+      } else {
+        setError(data.error || '获取档案失败');
+      }
+    } catch (err) {
+      setError('网络错误');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async () => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) return;
+    
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ id, status: newStatus, notes })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        alert('更新成功');
+        setProfile({ ...profile, status: newStatus, notes });
+      } else {
+        alert(data.error || '更新失败');
+      }
+    } catch (err) {
+      alert('网络错误');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getAge = (birthYear) => {
+    if (!birthYear) return '未知';
+    return new Date().getFullYear() - birthYear;
+  };
+
+  const formatAnswer = (value) => {
+    return value || '未填写';
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        加载中...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+        <p style={{ color: '#ff4d4f' }}>{error}</p>
+        <Link href="/admin" style={{ color: '#07c160', marginTop: '16px' }}>返回列表</Link>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        档案不存在
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* 头部 */}
+      <div style={{ background: 'white', padding: '16px 24px', borderBottom: '1px solid #e8e8e8' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Link href="/admin" style={{ color: '#666', textDecoration: 'none' }}>← 返回</Link>
+          <h1 style={{ margin: 0, fontSize: '18px' }}>档案详情</h1>
+        </div>
+      </div>
+
+      <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+        {/* 基本信息 */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '8px', marginBottom: '16px' }}>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>基本信息</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+            <div><span style={{ color: '#999' }}>昵称：</span>{formatAnswer(profile.nickname)}</div>
+            <div><span style={{ color: '#999' }}>性别：</span>{formatAnswer(profile.gender)}</div>
+            <div><span style={{ color: '#999' }}>年龄：</span>{getAge(profile.birth_year)}岁</div>
+            <div><span style={{ color: '#999' }}>城市：</span>{formatAnswer(profile.city)}</div>
+            <div><span style={{ color: '#999' }}>职业：</span>{formatAnswer(profile.occupation)}</div>
+            <div><span style={{ color: '#999' }}>学历：</span>{formatAnswer(profile.education)}</div>
+          </div>
+        </div>
+
+        {/* 生活状态 */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '8px', marginBottom: '16px' }}>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>生活状态</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+            <div><span style={{ color: '#999' }}>消费观念：</span>{formatAnswer(profile.spending_habit)}</div>
+            <div><span style={{ color: '#999' }}>作息类型：</span>{formatAnswer(profile.sleep_schedule)}</div>
+            <div><span style={{ color: '#999' }}>整洁程度：</span>{formatAnswer(profile.tidiness)}</div>
+            <div><span style={{ color: '#999' }}>压力应对：</span>{formatAnswer(profile.stress_response)}</div>
+          </div>
+        </div>
+
+        {/* 情感核心 */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '8px', marginBottom: '16px' }}>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>情感核心</h2>
+          <div style={{ marginBottom: '12px' }}><span style={{ color: '#999' }}>当前状态：</span>{formatAnswer(profile.current_state)}</div>
+          <div style={{ marginBottom: '12px' }}><span style={{ color: '#999' }}>被理解时刻：</span>{formatAnswer(profile.understood_moment)}</div>
+          <div style={{ marginBottom: '12px' }}><span style={{ color: '#999' }}>理想关系：</span>{formatAnswer(profile.ideal_relationship)}</div>
+          <div style={{ marginBottom: '12px' }}><span style={{ color: '#999' }}>核心需求：</span>{formatAnswer(profile.core_need)}</div>
+          <div style={{ marginBottom: '12px' }}><span style={{ color: '#999' }}>冲突处理：</span>{formatAnswer(profile.conflict_handling)}</div>
+          <div><span style={{ color: '#999' }}>关系红线：</span>{formatAnswer(profile.deal_breakers)}</div>
+        </div>
+
+        {/* 管理操作 */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '8px' }}>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>管理</h2>
+          
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#666' }}>状态</label>
+            <select 
+              value={newStatus} 
+              onChange={(e) => setNewStatus(e.target.value)}
+              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd' }}
+            >
+              <option value="待处理">待处理</option>
+              <option value="已联系">已联系</option>
+              <option value="已匹配">已匹配</option>
+              <option value="不合适">不合适</option>
+              <option value="深度沟通">深度沟通</option>
+            </select>
+          </div>
+          
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#666' }}>备注</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', minHeight: '80px' }}
+              placeholder="添加备注..."
+            />
+          </div>
+          
+          <button
+            onClick={updateStatus}
+            disabled={saving}
+            style={{
+              padding: '10px 24px',
+              background: '#07c160',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
