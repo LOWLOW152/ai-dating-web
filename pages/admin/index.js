@@ -99,23 +99,39 @@ export default function AdminDashboard() {
             共 {stats.total} 份档案 | 待处理 {stats.pending} | 已联系 {stats.contacted} | 已匹配 {stats.matched}
           </p>
         </div>
-        <button
-          onClick={() => {
-            localStorage.removeItem('adminToken');
-            router.push('/admin/login');
-          }}
-          style={{
-            padding: '8px 16px',
-            background: 'transparent',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            color: '#666'
-          }}
-        >
-          退出登录
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Link
+            href="/admin/invite-codes"
+            style={{
+              padding: '8px 16px',
+              background: '#07c160',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              textDecoration: 'none',
+              fontSize: '14px'
+            }}
+          >
+            邀请码管理
+          </Link>
+          <button
+            onClick={() => {
+              localStorage.removeItem('adminToken');
+              router.push('/admin/login');
+            }}
+            style={{
+              padding: '8px 16px',
+              background: 'transparent',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              color: '#666'
+            }}
+          >
+            退出登录
+          </button>
+        </div>
       </div>
 
       {/* 筛选 */}
