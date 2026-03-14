@@ -198,7 +198,23 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   
-                  <div style={{ color: '#ccc' }}>→</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Link
+                      href={`/admin/match?profileId=${profile.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        padding: '6px 12px',
+                        background: '#07c160',
+                        color: 'white',
+                        borderRadius: '4px',
+                        textDecoration: 'none',
+                        fontSize: '13px'
+                      }}
+                    >
+                      匹配
+                    </Link>
+                    <div style={{ color: '#ccc' }}>→</div>
+                  </div>
                 </div>
               </Link>
             ))}
