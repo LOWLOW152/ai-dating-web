@@ -145,7 +145,6 @@ function QuestionEditPage() {
           {[
             { key: 'basic', label: '基本信息' },
             { key: 'match', label: '匹配设置' },
-            { key: 'preference', label: '偏好问题' },
             { key: 'ai', label: 'AI追问' }
           ].map(tab => (
             <button
@@ -270,6 +269,74 @@ function QuestionEditPage() {
                 <span>启用此问题</span>
               </label>
             </Section>
+
+            {/* 偏好题设置 - 直接关联 */}
+            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '2px solid #e8e8e8' }}>
+              <Section title="偏好题设置">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.has_preference}
+                    onChange={(e) => updateForm('has_preference', e.target.checked)}
+                  />
+                  <span>为此问题添加偏好题（询问用户希望对方与自己相同/互补/无所谓）</span>
+                </label>
+              </Section>
+
+              {form.has_preference && (
+                <div style={{ 
+                  marginLeft: '24px', 
+                  padding: '16px', 
+                  background: '#f6ffed', 
+                  borderRadius: '8px',
+                  border: '1px solid '#b7eb8f'
+                }}>
+                  <Section title="偏好问题文案">
+                    <input
+                      value={form.preference_text || ''}
+                      onChange={(e) => updateForm('preference_text', e.target.value)}
+                      placeholder="如：你希望对方的兴趣爱好与你？"
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
+                    />
+                  </Section>
+
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                      <Section title="默认选项">
+                        <select
+                          value={form.preference_default || 'dontcare'}
+                          onChange={(e) => updateForm('preference_default', e.target.value)}
+                          style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
+                        >
+                          <option value="same">相同</option>
+                          <option value="complementary">互补</option>
+                          <option value="dontcare">无所谓</option>
+                        </select>
+                      </Section>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <Section title="偏好题设置">
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px 0' }}>
+                          <input
+                            type="checkbox"
+                            checked={form.preference_required}
+                            onChange={(e) => updateForm('preference_required', e.target.checked)}
+                          />
+                          <span>偏好题必填</span>
+                        </label>
+                      </Section>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px', padding: '12px', background: '#fff', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
+                    <strong>选项说明：</strong>
+                    <span style={{ marginLeft: '12px' }}>相同 = 相似度越高越好</span>
+                    <span style={{ marginLeft: '12px' }}>互补 = 40-70%相似度最佳</span>
+                    <span style={{ marginLeft: '12px' }}>无所谓 = 固定70分</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -332,70 +399,6 @@ function QuestionEditPage() {
                 → 去测试这个算法的匹配效果
               </Link>
             </div>
-          </div>
-        )}
-
-        {/* 偏好问题Tab */}
-        {activeTab === 'preference' && (
-          <div style={{ background: 'white', padding: '24px', borderRadius: '8px' }}>
-            <Section title="启用偏好问题">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={form.has_preference}
-                  onChange={(e) => updateForm('has_preference', e.target.checked)}
-                />
-                <span>为此问题添加偏好问题</span>
-              </label>
-              <p style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
-                偏好问题让用户选择希望对方与自己的关系（相同/互补/无所谓）
-              </p>
-            </Section>
-
-            {form.has_preference && (
-              <>
-                <Section title="偏好问题文案">
-                  <input
-                    value={form.preference_text || ''}
-                    onChange={(e) => updateForm('preference_text', e.target.value)}
-                    placeholder="如：你希望对方的兴趣爱好与你？"
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
-                  />
-                </Section>
-
-                <Section title="默认选项">
-                  <select
-                    value={form.preference_default || 'dontcare'}
-                    onChange={(e) => updateForm('preference_default', e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
-                  >
-                    <option value="same">相同</option>
-                    <option value="complementary">互补</option>
-                    <option value="dontcare">无所谓</option>
-                  </select>
-                </Section>
-
-                <Section title="是否必填">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={form.preference_required}
-                      onChange={(e) => updateForm('preference_required', e.target.checked)}
-                    />
-                    <span>偏好问题必填</span>
-                  </label>
-                </Section>
-
-                <div style={{ marginTop: '24px', padding: '16px', background: '#f6ffed', borderRadius: '8px' }}>
-                  <strong>偏好选项说明：</strong>
-                  <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#666' }}>
-                    <li><b>相同：</b>相似度越高分数越高（0-100分线性映射）</li>
-                    <li><b>互补：</b>40-70%相似度为最佳互补区间，映射到70-100分</li>
-                    <li><b>无所谓：</b>固定70分，不参与匹配计算</li>
-                  </ul>
-                </div>
-              </>
-            )}
           </div>
         )}
 
