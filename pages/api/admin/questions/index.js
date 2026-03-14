@@ -14,17 +14,53 @@ export default async function handler(req, res) {
   // 验证登录
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: '未登录' });
+    return res.status(401).json({ error: '未登录', code: 'NO_AUTH' });
   }
   
   const token = authHeader.slice(7);
   if (!await validateSession(token)) {
-    return res.status(401).json({ error: '登录已过期' });
+    return res.status(401).json({ error: '登录已过期', code: 'EXPIRED' });
+  }
+  
+  // 检查环境变量
+  if (!process.env.POSTGRES_URL) {
+    return res.status(500).json({ 
+      error: '数据库连接未配置', 
+      code: 'NO_DB_URL',
+      message: '请在 Vercel 环境变量中添加 POSTGRES_URL'
+    });
   }
   
   try {
     if (req.method === 'GET') {
       const { category, part, search, active } = req.query;
+      
+      // 先检查数据库连接
+      try {
+        await sql`SELECT 1`;
+      } catch (dbErr) {
+        return res.status(500).json({
+          error: '数据库连接失败',
+          code: 'DB_CONNECTION_ERROR',
+          message: dbErr.message
+        });
+      }
+      
+      // 检查表是否存在
+      const tableCheck = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'questions'
+        )
+      `;
+      
+      if (!tableCheck.rows[0].exists) {
+        return res.status(500).json({
+          error: '题库表不存在',
+          code: 'TABLE_MISSING',
+          message: '请先执行数据库迁移'
+        });
+      }
       
       let query = sql`
         SELECT q.*, qc.category_name 
@@ -44,7 +80,12 @@ export default async function handler(req, res) {
       
       return res.json({
         success: true,
-        data: result.rows
+        data: result.rows,
+        count: result.rows.length,
+        debug: {
+          env_url_exists: !!process.env.POSTGRES_URL,
+          table_exists: true
+        }
       });
     }
     
@@ -93,6 +134,11 @@ export default async function handler(req, res) {
     
   } catch (error) {
     console.error('题库API错误:', error);
-    res.status(500).json({ error: '服务器错误', message: error.message });
+    res.status(500).json({ 
+      error: '服务器错误', 
+      message: error.message,
+      code: 'SERVER_ERROR',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }

@@ -22,6 +22,9 @@ function QuestionsPage() {
   }, []);
 
   const loadData = async (token) => {
+    setLoading(true);
+    setError('');
+    
     try {
       const [qRes, cRes] = await Promise.all([
         fetch('/api/admin/questions', { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -37,10 +40,25 @@ function QuestionsPage() {
       const qData = await qRes.json();
       const cData = await cRes.json();
       
-      if (qData.success) setQuestions(qData.data);
+      if (!qData.success) {
+        // 显示详细的错误信息
+        let errorMsg = qData.error || '加载题库失败';
+        if (qData.code) errorMsg += ` (${qData.code})`;
+        if (qData.message) errorMsg += `: ${qData.message}`;
+        
+        setError(errorMsg);
+        setQuestions([]);
+      } else {
+        setQuestions(qData.data);
+        if (qData.count === 0) {
+          setError('题库为空，请执行数据迁移');
+        }
+      }
+      
       if (cData.success) setCategories(cData.data);
     } catch (err) {
       setError('加载失败: ' + err.message);
+      setQuestions([]);
     } finally {
       setLoading(false);
     }
@@ -139,8 +157,36 @@ function QuestionsPage() {
         </div>
 
         {error && (
-          <div style={{ background: '#fff2f0', border: '1px solid #ffccc7', padding: '12px', borderRadius: '4px', marginBottom: '16px', color: '#cf1322' }}>
-            {error}
+          <div style={{ 
+            background: '#fff2f0', 
+            border: '1px solid #ffccc7', 
+            padding: '16px', 
+            borderRadius: '8px', 
+            marginBottom: '20px', 
+            color: '#cf1322' 
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚠️</span>
+              <span>加载题库失败</span>
+            </div>
+            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>{error}</div>
+            <button 
+              onClick={() => {
+                const token = localStorage.getItem('adminToken');
+                loadData(token);
+              }}
+              style={{ 
+                marginTop: '12px', 
+                padding: '6px 16px', 
+                background: '#ff4d4f', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              重新加载
+            </button>
           </div>
         )}
 
