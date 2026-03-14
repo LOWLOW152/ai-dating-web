@@ -1,6 +1,6 @@
-import { sql } from '../../lib/db';
+import { sql } from '../../../lib/db';
 import { validateSession } from './login';
-import { calculateMatch, findBestMatches, DEFAULT_WEIGHTS } from '../../lib/match';
+import { calculateMatch, findBestMatches, DEFAULT_WEIGHTS } from '../../../lib/match';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
