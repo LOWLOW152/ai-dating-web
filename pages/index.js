@@ -155,8 +155,8 @@ export default function Home() {
               type="text"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              placeholder="请输入6位邀请码"
-              maxLength={6}
+              placeholder="请输入8位邀请码"
+              maxLength={8}
               style={{
                 width: '100%',
                 height: '48px',
