@@ -62,21 +62,38 @@ export default async function handler(req, res) {
         });
       }
       
-      let query = sql`
+      // 构建查询条件
+      const conditions = [];
+      const params = [];
+      let paramIndex = 1;
+      
+      if (category) {
+        conditions.push(`q.category_key = $${paramIndex++}`);
+        params.push(category);
+      }
+      if (part) {
+        conditions.push(`q.part = $${paramIndex++}`);
+        params.push(parseInt(part));
+      }
+      if (active !== undefined) {
+        conditions.push(`q.is_active = $${paramIndex++}`);
+        params.push(active === 'true');
+      }
+      if (search) {
+        conditions.push(`(q.question_key ILIKE $${paramIndex++} OR q.main_text ILIKE $${paramIndex++})`);
+        params.push(`%${search}%`);
+        params.push(`%${search}%`);
+      }
+      
+      const whereClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
+      
+      const result = await sql.query(`
         SELECT q.*, qc.category_name 
         FROM questions q
         JOIN question_categories qc ON q.category_key = qc.category_key
-        WHERE 1=1
-      `;
-      
-      if (category) query = sql`${query} AND q.category_key = ${category}`;
-      if (part) query = sql`${query} AND q.part = ${parseInt(part)}`;
-      if (active !== undefined) query = sql`${query} AND q.is_active = ${active === 'true'}`;
-      if (search) query = sql`${query} AND (q.question_key ILIKE ${`%${search}%`} OR q.main_text ILIKE ${`%${search}%`})`;
-      
-      query = sql`${query} ORDER BY q.part, q.display_order, q.id`;
-      
-      const result = await query;
+        WHERE 1=1 ${whereClause}
+        ORDER BY q.part, q.display_order, q.id
+      `, params);
       
       return res.json({
         success: true,
