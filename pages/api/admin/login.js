@@ -4,20 +4,19 @@ import crypto from 'crypto';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme';
 
-// 简单 session 存储（内存版，Vercel 上每次部署会清空，但够用）
-const sessions = new Map();
-
 export function generateSessionToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-export function validateSession(token) {
-  return sessions.has(token);
+export async function validateSession(token) {
+  if (!token) return false;
+  const result = await sql`SELECT 1 FROM admin_sessions WHERE token = ${token} AND expires_at > NOW()`;
+  return result.rows.length > 0;
 }
 
-export function createSession() {
+export async function createSession() {
   const token = generateSessionToken();
-  sessions.set(token, { createdAt: Date.now() });
+  await sql`INSERT INTO admin_sessions (token, expires_at) VALUES (${token}, NOW() + INTERVAL '7 days')`;
   return token;
 }
 
@@ -39,7 +38,7 @@ export default async function handler(req, res) {
     const { username, password } = req.body;
     
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      const token = createSession();
+      const token = await createSession();
       return res.status(200).json({ 
         success: true, 
         token,

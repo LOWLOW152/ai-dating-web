@@ -23,7 +23,8 @@ export default async function handler(req, res) {
     }
     
     const token = authHeader.slice(7);
-    if (!validateSession(token)) {
+    const isValid = await validateSession(token);
+    if (!isValid) {
       return res.status(401).json({ error: '登录已过期' });
     }
     
