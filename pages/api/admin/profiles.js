@@ -30,19 +30,31 @@ export default async function handler(req, res) {
     
     const { status, date, page = 1, limit = 20 } = req.query;
     
-    let query = sql`SELECT * FROM profiles WHERE 1=1`;
+    // 构建查询条件
+    let whereClause = '';
+    const params = [];
     
     if (status) {
-      query = sql`${query} AND status = ${status}`;
+      whereClause += ' AND status = $1';
+      params.push(status);
     }
     
     if (date) {
-      query = sql`${query} AND DATE(created_at) = ${date}`;
+      whereClause += status ? ' AND DATE(created_at) = $2' : ' AND DATE(created_at) = $1';
+      params.push(date);
     }
     
-    query = sql`${query} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${(parseInt(page) - 1) * parseInt(limit)}`;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    params.push(parseInt(limit), offset);
     
-    const result = await query;
+    const queryStr = `
+      SELECT * FROM profiles 
+      WHERE 1=1 ${whereClause}
+      ORDER BY created_at DESC 
+      LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+    
+    const result = await sql.query(queryStr, params);
     
     // 获取总数
     const countResult = await sql`SELECT COUNT(*) as total FROM profiles`;
