@@ -206,7 +206,7 @@ function ProfileDetail() {
               {matches.map((item, index) => (
                 <div 
                   key={item.profile.id}
-                  onClick={() => router.push(`/admin/match-detail?myId=${id}&targetId=${item.profile.id}`)}
+                  onClick={() => router.push(`/admin/match-detail?profileId=${id}&matchId=${item.profile.id}`)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
