@@ -43,10 +43,10 @@ export default async function handler(req, res) {
     await sql`UPDATE questions SET part = 3, display_order = 18 WHERE question_key = 'smoke_drink'`;
     await sql`UPDATE questions SET part = 3, display_order = 19 WHERE question_key = 'time together'`;
 
-    // Part 4: 情感核心 (20-22)
-    await sql`UPDATE questions SET part = 4, display_order = 20 WHERE question_key = 'core_need'`;
-    await sql`UPDATE questions SET part = 4, display_order = 21 WHERE question_key = 'deal_breakers'`;
-    await sql`UPDATE questions SET part = 4, display_order = 22 WHERE question_key = 'conflict_handling'`;
+    // Part 3: 情感核心 (延续 20-22)
+    await sql`UPDATE questions SET part = 3, display_order = 20 WHERE question_key = 'core_need'`;
+    await sql`UPDATE questions SET part = 3, display_order = 21 WHERE question_key = 'deal_breakers'`;
+    await sql`UPDATE questions SET part = 3, display_order = 22 WHERE question_key = 'conflict_handling'`;
 
     // 获取更新后的结果
     const result = await sql`
