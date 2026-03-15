@@ -335,7 +335,7 @@ function MatchPageContent() {
                     <span style={{ fontSize: '12px', color: '#07c160' }}>点击查看详情 →</span>
                   </div>
                   
-                  {/* 匹配分数展示 */}
+                  {/* 匹配分数展示 - 已隐藏 */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', color: '#666' }}>
                       {item.match?.category_scores && Object.entries(item.match.category_scores).map(([dim, score]) => (
@@ -344,31 +344,7 @@ function MatchPageContent() {
                         </span>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                      {/* 我对他 */}
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#999' }}>我对他</div>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(item.match?.score_ab) }}>
-                          {item.match?.is_blocked ? '×' : item.match?.score_ab || item.match?.total_score || 0}
-                        </div>
-                      </div>
-                      
-                      {/* 他对我 */}
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#999' }}>他对我</div>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(item.match?.score_ba) }}>
-                          {item.match?.is_blocked ? '×' : item.match?.score_ba || item.match?.total_score || 0}
-                        </div>
-                      </div>
-                      
-                      {/* 综合分 */}
-                      <div style={{ textAlign: 'center', padding: '4px 12px', background: '#f0f0f0', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '11px', color: '#666', fontWeight: 500 }}>综合</div>
-                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: getScoreColor(item.match?.composite_score) }}>
-                          {item.match?.is_blocked ? '×' : item.match?.composite_score || item.match?.total_score || 0}
-                        </div>
-                      </div>
-                    </div>
+                    <span style={{ fontSize: '12px', color: '#07c160' }}>查看详细匹配分析 →</span>
                   </div>
                   
                   {/* 关系发展曲线图 */}

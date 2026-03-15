@@ -243,42 +243,8 @@ function ProfileDetail() {
                     </div>
                   </div>
                   
-                  <div style={{ textAlign: 'right', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                    {/* 我对他 */}
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        color: item.match?.score_ab >= 70 ? '#52c41a' : item.match?.score_ab >= 50 ? '#faad14' : '#999'
-                      }}>
-                        {item.match?.is_blocked ? '×' : item.match?.score_ab || 0}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#999' }}>我对他</div>
-                    </div>
-                    
-                    {/* 他对我 */}
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        color: item.match?.score_ba >= 70 ? '#52c41a' : item.match?.score_ba >= 50 ? '#faad14' : '#999'
-                      }}>
-                        {item.match?.is_blocked ? '×' : item.match?.score_ba || 0}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#999' }}>他对我</div>
-                    </div>
-                    
-                    {/* 综合分 */}
-                    <div style={{ textAlign: 'center', padding: '4px 8px', background: '#f0f0f0', borderRadius: '4px' }}>
-                      <div style={{
-                        fontSize: '24px',
-                        fontWeight: 'bold',
-                        color: item.match?.is_blocked ? '#ff4d4f' : item.match?.composite_score >= 70 ? '#52c41a' : item.match?.composite_score >= 50 ? '#faad14' : '#999'
-                      }}>
-                        {item.match?.is_blocked ? '×' : item.match?.composite_score || 0}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>综合</div>
-                    </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '12px', color: '#07c160' }}>查看详细分析 →</span>
                   </div>
                 </div>
               ))}
