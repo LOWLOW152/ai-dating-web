@@ -21,9 +21,9 @@ export default async function handler(req, res) {
     let query = `
       SELECT 
         q.*,
-        qc.name as category_name
+        qc.category_name
       FROM questions q
-      LEFT JOIN question_categories qc ON q.category_key = qc.key
+      LEFT JOIN question_categories qc ON q.category_key = qc.category_key
     `;
     const conditions = [];
     
