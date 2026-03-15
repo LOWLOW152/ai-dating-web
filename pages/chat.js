@@ -58,18 +58,13 @@ export default function Chat() {
         // 按 part 和 group 排序，确保配对的题目在一起
         const sortedQuestions = data.questions.sort((a, b) => {
           if (a.part !== b.part) return a.part - b.part;
-          if (a.question_group && b.question_group && a.question_group === b.question_group) {
-            // 同一组内，偏好题放后面
-            if (a.is_preference_for && !b.is_preference_for) return 1;
-            if (!a.is_preference_for && b.is_preference_for) return -1;
-          }
           return a.display_order - b.display_order || a.id - b.id;
         });
         
         const formattedQuestions = sortedQuestions.map(q => ({
           id: q.question_key,
           type: q.part === 1 ? 'auto' : q.part === 2 ? 'semi' : 'dog',
-          category: getCategoryLabel(q.category),
+          category: q.category_name || q.category,
           question: q.question_text,
           questionType: q.question_type,
           options: q.options,
@@ -96,18 +91,6 @@ export default function Chat() {
     }
   };
 
-  const getCategoryLabel = (category) => {
-    const map = {
-      basic: '基础信息',
-      interest: '兴趣话题',
-      social: '社交偏好',
-      lifestyle: '生活方式',
-      values: '价值观',
-      emotion: '情感核心'
-    };
-    return map[category] || category;
-  };
-  
   // 同步 ref 和 state
   useEffect(() => {
     currentQuestionIndexRef.current = currentQuestionIndex;
@@ -348,14 +331,6 @@ export default function Chat() {
         const prefText = '【匹配偏好】' + currentQuestion.preferenceText;
         addMessage(prefText, false, 'question');
         if (voiceMode) speakText(currentQuestion.preferenceText);
-        
-        // 如果有偏好选项，显示按钮
-        if (currentQuestion.preferenceOptions && currentQuestion.preferenceOptions.length > 0) {
-          const optionsText = currentQuestion.preferenceOptions.map(opt => `• ${opt.label}`).join('\n');
-          setTimeout(() => {
-            addMessage('可选：\n' + optionsText, false, 'options');
-          }, 300);
-        }
       }, 500);
       return;
     }
@@ -574,20 +549,20 @@ export default function Chat() {
       basicInfo: {
         nickname: ans.nickname || '未填写',
         gender: ans.gender || '未填写',
-        birthYear: ans.birthYear || '未填写',
+        birthYear: ans.birth_year || '未填写',
         city: ans.city || '未填写',
         occupation: ans.occupation || '未填写',
         education: ans.education || '未填写',
-        acceptLongDistance: ans.acceptLongDistance || '未填写',
-        ageRange: ans.ageRange || '未填写',
+        acceptLongDistance: ans.accept_long_distance || '未填写',
+        ageRange: ans.age_range || '未填写',
       },
       deepProfile: {
-        interests: ans.hobbyType || ans.longTermHobby || '未详细描述',
-        lifestyle: ans.weekendStyle || ans.sleepSchedule || '未详细描述',
-        values: ans.spendingHabit || ans.lifePreference || '未详细描述',
-        personality: ans.currentState || ans.trustedFor || '需要进一步挖掘',
-        relationship: ans.coreNeed || ans.idealRelationship || '需要进一步挖掘',
-        redFlags: ans.dealBreakers || '未明确',
+        interests: ans.hobby_type || ans.douyin_content_type || '未详细描述',
+        lifestyle: ans.sleep_schedule || ans.smoke_drink || '未详细描述',
+        values: ans.spending_habit || '未详细描述',
+        personality: ans.xingge || ans.xinggetwo || '需要进一步挖掘',
+        relationship: ans.core_need || '需要进一步挖掘',
+        redFlags: ans.deal_breakers || '未明确',
       },
       dogInterventionNeeded: dogQuestionsQueue.length > 0,
       dogQueue: dogQuestionsQueue
@@ -680,73 +655,41 @@ export default function Chat() {
   
   // 生成 CSV 内容（前端版）
   const generateCSVContent = (answers, profile) => {
-    const lines = [];
-    lines.push('字段,内容,分类');
-    lines.push('');
+    const headers = ['题目', '回答'];
+    const rows = [];
     
     // 基础信息
-    lines.push('=== 基础信息 ===,,');
-    lines.push(`昵称,${answers.nickname || ''},基础`);
-    lines.push(`性别,${answers.gender || ''},基础`);
-    lines.push(`出生年份,${answers.birthYear || ''},基础`);
-    lines.push(`城市,${answers.city || ''},基础`);
-    lines.push(`职业,${answers.occupation || ''},基础`);
-    lines.push(`学历,${answers.education || ''},基础`);
-    lines.push(`能否接受异地,${answers.acceptLongDistance || ''},基础`);
-    lines.push(`接受年龄差,${answers.ageRange || ''},基础`);
-    lines.push('');
+    rows.push(['昵称', profile.basicInfo.nickname]);
+    rows.push(['性别', profile.basicInfo.gender]);
+    rows.push(['出生年份', profile.basicInfo.birthYear]);
+    rows.push(['城市', profile.basicInfo.city]);
+    rows.push(['职业', profile.basicInfo.occupation]);
+    rows.push(['学历', profile.basicInfo.education]);
+    rows.push(['能否接受异地', profile.basicInfo.acceptLongDistance]);
+    rows.push(['接受年龄范围', profile.basicInfo.ageRange]);
     
-    // 兴趣爱好
-    lines.push('=== 兴趣爱好 ===,,');
-    lines.push(`休息时最常做的事,${answers.hobbyType || ''},兴趣`);
-    lines.push(`周末怎么过,${answers.weekendStyle || ''},兴趣`);
-    lines.push(`坚持三年以上,${answers.longTermHobby || ''},兴趣`);
-    lines.push(`旅行偏好,${answers.travelStyle || ''},兴趣`);
-    lines.push(`独处时想什么,${answers.spiritualEnjoyment || ''},兴趣`);
-    lines.push(`消费决策,${answers.recentInterest || ''},兴趣`);
-    lines.push(`交友偏好,${answers.friendPreference || ''},兴趣`);
-    lines.push(`理想日常,${answers.uniqueHobby || ''},兴趣`);
-    lines.push('');
+    // 其他问题
+    Object.entries(answers).forEach(([key, value]) => {
+      if (!['nickname', 'gender', 'birth_year', 'city', 'occupation', 'education', 'accept_long_distance', 'age_range'].includes(key)) {
+        rows.push([key, value]);
+      }
+    });
     
-    // 生活底色
-    lines.push('=== 生活底色 ===,,');
-    lines.push(`消费观,${answers.spendingHabit || ''},生活`);
-    lines.push(`作息类型,${answers.sleepSchedule || ''},生活`);
-    lines.push(`整洁程度,${answers.tidiness || ''},生活`);
-    lines.push(`压力应对,${answers.stressResponse || ''},生活`);
-    lines.push(`决策方式,${answers.decisionStyle || ''},生活`);
-    lines.push(`家庭关系,${answers.familyRelationship || ''},生活`);
-    lines.push(`计划性,${answers.planningStyle || ''},生活`);
-    lines.push(`成就感来源,${answers.achievementSource || ''},生活`);
-    lines.push(`独处感受,${answers.solitudeFeeling || ''},生活`);
-    lines.push(`生活偏好,${answers.lifePreference || ''},生活`);
-    lines.push('');
+    // 生成 CSV
+    let csv = headers.join(',') + '\n';
+    rows.forEach(row => {
+      // 处理包含逗号的字段
+      const escapedRow = row.map(field => {
+        const str = String(field);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      });
+      csv += escapedRow.join(',') + '\n';
+    });
     
-    // 核心人格
-    lines.push('=== 核心人格（需人工复核）===,,');
-    lines.push(`当前状态,${answers.currentState || ''},核心`);
-    lines.push(`朋友信任点,${answers.trustedFor || ''},核心`);
-    lines.push(`被理解经历,${answers.understoodMoment || ''},核心`);
-    lines.push(`关系盲点,${answers.relationshipBlindspot || ''},核心`);
-    lines.push(`理想关系,${answers.idealRelationship || ''},核心`);
-    lines.push('');
-    
-    // 相处偏好
-    lines.push('=== 相处偏好（需人工复核）===,,');
-    lines.push(`核心需求,${answers.coreNeed || ''},相处`);
-    lines.push(`冲突处理,${answers.conflictHandling || ''},相处`);
-    lines.push(`联系频率,${answers.contactFrequency || ''},相处`);
-    lines.push(`关系红线,${answers.dealBreakers || ''},相处`);
-    lines.push(`未来画面,${answers.futureVision || ''},相处`);
-    lines.push('');
-    
-    // 元信息
-    lines.push('=== 元信息 ===,,');
-    lines.push(`完成时间,${new Date().toISOString()},系统`);
-    lines.push(`需复核题目数,${profile.dogQueue?.length || 0},系统`);
-    lines.push(`档案状态,${profile.dogInterventionNeeded ? '需人工复核' : '自动完成'},系统`);
-    
-    return lines.join('\n');
+    return csv;
   };
 
   const handleSend = () => handleSendWithText(inputValue);
@@ -769,6 +712,18 @@ export default function Chat() {
 
   // 微信绿色
   const wechatGreen = '#95ec69';
+  
+  // 获取当前要显示的选项
+  const getCurrentOptions = () => {
+    if (!currentQuestion) return [];
+    if (isPreferenceQuestion && currentQuestion.preferenceOptions) {
+      return currentQuestion.preferenceOptions;
+    }
+    return currentQuestion.options || [];
+  };
+
+  const currentOptions = getCurrentOptions();
+  const isMultiSelect = currentQuestion?.questionType === 'checkbox' || currentQuestion?.questionType === 'multiple';
 
   return (
     <>
@@ -816,6 +771,7 @@ export default function Chat() {
                 <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#333', margin: 0 }}>狗蛋</h1>
                 <p style={{ fontSize: '12px', color: '#999', margin: 0 }}>
                   第 {Math.min(currentQuestionIndex + 1, totalQuestions)}/{totalQuestions} 题
+                  {isPreferenceQuestion && ' · 偏好题'}
                   {currentQuestion?.type === 'dog' && ' · 深度'}
                 </p>
               </div>
@@ -947,6 +903,7 @@ export default function Chat() {
         {/* 底部输入区 */}
         <div style={{ backgroundColor: '#f7f7f7', borderTop: '1px solid #d9d9d9', padding: '12px 16px' }}>
           <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+            
             {/* 当前问题提示 */}
             {currentQuestion && (
               <div style={{
@@ -955,7 +912,7 @@ export default function Chat() {
                 marginBottom: '8px',
                 textAlign: 'center'
               }}>
-                {currentQuestion.isPreferenceFor && '⚙️ 匹配偏好题 · '}
+                {isPreferenceQuestion && '⚙️ 匹配偏好题 · '}
                 {currentQuestion.type === 'auto' && '💬 基础题'}
                 {currentQuestion.type === 'semi' && '🌿 探索题'}
                 {currentQuestion.type === 'dog' && '💭 深度题 - 慢慢想'}
@@ -963,11 +920,11 @@ export default function Chat() {
               </div>
             )}
             
-            {/* 选项按钮区域 */}
-            {currentQuestion?.options && currentQuestion.options.length > 0 && !isFollowUp && (
+            {/* 选项按钮区域 - 支持偏好题选项 */}
+            {currentOptions.length > 0 && !isFollowUp && (
               <div style={{ marginBottom: '12px' }}>
                 {/* 多选题提示 */}
-                {currentQuestion.questionType === 'checkbox' && (
+                {isMultiSelect && (
                   <div style={{ 
                     fontSize: '12px', 
                     color: selectedOptions.length >= 3 ? '#07c160' : '#ff9800',
@@ -980,18 +937,17 @@ export default function Chat() {
                 )}
                 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {currentQuestion.options.map((opt, idx) => {
-                    const isMulti = currentQuestion.questionType === 'checkbox';
-                    const isSelected = isMulti 
-                      ? selectedOptions.includes(opt.value)
-                      : inputValue === opt.value;
+                  {currentOptions.map((opt, idx) => {
+                    const isSelected = isMultiSelect 
+                      ? selectedOptions.includes(opt.value || opt)
+                      : inputValue === (opt.value || opt);
                     
                     return (
                       <button
                         key={idx}
-                        onClick={() => isMulti 
-                          ? handleMultiSelect(opt.value) 
-                          : handleOptionSelect(opt.value)
+                        onClick={() => isMultiSelect 
+                          ? handleMultiSelect(opt.value || opt) 
+                          : handleOptionSelect(opt.value || opt)
                         }
                         style={{
                           padding: '8px 16px',
@@ -1007,17 +963,17 @@ export default function Chat() {
                           gap: '4px'
                         }}
                       >
-                        {isMulti && (
+                        {isMultiSelect && (
                           <span>{isSelected ? '☑' : '☐'}</span>
                         )}
-                        {opt.label}
+                        {opt.label || opt}
                       </button>
                     );
                   })}
                 </div>
                 
                 {/* 多选题确认按钮 */}
-                {currentQuestion.questionType === 'checkbox' && selectedOptions.length > 0 && (
+                {isMultiSelect && selectedOptions.length > 0 && (
                   <button
                     onClick={handleMultiSubmit}
                     disabled={selectedOptions.length < 3}
@@ -1032,7 +988,6 @@ export default function Chat() {
                       cursor: selectedOptions.length >= 3 ? 'pointer' : 'not-allowed',
                       fontSize: '15px'
                     }}
-                  
                   >
                     确认选择 ({selectedOptions.length})
                   </button>
@@ -1060,13 +1015,13 @@ export default function Chat() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={isListening ? '正在听你说...' : 
-                  (currentQuestion?.options?.length > 0 && !isFollowUp ? '请选择上方选项...' : '输入消息...')}
-                disabled={currentQuestion?.options?.length > 0 && !isFollowUp || isListening}
+                  (currentOptions.length > 0 && !isFollowUp ? '请选择上方选项...' : '输入消息...')}
+                disabled={currentOptions.length > 0 && !isFollowUp || isListening}
                 style={{
                   flex: 1, height: '40px', padding: '0 12px',
                   border: '1px solid #d9d9d9', borderRadius: '4px',
                   fontSize: '15px', outline: 'none',
-                  backgroundColor: currentQuestion?.options?.length > 0 && !isFollowUp ? '#f5f5f5' : '#fff'
+                  backgroundColor: currentOptions.length > 0 && !isFollowUp ? '#f5f5f5' : '#fff'
                 }}
               />
               
