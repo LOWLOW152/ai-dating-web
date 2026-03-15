@@ -1,6 +1,7 @@
 import { sql } from '../../../lib/db';
 import { validateSession } from './login';
-import { calculateBidirectionalMatch, calculateRelationshipCurve, DEFAULT_WEIGHTS } from '../../../lib/match';
+import { calculateMatch } from '../../../lib/match-calculator';
+import { calculateRelationshipCurve, DEFAULT_WEIGHTS } from '../../../lib/match';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -70,11 +71,27 @@ export default async function handler(req, res) {
       targetWeights = DEFAULT_WEIGHTS;
     }
     
-    // 计算双向匹配
-    const bidirectional = calculateBidirectionalMatch(myProfile, targetProfile, myWeights, targetWeights);
+    // 使用 match-calculator 计算双向匹配（与 profile/match 页保持一致）
+    const matchFromA = await calculateMatch(myId, targetId);
+    const matchFromB = await calculateMatch(targetId, myId);
     
     // 计算关系发展曲线（从我的视角）
     const relationshipCurve = calculateRelationshipCurve(myProfile, targetProfile);
+    
+    // 构建双向匹配结果（与 profile 页格式一致）
+    const bidirectional = {
+      fromA: {
+        score: matchFromA.total_score,
+        categoryScores: matchFromA.category_scores,
+        summary: matchFromA.summary
+      },
+      fromB: {
+        score: matchFromB.total_score,
+        categoryScores: matchFromB.category_scores,
+        summary: matchFromB.summary
+      },
+      bidirectionalScore: Math.round((matchFromA.total_score + matchFromB.total_score) / 2)
+    };
     
     return res.status(200).json({
       success: true,
