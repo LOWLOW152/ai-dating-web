@@ -519,7 +519,7 @@ export default function Chat() {
 
   // 多选题提交
   const handleMultiSubmit = () => {
-    if (selectedOptions.length < 3) {
+    if (selectedOptions.length < 2) {
       return;
     }
     const value = selectedOptions.join('、');
@@ -723,7 +723,9 @@ export default function Chat() {
   };
 
   const currentOptions = getCurrentOptions();
-  const isMultiSelect = currentQuestion?.questionType === 'checkbox' || currentQuestion?.questionType === 'multiple';
+  // 偏好题强制单选，非偏好题根据类型判断
+  const isMultiSelect = !isPreferenceQuestion && 
+    (currentQuestion?.questionType === 'checkbox' || currentQuestion?.questionType === 'multiple');
 
   return (
     <>
@@ -927,12 +929,12 @@ export default function Chat() {
                 {isMultiSelect && (
                   <div style={{ 
                     fontSize: '12px', 
-                    color: selectedOptions.length >= 3 ? '#07c160' : '#ff9800',
+                    color: selectedOptions.length >= 2 ? '#07c160' : '#ff9800',
                     marginBottom: '8px',
                     textAlign: 'center'
                   }}>
                     已选 {selectedOptions.length} 项
-                    {selectedOptions.length < 3 && '（至少选3个）'}
+                    {selectedOptions.length < 2 && '（至少选2个）'}
                   </div>
                 )}
                 
@@ -976,16 +978,16 @@ export default function Chat() {
                 {isMultiSelect && selectedOptions.length > 0 && (
                   <button
                     onClick={handleMultiSubmit}
-                    disabled={selectedOptions.length < 3}
+                    disabled={selectedOptions.length < 2}
                     style={{
                       width: '100%',
                       marginTop: '12px',
                       padding: '10px',
-                      backgroundColor: selectedOptions.length >= 3 ? '#07c160' : '#e5e5e5',
-                      color: selectedOptions.length >= 3 ? '#fff' : '#999',
+                      backgroundColor: selectedOptions.length >= 2 ? '#07c160' : '#e5e5e5',
+                      color: selectedOptions.length >= 2 ? '#fff' : '#999',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: selectedOptions.length >= 3 ? 'pointer' : 'not-allowed',
+                      cursor: selectedOptions.length >= 2 ? 'pointer' : 'not-allowed',
                       fontSize: '15px'
                     }}
                   >
