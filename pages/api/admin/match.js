@@ -1,5 +1,19 @@
 import { calculateMatch, saveMatchResult, getMatchResultFromCache } from '../../../lib/match-calculator';
-import { validateSession } from '../login';
+import { sql } from '@vercel/postgres';
+
+// 验证会话
+async function validateSession(token) {
+  try {
+    const result = await sql`
+      SELECT * FROM admin_sessions 
+      WHERE token = ${token} 
+      AND expires_at > NOW()
+    `;
+    return result.rows.length > 0;
+  } catch (err) {
+    return false;
+  }
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
