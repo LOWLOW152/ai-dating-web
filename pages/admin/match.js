@@ -134,28 +134,70 @@ function MatchPageContent() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: '20px' }}>
-        <p style={{ color: '#ff4d4f', fontWeight: 'bold' }}>{error}</p>
-        {errorDetails?.message && (
-          <p style={{ color: '#666', marginTop: '8px', fontSize: '14px' }}>详情: {errorDetails.message}</p>
-        )}
-        {errorDetails?.stack && (
-          <pre style={{ 
-            color: '#999', 
-            marginTop: '16px', 
-            fontSize: '12px', 
-            maxWidth: '800px',
-            maxHeight: '300px',
-            overflow: 'auto',
-            background: '#f5f5f5',
-            padding: '12px',
-            borderRadius: '4px',
-            textAlign: 'left'
-          }}>
-            {errorDetails.stack}
-          </pre>
-        )}
-        <Link href="/admin" style={{ color: '#07c160', marginTop: '16px' }}>返回列表</Link>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: '20px', background: '#f5f5f5' }}>
+        <div style={{ 
+          background: 'white', 
+          padding: '40px', 
+          borderRadius: '12px', 
+          textAlign: 'center',
+          maxWidth: '600px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h2 style={{ color: '#ff4d4f', margin: '0 0 12px 0', fontSize: '18px' }}>出错了</h2>
+          <p style={{ color: '#666', margin: '0 0 8px 0', fontSize: '15px' }}>{error}</p>
+          {errorDetails?.message && (
+            <p style={{ color: '#999', margin: '0 0 24px 0', fontSize: '13px' }}>{errorDetails.message}</p>
+          )}
+          
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button 
+              onClick={() => window.location.reload()}
+              style={{ 
+                padding: '10px 24px', 
+                background: '#07c160', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              重试
+            </button>
+            <Link href="/admin" style={{ 
+              padding: '10px 24px', 
+              background: '#f5f5f5', 
+              color: '#666', 
+              border: '1px solid #d9d9d9', 
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontSize: '14px',
+              display: 'inline-block'
+            }}>
+              ← 返回列表
+            </Link>
+          </div>
+          
+          {errorDetails?.stack && (
+            <details style={{ marginTop: '24px', textAlign: 'left' }}>
+              <summary style={{ color: '#999', fontSize: '12px', cursor: 'pointer' }}>查看详细错误</summary>
+              <pre style={{ 
+                color: '#999', 
+                marginTop: '12px', 
+                fontSize: '11px', 
+                maxHeight: '200px',
+                overflow: 'auto',
+                background: '#f5f5f5',
+                padding: '12px',
+                borderRadius: '4px',
+                textAlign: 'left'
+              }}>
+                {errorDetails.stack}
+              </pre>
+            </details>
+          )}
+        </div>
       </div>
     );
   }
