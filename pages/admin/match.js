@@ -269,9 +269,9 @@ function MatchPageContent() {
             <p style={{ color: '#999', textAlign: 'center', padding: '40px' }}>暂无匹配对象</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {matches.map((match, index) => (
+              {matches.map((item, index) => (
                 <div
-                  key={match.profileId}
+                  key={item.profile?.id}
                   style={{
                     padding: '16px',
                     border: '1px solid #e8e8e8',
@@ -279,53 +279,41 @@ function MatchPageContent() {
                     cursor: 'pointer',
                     transition: 'box-shadow 0.2s'
                   }}
-                  onClick={() => router.push(`/admin/match-detail?profileId=${profileId}&matchId=${match.profileId}`)}
+                  onClick={() => router.push(`/admin/match-detail?profileId=${profileId}&matchId=${item.profile?.id}`)}
                   onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'}
                   onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: 500 }}>#{index + 1} {match.nickname}</span>
+                      <span style={{ fontWeight: 500 }}>#{index + 1} {item.profile?.nickname}</span>
                       <span style={{ color: '#999', fontSize: '13px' }}>
-                        {match.gender} · {match.age || '年龄未知'}岁 · {match.city || '城市未知'}
+                        {item.profile?.gender === 'male' ? '男' : item.profile?.gender === 'female' ? '女' : '未知'} · {item.profile?.birth_year ? new Date().getFullYear() - item.profile.birth_year : '?'}岁 · {item.profile?.city || '城市未知'}
                       </span>
                     </div>
                     <span style={{ fontSize: '12px', color: '#07c160' }}>点击查看详情 →</span>
                   </div>
                   
-                  {/* 双向分数展示 */}
+                  {/* 匹配分数展示 */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ fontSize: '12px', color: '#666' }}>
-                      {Object.entries(match.dimensions || {}).map(([dim, data]) => (
+                      {item.match?.category_scores && Object.entries(item.match.category_scores).map(([dim, score]) => (
                         <span key={dim} style={{ marginRight: '12px' }}>
-                          {DIMENSION_LABELS[dim]}: {data.score}分
+                          {DIMENSION_LABELS[dim]}: {Math.round(score)}分
                         </span>
                       ))}
                     </div>
                     <div style={{ display: 'flex', gap: '16px' }}>
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#999' }}>你对TA</div>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(match.myScore) }}>
-                          {match.myScore}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#999' }}>TA对你</div>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(match.theirScore) }}>
-                          {match.theirScore}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#999' }}>综合</div>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: getScoreColor(match.bidirectionalScore) }}>
-                          {match.bidirectionalScore}
+                        <div style={{ fontSize: '11px', color: '#999' }}>匹配分</div>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: getScoreColor(item.match?.total_score) }}>
+                          {item.match?.is_blocked ? '×' : item.match?.total_score || 0}
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   {/* 关系发展曲线图 */}
-                  {match.relationshipCurve && (
+                  {item.match?.relationshipCurve && (
                     <div style={{ marginTop: '12px', padding: '12px', background: '#f8f8f8', borderRadius: '6px' }}>
                       <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '8px', color: '#333' }}>
                         关系发展预测
@@ -354,7 +342,7 @@ function MatchPageContent() {
                         <text x="35" y="95" fontSize="9" fill="#999" textAnchor="end">0</text>
                         
                         {/* 曲线 */}
-                        {match.relationshipCurve.curve.length > 1 && (
+                        {item.match.relationshipCurve.curve.length > 1 && (
                           <polyline
                             fill="none"
                             stroke="#07c160"
@@ -368,7 +356,7 @@ function MatchPageContent() {
                         )}
                         
                         {/* 数据点 */}
-                        {match.relationshipCurve.curve.filter((_, i) => i % 4 === 0).map((p, i) => {
+                        {item.match.relationshipCurve.curve.filter((_, i) => i % 4 === 0).map((p, i) => {
                           const x = 40 + (p.month / 24) * 340;
                           const y = 100 - p.score;
                           return (
@@ -399,11 +387,11 @@ function MatchPageContent() {
                       </div>
                       
                       {/* 洞察 */}
-                      {match.insights && match.insights.length > 0 && (
+                      {item.match?.insights && item.match.insights.length > 0 && (
                         <div style={{ marginTop: '12px', padding: '8px 12px', background: 'white', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
                           <div style={{ fontWeight: 500, marginBottom: '4px', color: '#333' }}>匹配洞察：</div>
                           <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                            {match.insights.map((insight, idx) => (
+                            {item.match.insights.map((insight, idx) => (
                               <li key={idx}>{insight}</li>
                             ))}
                           </ul>
