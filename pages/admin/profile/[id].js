@@ -214,8 +214,8 @@ function ProfileDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {matches.map((item, index) => (
                 <div 
-                  key={item.profile.id}
-                  onClick={() => router.push(`/admin/match-detail?profileId=${id}&matchId=${item.profile.id}`)}
+                  key={item.profile?.id || index}
+                  onClick={() => item.profile?.id && router.push(`/admin/match-detail?profileId=${id}&matchId=${item.profile.id}&_v=3`)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -243,13 +243,13 @@ function ProfileDetail() {
                   
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 500, marginBottom: '4px' }}>
-                      {item.profile.nickname || '未命名'}
+                      {item.profile?.nickname || '未命名'}
                       <span style={{ color: '#999', fontSize: '13px', marginLeft: '8px' }}>
-                        {item.profile.gender === 'male' ? '男' : item.profile.gender === 'female' ? '女' : ''} · {item.profile.city || '未知城市'}
+                        {item.profile?.gender === 'male' ? '男' : item.profile?.gender === 'female' ? '女' : ''} · {item.profile?.city || '未知城市'}
                       </span>
                     </div>
                     <div style={{ fontSize: '13px', color: '#666' }}>
-                      {item.profile.occupation || '职业未知'} · {item.profile.education || '学历未知'}
+                      {item.profile?.occupation || '职业未知'} · {item.profile?.education || '学历未知'}
                     </div>
                   </div>
                   
@@ -257,11 +257,11 @@ function ProfileDetail() {
                     <div style={{
                       fontSize: '24px',
                       fontWeight: 'bold',
-                      color: item.match.is_blocked ? '#ff4d4f' : item.match.total_score >= 70 ? '#52c41a' : item.match.total_score >= 50 ? '#faad14' : '#999'
+                      color: item.match?.is_blocked ? '#ff4d4f' : item.match?.total_score >= 70 ? '#52c41a' : item.match?.total_score >= 50 ? '#faad14' : '#999'
                     }}>
-                      {item.match.is_blocked ? '×' : item.match.total_score}
+                      {item.match?.is_blocked ? '×' : item.match?.total_score || 0}
                     </div>                    <div style={{ fontSize: '12px', color: '#999' }}>
-                      {item.match.is_blocked ? '不匹配' : '匹配分'}
+                      {item.match?.is_blocked ? '不匹配' : '匹配分'}
                     </div>
                   </div>
                 </div>
