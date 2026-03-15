@@ -105,9 +105,22 @@ async function handleGet(req, res) {
     // 按总分排序
     matches.sort((a, b) => b.match.total_score - a.match.total_score);
     
+    // 将 match_weights 映射为 weights 以兼容前端
+    const profileWithWeights = {
+      ...profile,
+      weights: profile.match_weights || {
+        basic: 7,
+        emotion: 8,
+        values: 8,
+        lifestyle: 6,
+        interest: 6,
+        social: 5
+      }
+    };
+    
     return res.json({
       success: true,
-      profile: profile,
+      profile: profileWithWeights,
       matches: matches
     });
     
