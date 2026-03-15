@@ -221,7 +221,15 @@ function MatchDetailContent() {
   };
 
   useEffect(() => {
-    if (!profileId || !matchId) return;
+    if (!profileId || !matchId) {
+      if (profileId === undefined || matchId === undefined) {
+        // 等待 URL 参数解析
+        return;
+      }
+      setError('缺少必要参数：' + (!profileId ? 'profileId ' : '') + (!matchId ? 'matchId' : ''));
+      setLoading(false);
+      return;
+    }
     
     const token = localStorage.getItem('adminToken');
     if (!token) {
