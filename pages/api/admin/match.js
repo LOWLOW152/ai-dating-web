@@ -121,11 +121,17 @@ async function handleGet(req, res) {
   }
 }
 
-// POST: 计算两个档案的匹配
+// POST: 计算两个档案的匹配 或 保存权重
 async function handlePost(req, res) {
   try {
-    const { profile_a_id, profile_b_id, force_recalculate } = req.body;
+    const { profile_a_id, profile_b_id, profileId, weights, force_recalculate } = req.body;
     
+    // 如果是保存权重
+    if (profileId && weights) {
+      return handleSaveWeights(req, res);
+    }
+    
+    // 否则是计算匹配
     if (!profile_a_id || !profile_b_id) {
       return res.status(400).json({ 
         error: '缺少必要参数', 
@@ -163,6 +169,45 @@ async function handlePost(req, res) {
     res.status(500).json({
       error: '匹配计算失败',
       code: 'CALC_ERROR',
+      message: error.message
+    });
+  }
+}
+
+// 保存权重
+async function handleSaveWeights(req, res) {
+  try {
+    const { profileId, weights } = req.body;
+    
+    if (!profileId || !weights) {
+      return res.status(400).json({
+        error: '缺少必要参数',
+        code: 'MISSING_PARAMS',
+        message: '需要提供 profileId 和 weights'
+      });
+    }
+    
+    // 保存到 profiles 表
+    await sql`
+      UPDATE profiles 
+      SET match_weights = ${JSON.stringify(weights)},
+          updated_at = NOW()
+      WHERE id = ${profileId}
+    `;
+    
+    // 清空该档案的匹配缓存，强制重新计算
+    await sql`DELETE FROM match_results WHERE profile_a_id = ${profileId} OR profile_b_id = ${profileId}`;
+    
+    return res.json({
+      success: true,
+      message: '权重已更新'
+    });
+    
+  } catch (error) {
+    console.error('保存权重错误:', error);
+    res.status(500).json({
+      error: '保存权重失败',
+      code: 'SAVE_ERROR',
       message: error.message
     });
   }
