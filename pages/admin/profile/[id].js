@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
 export default function ProfileDetail() {
   const router = useRouter();
   const { id } = router.query;
   const [profile, setProfile] = useState(null);
+  const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMatches, setLoadingMatches] = useState(false);
   const [error, setError] = useState('');
   const [newStatus, setNewStatus] = useState('');
   const [notes, setNotes] = useState('');
@@ -22,6 +25,7 @@ export default function ProfileDetail() {
     }
     
     fetchProfile(token, id);
+    fetchMatches(token, id);
   }, [id]);
 
   const fetchProfile = async (token, profileId) => {
@@ -48,6 +52,30 @@ export default function ProfileDetail() {
       setError('网络错误');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMatches = async (token, profileId) => {
+    setLoadingMatches(true);
+    try {
+      const res = await fetch(`/api/admin/match?profileId=${profileId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        return;
+      }
+      
+      const data = await res.json();
+      if (data.success) {
+        // 只取前5个
+        setMatches(data.matches.slice(0, 5));
+      }
+    } catch (err) {
+      console.error('获取匹配失败:', err);
+    } finally {
+      setLoadingMatches(false);
     }
   };
 
@@ -160,6 +188,79 @@ export default function ProfileDetail() {
           <div><span style={{ color: '#999' }}>关系红线：</span>{formatAnswer(profile.deal_breakers)}</div>
         </div>
 
+        {/* 匹配推荐 */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '8px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ margin: 0, fontSize: '16px', color: '#333' }}>匹配推荐 TOP 5</h2>
+            <Link href={`/admin/match?profileId=${id}`} style={{ color: '#07c160', fontSize: '14px', textDecoration: 'none' }}>
+              查看全部 →
+            </Link>
+          </div>
+          
+          {loadingMatches ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>计算匹配中...</div>
+          ) : matches.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>暂无匹配数据</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {matches.map((item, index) => (
+                <div 
+                  key={item.profile.id}
+                  onClick={() => router.push(`/admin/match-detail?myId=${id}&targetId=${item.profile.id}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '16px',
+                    background: index < 3 ? '#f6ffed' : '#fafafa',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    border: index < 3 ? '1px solid #b7eb8f' : '1px solid #e8e8e8'
+                  }}
+                >
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    background: index < 3 ? '#52c41a' : '#999',
+                    color: 'white',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    marginRight: '16px'
+                  }}>
+                    {index + 1}
+                  </div>
+                  
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+                      {item.profile.nickname || '未命名'}
+                      <span style={{ color: '#999', fontSize: '13px', marginLeft: '8px' }}>
+                        {item.profile.gender === 'male' ? '男' : item.profile.gender === 'female' ? '女' : ''} · {item.profile.city || '未知城市'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#666' }}>
+                      {item.profile.occupation || '职业未知'} · {item.profile.education || '学历未知'}
+                    </div>
+                  </div>
+                  
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{
+                      fontSize: '24px',
+                      fontWeight: 'bold',
+                      color: item.match.is_blocked ? '#ff4d4f' : item.match.total_score >= 70 ? '#52c41a' : item.match.total_score >= 50 ? '#faad14' : '#999'
+                    }}>
+                      {item.match.is_blocked ? '×' : item.match.total_score}
+                    </div>                    <div style={{ fontSize: '12px', color: '#999' }}>
+                      {item.match.is_blocked ? '不匹配' : '匹配分'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* 管理操作 */}
         <div style={{ background: 'white', padding: '24px', borderRadius: '8px' }}>
           <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>管理</h2>
@@ -208,3 +309,5 @@ export default function ProfileDetail() {
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(ProfileDetail), { ssr: false });
