@@ -1,7 +1,7 @@
 // 临时API：重新排序问题
 // 执行后请删除此文件
 
-import { sql } from '../../lib/db';
+import { sql } from '../../../lib/db';
 
 const ADMIN_PASSWORD = 'lowlow2025'; // 临时密码，执行后改
 
