@@ -57,6 +57,7 @@ function ProfileDetail() {
 
   const fetchMatches = async (token, profileId) => {
     setLoadingMatches(true);
+    console.log('开始获取匹配:', profileId);
     try {
       const res = await fetch(`/api/admin/match?profileId=${profileId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -68,9 +69,13 @@ function ProfileDetail() {
       }
       
       const data = await res.json();
+      console.log('匹配API返回:', data);
       if (data.success) {
+        console.log('匹配数量:', data.matches?.length);
         // 只取前5个
         setMatches(data.matches.slice(0, 5));
+      } else {
+        console.error('API错误:', data.error);
       }
     } catch (err) {
       console.error('获取匹配失败:', err);
