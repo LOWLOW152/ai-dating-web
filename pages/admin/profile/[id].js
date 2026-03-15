@@ -72,8 +72,10 @@ function ProfileDetail() {
       console.log('匹配API返回:', data);
       if (data.success) {
         console.log('匹配数量:', data.matches?.length);
-        // 只取前5个
-        setMatches(data.matches.slice(0, 5));
+        const sliced = data.matches.slice(0, 5);
+        console.log('设置matches:', sliced.length);
+        setMatches(sliced);
+        console.log('setMatches已调用');
       } else {
         console.error('API错误:', data.error);
       }
@@ -205,7 +207,9 @@ function ProfileDetail() {
           {loadingMatches ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>计算匹配中...</div>
           ) : matches.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>暂无匹配数据</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+              暂无匹配数据 (调试: matches长度={matches?.length})
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {matches.map((item, index) => (
