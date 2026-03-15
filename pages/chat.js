@@ -344,50 +344,9 @@ export default function Chat() {
       goToNextQuestion();
       
     } else if (qType === 'semi') {
-      // Semi题：调用后端AI判断是否追问
-      if (!isFollowUp) {
-        setIsTyping(false);
-        addMessage('🤔 让我想想...', false, 'system');
-        
-        try {
-          const response = await fetch('/api/followup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              question: currentQuestion.question,
-              answer: userAnswer,
-              questionType: 'semi'
-            })
-          });
-          
-          const data = await response.json();
-          
-          if (data.needFollowUp && data.followUp) {
-            // 豆包返回的追问，加上🤔标识
-            const displayText = data.source === 'doubao' 
-              ? `${data.followUp} 🤔` 
-              : data.followUp;
-            addMessage(displayText, false, 'followup');
-            if (voiceMode) speakText(data.followUp);
-            setIsFollowUp(true);
-            setFollowUpCount(1);
-          } else {
-            // 不需要追问，给用户一个反馈再下一题
-            addMessage('明白了，继续下一题～', false, 'system');
-            setTimeout(() => goToNextQuestion(), 800);
-          }
-        } catch (error) {
-          console.error('追问请求失败:', error);
-          // 失败时直接过
-          goToNextQuestion();
-        }
-      } else {
-        // 已追问过，进入下一题
-        setIsTyping(false);
-        setIsFollowUp(false);
-        setFollowUpCount(0);
-        goToNextQuestion();
-      }
+      // Semi题（选择题）：直接过，不调豆包
+      setIsTyping(false);
+      goToNextQuestion();
       
     } else if (qType === 'dog') {
       // Dog题：调用后端AI深度追问
