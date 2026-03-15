@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
-export default function ProfileDetail() {
+function ProfileDetail() {
   const router = useRouter();
   const { id } = router.query;
   const [profile, setProfile] = useState(null);
