@@ -344,11 +344,28 @@ function MatchPageContent() {
                         </span>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                      {/* 我对他 */}
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#999' }}>匹配分</div>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: getScoreColor(item.match?.total_score) }}>
-                          {item.match?.is_blocked ? '×' : item.match?.total_score || 0}
+                        <div style={{ fontSize: '11px', color: '#999' }}>我对他</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(item.match?.score_ab) }}>
+                          {item.match?.is_blocked ? '×' : item.match?.score_ab || item.match?.total_score || 0}
+                        </div>
+                      </div>
+                      
+                      {/* 他对我 */}
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#999' }}>他对我</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(item.match?.score_ba) }}>
+                          {item.match?.is_blocked ? '×' : item.match?.score_ba || item.match?.total_score || 0}
+                        </div>
+                      </div>
+                      
+                      {/* 综合分 */}
+                      <div style={{ textAlign: 'center', padding: '4px 12px', background: '#f0f0f0', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '11px', color: '#666', fontWeight: 500 }}>综合</div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: getScoreColor(item.match?.composite_score) }}>
+                          {item.match?.is_blocked ? '×' : item.match?.composite_score || item.match?.total_score || 0}
                         </div>
                       </div>
                     </div>

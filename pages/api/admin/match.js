@@ -83,27 +83,47 @@ async function handleGet(req, res) {
     // 计算与每个档案的匹配
     const matches = [];
     for (const target of allProfilesRes.rows) {
-      // 检查缓存
-      let matchResult = await getMatchResultFromCache(profileId, target.id);
-      
-      if (!matchResult) {
+      // A→B 的匹配（我对他）
+      let matchResultAB = await getMatchResultFromCache(profileId, target.id);
+      if (!matchResultAB) {
         try {
-          matchResult = await calculateMatch(profileId, target.id);
-          await saveMatchResult(profileId, target.id, matchResult);
+          matchResultAB = await calculateMatch(profileId, target.id);
+          await saveMatchResult(profileId, target.id, matchResultAB);
         } catch (err) {
           console.error(`计算匹配失败 ${profileId} vs ${target.id}:`, err);
           continue;
         }
       }
       
+      // B→A 的匹配（他对我）
+      let matchResultBA = await getMatchResultFromCache(target.id, profileId);
+      if (!matchResultBA) {
+        try {
+          matchResultBA = await calculateMatch(target.id, profileId);
+          await saveMatchResult(target.id, profileId, matchResultBA);
+        } catch (err) {
+          console.error(`计算反向匹配失败 ${target.id} vs ${profileId}:`, err);
+        }
+      }
+      
+      // 综合分 = 平均分（或加权）
+      const scoreAB = matchResultAB.total_score;
+      const scoreBA = matchResultBA?.total_score ?? scoreAB;
+      const compositeScore = Math.round((scoreAB + scoreBA) / 2);
+      
       matches.push({
         profile: target,
-        match: matchResult
+        match: {
+          ...matchResultAB,
+          score_ab: scoreAB,
+          score_ba: scoreBA,
+          composite_score: compositeScore
+        }
       });
     }
     
-    // 按总分排序
-    matches.sort((a, b) => b.match.total_score - a.match.total_score);
+    // 按综合分排序
+    matches.sort((a, b) => b.match.composite_score - a.match.composite_score);
     
     // 将 match_weights 映射为 weights 以兼容前端
     const profileWithWeights = {
