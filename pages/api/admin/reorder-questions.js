@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
     // 获取更新后的结果
     const result = await sql`
-      SELECT question_key, part, display_order, question_text 
+      SELECT question_key, part, display_order, main_text 
       FROM questions 
       WHERE is_active = true
       ORDER BY part, display_order
