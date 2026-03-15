@@ -17,7 +17,7 @@ async function validateSession(token) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
   if (req.method === 'OPTIONS') {
@@ -36,10 +36,93 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: '登录已过期', code: 'EXPIRED' });
   }
   
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: '方法不允许' });
+  if (req.method === 'GET') {
+    return handleGet(req, res);
   }
   
+  if (req.method === 'POST') {
+    return handlePost(req, res);
+  }
+  
+  return res.status(405).json({ error: '方法不允许' });
+}
+
+// GET: 获取某个档案的所有匹配列表
+async function handleGet(req, res) {
+  try {
+    const { profileId } = req.query;
+    
+    if (!profileId) {
+      return res.status(400).json({ 
+        error: '缺少必要参数', 
+        code: 'MISSING_PARAMS',
+        message: '需要提供 profileId'
+      });
+    }
+    
+    // 获取档案信息
+    const profileRes = await sql`
+      SELECT * FROM profiles WHERE id = ${profileId}
+    `;
+    
+    if (profileRes.rows.length === 0) {
+      return res.status(404).json({ error: '档案不存在' });
+    }
+    
+    const profile = profileRes.rows[0];
+    
+    // 获取所有其他档案
+    const allProfilesRes = await sql`
+      SELECT id, nickname, gender, birth_year, city, occupation, education, status
+      FROM profiles 
+      WHERE id != ${profileId}
+      AND status = 'active'
+      ORDER BY created_at DESC
+    `;
+    
+    // 计算与每个档案的匹配
+    const matches = [];
+    for (const target of allProfilesRes.rows) {
+      // 检查缓存
+      let matchResult = await getMatchResultFromCache(profileId, target.id);
+      
+      if (!matchResult) {
+        try {
+          matchResult = await calculateMatch(profileId, target.id);
+          await saveMatchResult(profileId, target.id, matchResult);
+        } catch (err) {
+          console.error(`计算匹配失败 ${profileId} vs ${target.id}:`, err);
+          continue;
+        }
+      }
+      
+      matches.push({
+        profile: target,
+        match: matchResult
+      });
+    }
+    
+    // 按总分排序
+    matches.sort((a, b) => b.match.total_score - a.match.total_score);
+    
+    return res.json({
+      success: true,
+      profile: profile,
+      matches: matches
+    });
+    
+  } catch (error) {
+    console.error('获取匹配列表错误:', error);
+    res.status(500).json({
+      error: '获取匹配列表失败',
+      code: 'LIST_ERROR',
+      message: error.message
+    });
+  }
+}
+
+// POST: 计算两个档案的匹配
+async function handlePost(req, res) {
   try {
     const { profile_a_id, profile_b_id, force_recalculate } = req.body;
     
