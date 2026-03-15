@@ -191,31 +191,29 @@ function MatchDetailContent() {
     
     // 这里可以添加更复杂的学历匹配逻辑
     
-    // 4. 关系红线检查
+    // 4. 关系红线检查 - 检查双方红线是否一致
     const myDealBreakers = (myProfile.deal_breakers || '').toLowerCase();
     const theirDealBreakers = (matchProfile.deal_breakers || '').toLowerCase();
     
-    // 简单的关键词匹配检查
-    const commonRedFlags = ['抽烟', '喝酒', '赌博', '出轨', '欺骗', '暴力', '冷暴力'];
-    
-    commonRedFlags.forEach(flag => {
-      const myHatesIt = myDealBreakers.includes(flag);
-      const theyMightHaveIt = theirDealBreakers.includes(flag) || 
-        (matchProfile[flag] && matchProfile[flag] !== '不' && matchProfile[flag] !== '否');
+    // deal_breakers 是双方都排斥的事，一致反而是好事
+    // 如果有明显分歧才需要提示
+    if (myDealBreakers && theirDealBreakers) {
+      const myFlags = myDealBreakers.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+      const theirFlags = theirDealBreakers.split(/[,，]/).map(s => s.trim()).filter(Boolean);
       
-      if (myHatesIt && theyMightHaveIt) {
-        mismatches.push({
-          field: '关系红线',
-          issue: `你明确排斥"${flag}"，对方可能涉及`,
-          myValue: myProfile.deal_breakers,
-          theirValue: matchProfile.deal_breakers,
-          myRequirement: `不接受${flag}`,
-          theirRequirement: null,
-          blocker: '你',
-          critical: true
-        });
+      // 找出 A 排斥但 B 不排斥的（可能有冲突）
+      const onlyMine = myFlags.filter(f => !theirFlags.includes(f));
+      // 找出 B 排斥但 A 不排斥的
+      const onlyTheirs = theirFlags.filter(f => !myFlags.includes(f));
+      
+      // 共同排斥的（价值观一致）
+      const common = myFlags.filter(f => theirFlags.includes(f));
+      
+      if (common.length > 0) {
+        // 这是好事，不是坏事
+        console.log(`共同红线: ${common.join(', ')} - 价值观一致`);
       }
-    });
+    }
     
     return mismatches;
   };
@@ -436,19 +434,26 @@ function MatchDetailContent() {
       }
     }
     
-    // 6. 关系红线
+    // 6. 关系红线 - 检查双方红线是否一致
     if (field === 'dealBreakers') {
-      const myRedFlags = myAnswer?.toLowerCase().split(/[,，、\s]+/) || [];
-      const theirRedFlags = theirAnswer?.toLowerCase().split(/[,，、\s]+/) || [];
+      const myRedFlags = myAnswer?.toLowerCase().split(/[,，、\s]+/).filter(f => f.length > 1) || [];
+      const theirRedFlags = theirAnswer?.toLowerCase().split(/[,，、\s]+/).filter(f => f.length > 1) || [];
       
-      const conflicts = myRedFlags.filter(flag => 
-        flag.length > 1 && theirAnswer?.toLowerCase().includes(flag)
-      );
+      // 共同红线 = 价值观一致
+      const common = myRedFlags.filter(flag => theirRedFlags.includes(flag));
+      const onlyMine = myRedFlags.filter(flag => !theirRedFlags.includes(flag));
+      const onlyTheirs = theirRedFlags.filter(flag => !myRedFlags.includes(flag));
       
-      if (conflicts.length > 0) {
-        return { score: 0, matched: false, note: `冲突: ${conflicts.join(', ')}` };
+      if (common.length > 0 && onlyMine.length === 0 && onlyTheirs.length === 0) {
+        return { score: 100, matched: true, note: `价值观一致: 共同排斥${common.join(', ')}` };
       }
-      return { score: 100, matched: true, note: '无冲突' };
+      if (common.length > 0) {
+        return { score: 80, matched: true, note: `部分一致: 共同排斥${common.join(', ')}` };
+      }
+      if (myRedFlags.length === 0 && theirRedFlags.length === 0) {
+        return { score: 70, matched: null, note: '未设置红线' };
+      }
+      return { score: 60, matched: null, note: `差异: 你排斥${onlyMine.join(', ') || '无'}, 对方排斥${onlyTheirs.join(', ') || '无'}` };
     }
     
     // 默认处理
