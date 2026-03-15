@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     // 计算动态权重
     const matchWeights = calculateWeights(answers);
     
-    // 插入档案到数据库
+    // 插入档案到数据库（使用 snake_case 匹配前端存储的 key）
     const result = await sql`
       INSERT INTO profiles (
         id, invite_code, created_at,
@@ -44,16 +44,16 @@ export default async function handler(req, res) {
       ) VALUES (
         ${profileId}, ${inviteCode}, ${timestamp || new Date().toISOString()},
         ${answers.nickname}, ${answers.gender},
-        ${answers.birthYear ? parseInt(answers.birthYear) : null},
+        ${answers.birth_year ? parseInt(answers.birth_year) : null},
         ${answers.city}, ${answers.occupation}, ${answers.education},
-        ${answers.acceptLongDistance}, ${answers.ageRange},
-        ${answers.hobbyType}, ${answers.hobbyMatchPreference}, ${answers.travelStyle}, ${answers.travelMatchPreference},
-        ${answers.socialCircle}, ${answers.socialCirclePreference}, ${answers.socialRole}, ${answers.socialRolePreference},
-        ${answers.spendingHabit}, ${answers.spendingConsistency}, ${answers.sleepSchedule}, ${answers.sleepConsistency},
-        ${answers.tidiness}, ${answers.tidinessConsistency}, ${answers.stressResponse}, ${answers.stressConsistency},
-        ${answers.familyRelationship}, ${answers.familyConsistency}, ${answers.lifePreference}, ${answers.lifeConsistency},
-        ${answers.currentState}, ${answers.trustedFor}, ${answers.understoodMoment}, ${answers.relationshipBlindspot}, ${answers.idealRelationship},
-        ${answers.coreNeed}, ${answers.conflictHandling}, ${answers.contactFrequency}, ${answers.dealBreakers}, ${answers.futureVision},
+        ${answers.accept_long_distance}, ${answers.age_range},
+        ${answers.hobby_type}, ${answers.hobby_type_preference}, ${answers.travel_style}, ${answers.travel_style_preference},
+        ${answers.social_circle}, ${answers.social_circle_preference}, ${answers.social_role}, ${answers.social_role_preference},
+        ${answers.spending_habit}, ${answers.spending_habit_preference}, ${answers.sleep_schedule}, ${answers.sleep_schedule_preference},
+        ${answers.tidiness}, ${answers.tidiness_preference}, ${answers.stress_response}, ${answers.stress_response_preference},
+        ${answers.family_relationship}, ${answers.family_relationship_preference}, ${answers.life_preference}, ${answers.life_preference_preference},
+        ${answers.current_state}, ${answers.trusted_for}, ${answers.understood_moment}, ${answers.relationship_blindspot}, ${answers.ideal_relationship},
+        ${answers.core_need}, ${answers.conflict_handling}, ${answers.contact_frequency}, ${answers.deal_breakers}, ${answers.future_vision},
         ${JSON.stringify(profile.followupLogs || [])}, '待处理',
         ${JSON.stringify(matchWeights)}
       )
