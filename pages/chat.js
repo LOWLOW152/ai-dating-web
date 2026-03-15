@@ -34,6 +34,10 @@ export default function Chat() {
   
   // 多选题状态
   const [selectedOptions, setSelectedOptions] = useState([]);
+  
+  // 偏好题状态
+  const [isPreferenceQuestion, setIsPreferenceQuestion] = useState(false);
+  const [originalAnswer, setOriginalAnswer] = useState(null);
 
   const totalQuestions = questions.length;
   const currentQuestion = questions[currentQuestionIndex];
@@ -72,8 +76,12 @@ export default function Chat() {
           isAiMonitored: q.is_ai_monitored,
           aiPrompt: q.ai_prompt,
           part: q.part,
-          questionGroup: q.question_group,
-          isPreferenceFor: q.is_preference_for
+          // 偏好题信息
+          hasPreference: q.has_preference,
+          preferenceText: q.preference_text,
+          preferenceDefault: q.preference_default,
+          preferenceOptions: q.preference_options,
+          manualScoring: q.manual_scoring
         }));
         
         setQuestions(formattedQuestions);
@@ -303,10 +311,14 @@ export default function Chat() {
     
     setIsTyping(true);
 
-    // 保存答案
+    // 保存答案（使用 question_key 作为键）
+    const answerKey = isPreferenceQuestion 
+      ? `${currentQuestion.id}_preference` 
+      : currentQuestion.id;
+    
     const newAnswers = { 
       ...answers, 
-      [currentQuestion.field]: isTestMode ? '[快速测试]' : userAnswer 
+      [answerKey]: isTestMode ? '[快速测试]' : userAnswer 
     };
     setAnswers(newAnswers);
 
@@ -322,6 +334,29 @@ export default function Chat() {
       setIsTyping(false);
       addMessage('🧪 测试模式：跳过追问', false, 'system');
       goToNextQuestion();
+      return;
+    }
+
+    // 检查是否需要显示偏好题
+    if (!isPreferenceQuestion && currentQuestion.hasPreference && currentQuestion.preferenceText) {
+      setIsTyping(false);
+      setIsPreferenceQuestion(true);
+      setOriginalAnswer(userAnswer);
+      
+      // 显示偏好题
+      setTimeout(() => {
+        const prefText = '【匹配偏好】' + currentQuestion.preferenceText;
+        addMessage(prefText, false, 'question');
+        if (voiceMode) speakText(currentQuestion.preferenceText);
+        
+        // 如果有偏好选项，显示按钮
+        if (currentQuestion.preferenceOptions && currentQuestion.preferenceOptions.length > 0) {
+          const optionsText = currentQuestion.preferenceOptions.map(opt => `• ${opt.label}`).join('\n');
+          setTimeout(() => {
+            addMessage('可选：\n' + optionsText, false, 'options');
+          }, 300);
+        }
+      }, 500);
       return;
     }
 
@@ -440,8 +475,10 @@ export default function Chat() {
     const currentIdx = currentQuestionIndexRef.current;
     const nextIndex = currentIdx + 1;
     
-    // 清空多选状态
+    // 清空状态
     setSelectedOptions([]);
+    setIsPreferenceQuestion(false);
+    setOriginalAnswer(null);
     
     if (nextIndex < totalQuestions) {
       setCurrentQuestionIndex(nextIndex);
@@ -480,11 +517,6 @@ export default function Chat() {
     // Dog类型题目特殊提示
     if (q.type === 'dog') {
       questionText = '【深度题】' + questionText;
-    }
-    
-    // 偏好题特殊提示
-    if (q.isPreferenceFor) {
-      questionText = '【匹配偏好】' + questionText;
     }
 
     setTimeout(() => {
