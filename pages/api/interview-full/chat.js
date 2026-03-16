@@ -10,6 +10,16 @@ import {
   saveProfile,
   QUESTION_FLOW
 } from '../../../lib/interview-full';
+import { callKimiAPI, generateFollowUpPrompt } from '../../../lib/api';
+
+// 需要AI判断的开放题字段
+const AI_FOLLOWUP_FIELDS = [
+  'hobby_type', 'douyin_content_type', 'travel_style', 
+  'xingge', 'xinggetwo', 'core_need', 'deal_breakers'
+];
+
+// 检查是否有Kimi API Key
+const hasKimiAPI = () => !!process.env.KIMI_API_KEY;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -90,6 +100,77 @@ export default async function handler(req, res) {
           stage: 'opening'
         });
       }
+    }
+    
+    // 处理追问回复
+    if (aiState.pendingFollowUp) {
+      const { field, originalValue, question } = aiState.pendingFollowUp;
+      
+      // 把追问回复追加到原答案
+      const combinedValue = `${originalValue}（追问补充：${message}）`;
+      const newAnswer = { [field]: combinedValue };
+      const newAnswers = { ...collectedAnswers, ...newAnswer };
+      
+      // 进入下一题或完成
+      const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
+      
+      if (nextResult.complete) {
+        const report = generateCompletionReport(newAnswers);
+        const { profileId } = await saveProfile(newAnswers, sessionId);
+        
+        await updateSession(sessionId, {
+          collected_answers: newAnswers,
+          ai_state: {
+            ...aiState,
+            pendingFollowUp: null,
+            stage: 'complete'
+          },
+          messages: [
+            ...currentMessages,
+            { role: 'user', content: message, timestamp: Date.now() },
+            { role: 'ai', content: report, timestamp: Date.now() }
+          ],
+          status: 'completed'
+        });
+        
+        return res.json({
+          success: true,
+          reply: report,
+          progress: { current: QUESTION_FLOW.length, total: QUESTION_FLOW.length, percentage: 100 },
+          stage: 'complete',
+          profileId,
+          completed: true
+        });
+      }
+      
+      // 还有下一题
+      const { reply, nextIndex, question: nextQuestion } = nextResult;
+      
+      await updateSession(sessionId, {
+        collected_answers: newAnswers,
+        ai_state: {
+          ...aiState,
+          currentQuestionIndex: nextIndex,
+          currentQuestion: nextQuestion,
+          pendingFollowUp: null
+        },
+        messages: [
+          ...currentMessages,
+          { role: 'user', content: message, timestamp: Date.now() },
+          { role: 'ai', content: reply, timestamp: Date.now() }
+        ]
+      });
+      
+      return res.json({
+        success: true,
+        reply,
+        progress: { 
+          current: nextIndex + 1, 
+          total: QUESTION_FLOW.length, 
+          percentage: Math.round((nextIndex + 1) / QUESTION_FLOW.length * 100)
+        },
+        stage: 'interviewing'
+      });
     }
     
     // 处理确认回复
@@ -241,23 +322,62 @@ export default async function handler(req, res) {
       });
     }
     
-    // 置信度够高，直接保存并进入下一题
+    // 置信度够高，检查是否需要AI追问
     const newAnswer = { [currentQuestion.key]: extraction.value };
     const newAnswers = { ...collectedAnswers, ...newAnswer };
     
-    console.log('Current state:', { 
-      currentQuestionIndex: aiState.currentQuestionIndex, 
-      questionFlowLength: QUESTION_FLOW.length,
-      currentQuestion: currentQuestion?.key
-    });
+    // 如果是开放题且配置了Kimi API，调用AI判断是否需要追问
+    if (AI_FOLLOWUP_FIELDS.includes(currentQuestion.key) && hasKimiAPI()) {
+      try {
+        const messages = generateFollowUpPrompt(
+          currentQuestion.question, 
+          extraction.value,
+          collectedAnswers
+        );
+        
+        const aiResponse = await callKimiAPI(messages, process.env.KIMI_API_KEY);
+        
+        // AI认为需要追问（回复不是"继续"）
+        if (aiResponse && !aiResponse.includes('继续') && aiResponse.length > 5) {
+          const followUpReply = aiResponse.trim();
+          
+          await updateSession(sessionId, {
+            collected_answers: newAnswers,
+            ai_state: {
+              ...aiState,
+              pendingFollowUp: {
+                field: currentQuestion.key,
+                originalValue: extraction.value,
+                question: currentQuestion
+              }
+            },
+            messages: [
+              ...currentMessages,
+              { role: 'user', content: message, timestamp: Date.now() },
+              { role: 'ai', content: followUpReply, timestamp: Date.now() }
+            ]
+          });
+          
+          return res.json({
+            success: true,
+            reply: followUpReply,
+            needsFollowUp: true,
+            progress: { 
+              current: aiState.currentQuestionIndex + 1, 
+              total: QUESTION_FLOW.length, 
+              percentage: Math.round((aiState.currentQuestionIndex + 1) / QUESTION_FLOW.length * 100)
+            },
+            stage: 'interviewing'
+          });
+        }
+      } catch (err) {
+        console.log('Kimi API调用失败，继续本地流程:', err.message);
+        // API失败，继续本地流程
+      }
+    }
     
+    // 本地流程：进入下一题或完成
     const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
-    
-    console.log('Direct - Next result:', { 
-      currentIndex: aiState.currentQuestionIndex, 
-      complete: nextResult.complete,
-      nextResultKeys: Object.keys(nextResult)
-    });
     
     if (nextResult.complete) {
       // 全部完成

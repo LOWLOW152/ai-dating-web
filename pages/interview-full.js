@@ -68,13 +68,15 @@ export default function InterviewFull() {
       
       if (data.success) {
         setTimeout(() => {
-          addMessage(data.reply, false, data.stage === 'confirming' ? 'confirm' : 
-                     data.stage === 'complete' ? 'complete' : 'ai');
+          addMessage(data.reply, false, 
+            data.stage === 'confirming' ? 'confirm' : 
+            data.stage === 'complete' ? 'complete' : 
+            data.needsFollowUp ? 'followup' : 'ai');
           setProgress(data.progress);
           setStage(data.stage);
           if (data.profileId) setProfileId(data.profileId);
           setIsTyping(false);
-        }, data.needsConfirm ? 300 : 600);
+        }, data.needsConfirm || data.needsFollowUp ? 300 : 600);
       }
     } catch (err) {
       console.error('Send failed:', err);
@@ -357,6 +359,19 @@ export default function InterviewFull() {
                   color: '#d48806'
                 }}>
                   💡 确认时回复「对/是的」，否认时回复「不对/错了」
+                </div>
+              )}
+              {stage === 'interviewing' && messages.length > 0 && messages[messages.length - 1]?.type === 'followup' && (
+                <div style={{
+                  backgroundColor: '#e6f7ff',
+                  border: '1px solid #91d5ff',
+                  borderRadius: '4px',
+                  padding: '8px 12px',
+                  marginBottom: '8px',
+                  fontSize: '13px',
+                  color: '#096dd9'
+                }}>
+                  💡 AI正在追问，补充回答即可
                 </div>
               )}
               
