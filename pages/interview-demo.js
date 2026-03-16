@@ -41,10 +41,10 @@ export default function InterviewDemo() {
     setIsTyping(false);
   };
 
-  // 添加消息
-  const addMessage = (text, isUser, type = 'normal') => {
+  // 添加消息（支持思考过程）
+  const addMessage = (text, isUser, type = 'normal', thinking = null) => {
     const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    setMessages(prev => [...prev, { text, isUser, type, time, id: Date.now() }]);
+    setMessages(prev => [...prev, { text, isUser, type, time, id: Date.now(), thinking }]);
   };
 
   // 发送消息
@@ -68,11 +68,24 @@ export default function InterviewDemo() {
       if (data.success) {
         // 延迟一下，模拟打字
         setTimeout(() => {
-          addMessage(data.reply, false, 'ai');
-          setProgress(data.progress);
-          setCollectedAnswers(data.collectedAnswers);
-          setIsComplete(data.completed);
-          setIsTyping(false);
+          // 如果有思考过程，先显示思考气泡
+          if (data.thinking && !data.needsConfirmation) {
+            addMessage(`🤔 ${data.thinking}`, false, 'thinking');
+            // 再显示正式回复
+            setTimeout(() => {
+              addMessage(data.reply, false, 'ai');
+              setProgress(data.progress);
+              setCollectedAnswers(data.collectedAnswers);
+              setIsComplete(data.completed);
+              setIsTyping(false);
+            }, 400);
+          } else {
+            addMessage(data.reply, false, data.needsConfirmation ? 'confirm' : 'ai', data.thinking);
+            setProgress(data.progress);
+            setCollectedAnswers(data.collectedAnswers);
+            setIsComplete(data.completed);
+            setIsTyping(false);
+          }
         }, 600);
       }
     } catch (err) {
@@ -287,17 +300,21 @@ export default function InterviewDemo() {
                   )}
                   
                   <div style={{
-                    maxWidth: '280px',
+                    maxWidth: msg.type === 'thinking' ? '240px' : '280px',
                     padding: '10px 14px',
                     borderRadius: '4px',
                     backgroundColor: msg.isUser ? wechatGreen : 
-                                    msg.type === 'system' ? '#fff2f0' : '#fff',
-                    color: '#000',
-                    fontSize: '15px',
+                                    msg.type === 'system' ? '#fff2f0' :
+                                    msg.type === 'thinking' ? '#f0f0f0' :
+                                    msg.type === 'confirm' ? '#fff7e6' : '#fff',
+                    color: msg.type === 'thinking' ? '#666' : '#000',
+                    fontSize: msg.type === 'thinking' ? '13px' : '15px',
                     lineHeight: 1.5,
                     wordBreak: 'break-word',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    border: msg.type === 'system' ? '1px solid #ffccc7' : 'none'
+                    border: msg.type === 'system' ? '1px solid #ffccc7' : 
+                            msg.type === 'confirm' ? '1px solid #ffd591' : 'none',
+                    fontStyle: msg.type === 'thinking' ? 'italic' : 'normal'
                   }}>
                     {msg.text}
                   </div>
@@ -398,7 +415,7 @@ export default function InterviewDemo() {
               </div>
               
               <div style={{ fontSize: '12px', color: '#999', marginTop: '8px', textAlign: 'center' }}>
-                💡 试试这样说："我叫小明，男生，在北京工作"
+                💡 试试这样说："我叫小明，男生，在北京工作" · 确认时回复"对"或"不对"
               </div>
             </div>
           </div>
