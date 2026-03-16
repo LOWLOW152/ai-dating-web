@@ -204,16 +204,9 @@ export default async function handler(req, res) {
     // 提取答案
     const extraction = extractAnswer(message, currentQuestion.key, currentQuestion.type);
     
-    // 调试日志
-    console.log('Extract:', { 
-      questionKey: currentQuestion.key, 
-      message, 
-      extracted: extraction 
-    });
-    
     // 如果需要确认（置信度低或可疑）
     if (extraction.needsConfirm) {
-      const { reply } = generateConfirmation(currentQuestion.key, extraction.originalValue, extraction.isNonsense);
+      const { reply } = generateConfirmation(currentQuestion.key, extraction.originalValue, extraction);
       
       await updateSession(sessionId, {
         ai_state: {
