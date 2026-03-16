@@ -133,9 +133,9 @@ export default async function handler(req, res) {
       const confirmedAnswer = { [aiState.pendingConfirm.field]: aiState.pendingConfirm.value };
       const newAnswers = { ...collectedAnswers, ...confirmedAnswer };
       
-      const { reply, nextIndex, question, complete } = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
+      const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
       
-      if (complete) {
+      if (nextResult.complete) {
         // 全部完成
         const report = generateCompletionReport(newAnswers);
         const { profileId } = await saveProfile(newAnswers, sessionId);
@@ -166,6 +166,8 @@ export default async function handler(req, res) {
       }
       
       // 还有下一题
+      const { reply, nextIndex, question } = nextResult;
+      
       await updateSession(sessionId, {
         collected_answers: newAnswers,
         ai_state: {
@@ -238,9 +240,9 @@ export default async function handler(req, res) {
     const newAnswer = { [currentQuestion.key]: extraction.value };
     const newAnswers = { ...collectedAnswers, ...newAnswer };
     
-    const { reply, nextIndex, question, complete } = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
+    const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
     
-    if (complete) {
+    if (nextResult.complete) {
       // 全部完成
       const report = generateCompletionReport(newAnswers);
       const { profileId } = await saveProfile(newAnswers, sessionId);
@@ -270,6 +272,8 @@ export default async function handler(req, res) {
     }
     
     // 还有下一题
+    const { reply, nextIndex, question } = nextResult;
+    
     await updateSession(sessionId, {
       collected_answers: newAnswers,
       ai_state: {
