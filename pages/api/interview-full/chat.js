@@ -245,11 +245,18 @@ export default async function handler(req, res) {
     const newAnswer = { [currentQuestion.key]: extraction.value };
     const newAnswers = { ...collectedAnswers, ...newAnswer };
     
+    console.log('Current state:', { 
+      currentQuestionIndex: aiState.currentQuestionIndex, 
+      questionFlowLength: QUESTION_FLOW.length,
+      currentQuestion: currentQuestion?.key
+    });
+    
     const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
     
     console.log('Direct - Next result:', { 
       currentIndex: aiState.currentQuestionIndex, 
-      complete: nextResult.complete
+      complete: nextResult.complete,
+      nextResultKeys: Object.keys(nextResult)
     });
     
     if (nextResult.complete) {
