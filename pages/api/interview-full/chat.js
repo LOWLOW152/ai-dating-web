@@ -135,6 +135,11 @@ export default async function handler(req, res) {
       
       const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
       
+      console.log('Confirm - Next result:', { 
+        currentIndex: aiState.currentQuestionIndex, 
+        complete: nextResult.complete 
+      });
+      
       if (nextResult.complete) {
         // 全部完成
         const report = generateCompletionReport(newAnswers);
@@ -241,6 +246,11 @@ export default async function handler(req, res) {
     const newAnswers = { ...collectedAnswers, ...newAnswer };
     
     const nextResult = generateNextQuestion(newAnswers, aiState.currentQuestionIndex);
+    
+    console.log('Direct - Next result:', { 
+      currentIndex: aiState.currentQuestionIndex, 
+      complete: nextResult.complete
+    });
     
     if (nextResult.complete) {
       // 全部完成
