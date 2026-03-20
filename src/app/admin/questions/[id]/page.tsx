@@ -212,7 +212,7 @@ ${sensitivityMap[toneConfig.sensitivity]}
    - 回应用户的回答
    - 更新已提取的数据（JSON格式）
 3. 已提取的数据会在下一轮发给你，请基于此继续追问或结束
-4. 当收集到足够信息或已达追问上限时，必须使用【结束语】告知用户本话题结束`;
+4. 当收集到足够信息或已达追问上限时，请根据【结束提示词】告知用户本话题结束，然后停止提问`;
 
   if (question.hierarchy && question.hierarchy.length > 0) {
     prompt += '\n\n【追问层级参考】\n';
@@ -220,17 +220,16 @@ ${sensitivityMap[toneConfig.sensitivity]}
     prompt += '\n\n按以上层级逐层追问，获得最具体的信息。';
   }
 
-  // 添加结束语
+  // 添加结束提示词
   if (question.closing_message) {
     prompt += `
 
-【结束语】当需要结束本话题时，请使用以下话术（可适当调整语气，但必须包含核心信息）：
-"${question.closing_message}"`;
+【结束提示词】当需要结束本话题时，请按以下要求回应：
+${question.closing_message}`;
   } else {
     prompt += `
 
-【结束语】当需要结束本话题时，请告知用户：
-"这个话题我们就聊到这儿～接下来我们聊聊下一个问题。"`;
+【结束提示词】当需要结束本话题时，请简要总结刚才聊的内容，然后告知用户进入下一题。不要提出新的问题。`;
   }
 
   prompt += `
@@ -254,7 +253,7 @@ ${JSON.stringify(extractedData, null, 2)}
   }
 }
 
-如果已问满3个问题或信息已收集完整，请在第一部分使用【结束语】，并给出总结。`;
+如果已问满3个问题或信息已收集完整，请在第一部分使用【结束提示词】，并给出总结。`;
 
   return prompt;
 }
@@ -588,20 +587,17 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-center mb-3">
               <h2 className="font-semibold text-gray-800">结束语配置</h2>
-              <span className="text-xs text-gray-400">AI结束本话题时使用的话术</span>
+              <span className="text-xs text-gray-400">AI结束本话题时的提示词</span>
             </div>
             <textarea
-              value={question.closing_message ?? ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setQuestion(prev => prev ? { ...prev, closing_message: value } : null);
-              }}
-              placeholder="例如：这个话题我们就聊到这儿～接下来我们聊聊下一个问题。"
+              value={question.closing_message || ''}
+              onChange={(e) => setQuestion({ ...question, closing_message: e.target.value })}
+              placeholder="例如：总结一下用户刚才说的内容，然后告诉他们这个话题结束了，准备进入下一题。不要提出新的问题。"
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-gray-400 mt-2">
-              留空则使用默认结束语。AI会在收集到足够信息或达到追问上限时使用此话术。
+              留空则使用默认提示词。AI会根据此提示词在结束本话题时给出回应（总结+不提问，或直接结束）。
             </p>
           </div>
 
