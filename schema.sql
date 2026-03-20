@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS questions (
   options JSONB DEFAULT NULL,
   ai_prompt TEXT,
   closing_message TEXT DEFAULT NULL,
+  max_questions INTEGER DEFAULT 3,
   hierarchy JSONB DEFAULT NULL,
   is_active BOOLEAN DEFAULT true,
   is_required BOOLEAN DEFAULT true,

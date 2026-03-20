@@ -17,6 +17,7 @@ export async function PUT(
       field_type,
       ai_prompt,
       closing_message,
+      max_questions,
       hierarchy,
       is_active,
       is_required,
@@ -25,9 +26,9 @@ export async function PUT(
     await sql.query(
       `UPDATE questions 
        SET category = $1, type = $2, "order" = $3, question_text = $4, 
-           field_type = $5, ai_prompt = $6, closing_message = $7, hierarchy = $8, is_active = $9, is_required = $10,
+           field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, hierarchy = $9, is_active = $10, is_required = $11,
            updated_at = NOW()
-       WHERE id = $11`,
+       WHERE id = $12`,
       [
         category,
         type,
@@ -36,6 +37,7 @@ export async function PUT(
         field_type,
         ai_prompt,
         closing_message,
+        max_questions ?? 3,
         hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
         is_active,
         is_required,

@@ -19,6 +19,7 @@ interface Question {
   options: unknown[] | null;
   ai_prompt: string | null;
   closing_message: string | null;
+  max_questions: number;
   hierarchy: HierarchyNode[] | null;
   is_active: boolean;
   is_required: boolean;
@@ -177,7 +178,8 @@ function generateAiPrompt(
   toneConfig: AiToneConfig,
   questionCount: number,
   extractedData: ExtractedData,
-  closingMessage: string
+  closingMessage: string,
+  maxQuestions: number
 ): string {
   const styleMap: Record<string, string> = {
     gentle: '【语气】温柔亲切，多用共情和鼓励',
@@ -208,7 +210,7 @@ ${openingMap[toneConfig.opening]}
 ${sensitivityMap[toneConfig.sensitivity]}
 
 【重要规则】
-1. 最多追问3个问题（包括确认题），当前已问${questionCount}个
+1. 最多追问${maxQuestions}个问题（包括确认题），当前已问${questionCount}个
 2. 每轮对话必须同时完成两件事：
    - 回应用户的回答
    - 更新已提取的数据（JSON格式）
@@ -324,6 +326,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
   const [question, setQuestion] = useState<Question | null>(null);
   const [error, setError] = useState('');
   const [closingMessage, setClosingMessage] = useState('');
+  const [maxQuestions, setMaxQuestions] = useState(3);
 
   const [toneConfig, setToneConfig] = useState<AiToneConfig>({
     style: 'gentle',
@@ -359,6 +362,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       if (data.success && data.data) {
         setQuestion(data.data);
         setClosingMessage(data.data.closing_message || '');
+        setMaxQuestions(data.data.max_questions || 3);
       } else {
         setError(data.error || '题目不存在');
       }
@@ -376,7 +380,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     setError('');
 
     try {
-      const payload = { ...question, closing_message: closingMessage };
+      const payload = { ...question, closing_message: closingMessage, max_questions: maxQuestions };
       console.log('Saving question:', payload);
       
       const res = await fetch(`/api/admin/questions/${params.id}`, {
@@ -419,8 +423,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
   async function handleSendMessage() {
     if (!userInput.trim() || !question || aiResponding || isComplete) return;
 
-    // 检查是否已达3个问题
-    if (questionCount >= 3) {
+    // 检查是否已达上限
+    if (questionCount >= maxQuestions) {
       setIsComplete(true);
       return;
     }
@@ -431,7 +435,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     setAiResponding(true);
 
     try {
-      const prompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage);
+      const prompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage, maxQuestions);
 
       const res = await fetch('/api/admin/ai-chat', {
         method: 'POST',
@@ -458,8 +462,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
           setExtractedData(prev => ({ ...prev, ...newData }));
         }
 
-        // 检查是否完成（已满3个问题或AI明确说完成）
-        if (questionCount + 1 >= 3 || reply.includes('收集完成') || reply.includes('完成')) {
+        // 检查是否完成（已满上限或AI明确说完成）
+        if (questionCount + 1 >= maxQuestions || reply.includes('收集完成') || reply.includes('完成')) {
           setIsComplete(true);
         }
       } else {
@@ -501,7 +505,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     );
   }
 
-  const aiPrompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage);
+  const aiPrompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage, maxQuestions);
 
   return (
     <div className="h-screen flex flex-col">
@@ -590,6 +594,28 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
                 </select>
               </div>
             </div>
+          </div>
+
+          {/* 问题上限配置 */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-semibold text-gray-800">追问上限</h2>
+              <span className="text-xs text-gray-400">AI最多追问几个问题</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={10}
+                value={maxQuestions}
+                onChange={(e) => setMaxQuestions(parseInt(e.target.value))}
+                className="flex-1"
+              />
+              <span className="text-sm font-medium w-8 text-center">{maxQuestions}</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              包括确认题在内，AI最多追问的数量。达到上限后将自动结束本话题。
+            </p>
           </div>
 
           {/* 结束语配置 */}
@@ -716,11 +742,11 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
                 <span className={`text-xs px-2 py-0.5 rounded ${
                   isComplete
                     ? 'bg-green-100 text-green-700'
-                    : questionCount >= 3
+                    : questionCount >= maxQuestions
                       ? 'bg-yellow-100 text-yellow-700'
                       : 'bg-blue-100 text-blue-700'
                 }`}>
-                  {isComplete ? '已完成' : `追问 ${questionCount}/3`}
+                  {isComplete ? '已完成' : `追问 ${questionCount}/${maxQuestions}`}
                 </span>
               )}
             </div>
@@ -791,13 +817,13 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder={questionCount >= 3 ? "已达追问上限，请重新开始" : "输入你的回答..."}
-                  disabled={aiResponding || chatMessages.length === 0 || questionCount >= 3}
+                  placeholder={questionCount >= maxQuestions ? "已达追问上限，请重新开始" : "输入你的回答..."}
+                  disabled={aiResponding || chatMessages.length === 0 || questionCount >= maxQuestions}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={aiResponding || !userInput.trim() || chatMessages.length === 0 || questionCount >= 3}
+                  disabled={aiResponding || !userInput.trim() || chatMessages.length === 0 || questionCount >= maxQuestions}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-300"
                 >
                   发送
