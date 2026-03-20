@@ -15,12 +15,20 @@ export default async function QuestionsPage() {
     <div className="max-w-6xl mx-auto px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">题库管理</h1>
-        <Link 
-          href="/admin/questions/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        >
-          + 新建题目
-        </Link>
+        <div className="flex gap-2">
+          <Link 
+            href="/admin/questions/prompt"
+            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+          >
+            全局AI提示词
+          </Link>
+          <Link 
+            href="/admin/questions/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            + 新建题目
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">

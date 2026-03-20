@@ -30,10 +30,16 @@ export default async function ProfileTemplatesPage() {
             </div>
             <p className="text-gray-600 text-sm mb-4">{t.description || '无描述'}</p>
             
-            <div className="flex gap-2">
+            <div className="flex gap-4 text-sm">
+              <a
+                href={`/admin/profile-templates/${t.id}/prompt`}
+                className="text-purple-600 hover:underline"
+              >
+                配置AI提示词 →
+              </a>
               <a
                 href={`/admin/profile-templates/${t.id}`}
-                className="text-blue-600 text-sm hover:underline"
+                className="text-blue-600 hover:underline"
               >
                 配置权重 →
               </a>

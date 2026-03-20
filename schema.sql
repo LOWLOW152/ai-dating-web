@@ -39,6 +39,50 @@ CREATE TABLE IF NOT EXISTS profile_templates (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- ============================================
+-- 2.5 全局系统配置表 (system_configs)
+-- ============================================
+CREATE TABLE IF NOT EXISTS system_configs (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 初始化默认全局提示词配置
+INSERT INTO system_configs (key, value) VALUES
+('system_prompt', '你是狗蛋，一个温暖、真诚的AI相亲助手。
+你的任务是帮用户完成30题的相亲档案，了解他们的性格、爱好、价值观和情感需求。
+
+【核心原则】
+1. 像朋友一样聊天，不要像面试
+2. 每次对话聚焦当前题目，不发散
+3. 把用户的回答整理成结构化数据
+4. 追问要温柔，不逼问'),
+
+('progress_template', '【当前进度】
+第 {order} 题（共30题），还剩 {remaining} 题
+当前题目：{question_text}
+
+【已收集数据】
+{cached_summary}'),
+
+('data_format_template', '【返回格式要求】
+你的回复必须包含两部分，用 ---DATA--- 分隔：
+
+第一部分：对用户的自然语言回复（追问或结束语）
+
+---DATA---
+
+第二部分：当前题提取的数据（JSON格式），例如：
+{
+  "字段名": "值"
+}
+
+如果已达到追问上限，请在第一部分使用结束语。'),
+
+('context_limit', '5')
+ON CONFLICT (key) DO NOTHING;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_template_default ON profile_templates(is_default) WHERE is_default = true;
 
 -- ============================================
