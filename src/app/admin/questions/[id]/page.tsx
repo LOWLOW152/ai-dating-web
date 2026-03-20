@@ -376,18 +376,24 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     setError('');
 
     try {
+      const payload = { ...question, closing_message: closingMessage };
+      console.log('Saving question:', payload);
+      
       const res = await fetch(`/api/admin/questions/${params.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...question, closing_message: closingMessage }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      console.log('Save response:', data);
+      
       if (data.success) {
         router.push('/admin/questions');
       } else {
         setError(data.error || '保存失败');
       }
-    } catch {
+    } catch (err) {
+      console.error('Save error:', err);
       setError('网络错误');
     }
     setSaving(false);
