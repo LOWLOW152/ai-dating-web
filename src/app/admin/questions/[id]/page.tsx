@@ -42,11 +42,11 @@ interface ExtractedData {
 }
 
 // 层级编辑器组件
-function HierarchyEditor({ 
-  value, 
-  onChange 
-}: { 
-  value: HierarchyNode[]; 
+function HierarchyEditor({
+  value,
+  onChange
+}: {
+  value: HierarchyNode[];
   onChange: (value: HierarchyNode[]) => void;
 }) {
   const [nodes, setNodes] = useState<HierarchyNode[]>(value || []);
@@ -57,7 +57,7 @@ function HierarchyEditor({
 
   function addNode(parentPath: number[] = []) {
     const newNode: HierarchyNode = { label: '' };
-    
+
     if (parentPath.length === 0) {
       setNodes([...nodes, newNode]);
     } else {
@@ -98,7 +98,7 @@ function HierarchyEditor({
 
   function renderNode(node: HierarchyNode, path: number[], level: number) {
     const indent = level * 20;
-    
+
     return (
       <div key={path.join('-')} className="mb-1">
         <div className="flex items-center gap-1" style={{ marginLeft: indent }}>
@@ -121,7 +121,7 @@ function HierarchyEditor({
             className="text-red-600 text-xs hover:underline px-1"
           >删</button>
         </div>
-        {node.children?.map((child, index) => 
+        {node.children?.map((child, index) =>
           renderNode(child, [...path, index], level + 1)
         )}
       </div>
@@ -147,7 +147,7 @@ function HierarchyEditor({
           className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50"
         >+ 添加</button>
       </div>
-      
+
       {nodes.length === 0 ? (
         <div className="text-center py-4 text-gray-400 text-xs">
           暂无层级配置，点击添加
@@ -173,10 +173,11 @@ function printHierarchy(nodes: HierarchyNode[], level: number): string {
 
 // 生成AI提示词
 function generateAiPrompt(
-  question: Question, 
+  question: Question,
   toneConfig: AiToneConfig,
   questionCount: number,
-  extractedData: ExtractedData
+  extractedData: ExtractedData,
+  closingMessage: string
 ): string {
   const styleMap: Record<string, string> = {
     gentle: '【语气】温柔亲切，多用共情和鼓励',
@@ -221,11 +222,11 @@ ${sensitivityMap[toneConfig.sensitivity]}
   }
 
   // 添加结束提示词
-  if (question.closing_message) {
+  if (closingMessage) {
     prompt += `
 
 【结束提示词】当需要结束本话题时，请按以下要求回应：
-${question.closing_message}`;
+${closingMessage}`;
   } else {
     prompt += `
 
@@ -263,7 +264,7 @@ function parseAiReply(content: string): { reply: string; data: ExtractedData | n
   const parts = content.split('---DATA---');
   const reply = parts[0].trim();
   let data: ExtractedData | null = null;
-  
+
   if (parts.length > 1) {
     try {
       const jsonStr = parts[1].trim();
@@ -278,7 +279,7 @@ function parseAiReply(content: string): { reply: string; data: ExtractedData | n
       // JSON解析失败，忽略数据部分
     }
   }
-  
+
   return { reply, data };
 }
 
@@ -322,7 +323,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
   const [saving, setSaving] = useState(false);
   const [question, setQuestion] = useState<Question | null>(null);
   const [error, setError] = useState('');
-  
+  const [closingMessage, setClosingMessage] = useState('');
+
   const [toneConfig, setToneConfig] = useState<AiToneConfig>({
     style: 'gentle',
     depth: 'moderate',
@@ -356,6 +358,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       const data = await res.json();
       if (data.success && data.data) {
         setQuestion(data.data);
+        setClosingMessage(data.data.closing_message || '');
       } else {
         setError(data.error || '题目不存在');
       }
@@ -368,15 +371,15 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!question) return;
-    
+
     setSaving(true);
     setError('');
-    
+
     try {
       const res = await fetch(`/api/admin/questions/${params.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(question),
+        body: JSON.stringify({ ...question, closing_message: closingMessage }),
       });
       const data = await res.json();
       if (data.success) {
@@ -392,7 +395,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
 
   async function handleDelete() {
     if (!confirm('确定要删除这道题吗？')) return;
-    
+
     try {
       const res = await fetch(`/api/admin/questions/${params.id}`, { method: 'DELETE' });
       const data = await res.json();
@@ -409,21 +412,21 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
   // AI对话功能
   async function handleSendMessage() {
     if (!userInput.trim() || !question || aiResponding || isComplete) return;
-    
+
     // 检查是否已达3个问题
     if (questionCount >= 3) {
       setIsComplete(true);
       return;
     }
-    
+
     const userMsg = userInput.trim();
     setUserInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setAiResponding(true);
 
     try {
-      const prompt = generateAiPrompt(question, toneConfig, questionCount, extractedData);
-      
+      const prompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage);
+
       const res = await fetch('/api/admin/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -435,20 +438,20 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
           ],
         }),
       });
-      
+
       const data = await res.json();
       if (data.success) {
         const { reply, data: newData } = parseAiReply(data.reply);
         setChatMessages(prev => [...prev, { role: 'ai', content: reply }]);
-        
+
         // 更新问题计数
         setQuestionCount(prev => prev + 1);
-        
+
         // 更新提取的数据
         if (newData) {
           setExtractedData(prev => ({ ...prev, ...newData }));
         }
-        
+
         // 检查是否完成（已满3个问题或AI明确说完成）
         if (questionCount + 1 >= 3 || reply.includes('收集完成') || reply.includes('完成')) {
           setIsComplete(true);
@@ -464,7 +467,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
 
   function startNewTest() {
     if (!question) return;
-    const initialMsg = toneConfig.opening === 'direct' 
+    const initialMsg = toneConfig.opening === 'direct'
       ? question.question_text
       : toneConfig.opening === 'empathy'
       ? `你好呀～想和你聊聊，${question.question_text}`
@@ -492,7 +495,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     );
   }
 
-  const aiPrompt = generateAiPrompt(question, toneConfig, questionCount, extractedData);
+  const aiPrompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage);
 
   return (
     <div className="h-screen flex flex-col">
@@ -509,7 +512,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧配置面板 */}
         <div className="w-1/2 border-r overflow-y-auto p-4 space-y-4">
-          
+
           {/* 基础配置 */}
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-semibold mb-3 text-gray-800">基础配置</h2>
@@ -520,28 +523,28 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">序号</label>
-                <input 
-                  type="number" 
-                  value={question.order} 
+                <input
+                  type="number"
+                  value={question.order}
                   onChange={(e) => setQuestion({ ...question, order: parseInt(e.target.value) })}
-                  className="w-full border rounded px-2 py-1.5 text-sm" 
+                  className="w-full border rounded px-2 py-1.5 text-sm"
                 />
               </div>
             </div>
             <div className="mt-3">
               <label className="block text-xs text-gray-500 mb-1">题目内容</label>
-              <input 
-                type="text" 
-                value={question.question_text} 
+              <input
+                type="text"
+                value={question.question_text}
                 onChange={(e) => setQuestion({ ...question, question_text: e.target.value })}
-                className="w-full border rounded px-2 py-1.5 text-sm" 
+                className="w-full border rounded px-2 py-1.5 text-sm"
               />
             </div>
             <div className="grid grid-cols-3 gap-3 mt-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">分类</label>
-                <select 
-                  value={question.category} 
+                <select
+                  value={question.category}
                   onChange={(e) => setQuestion({ ...question, category: e.target.value })}
                   className="w-full border rounded px-2 py-1.5 text-sm"
                 >
@@ -555,8 +558,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">类型</label>
-                <select 
-                  value={question.type} 
+                <select
+                  value={question.type}
                   onChange={(e) => setQuestion({ ...question, type: e.target.value })}
                   className="w-full border rounded px-2 py-1.5 text-sm"
                 >
@@ -567,8 +570,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">字段类型</label>
-                <select 
-                  value={question.field_type} 
+                <select
+                  value={question.field_type}
                   onChange={(e) => setQuestion({ ...question, field_type: e.target.value })}
                   className="w-full border rounded px-2 py-1.5 text-sm"
                 >
@@ -590,8 +593,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               <span className="text-xs text-gray-400">AI结束本话题时的提示词</span>
             </div>
             <textarea
-              value={question.closing_message || ''}
-              onChange={(e) => setQuestion({ ...question, closing_message: e.target.value })}
+              value={closingMessage}
+              onChange={(e) => setClosingMessage(e.target.value)}
               placeholder="例如：总结一下用户刚才说的内容，然后告诉他们这个话题结束了，准备进入下一题。不要提出新的问题。"
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -610,7 +613,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
           {/* AI语气设定 */}
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-semibold mb-3 text-gray-800">AI语气设定</h2>
-            
+
             <div className="mb-3">
               <label className="block text-xs text-gray-500 mb-2">语气风格</label>
               <div className="flex gap-2 flex-wrap">
@@ -639,8 +642,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">追问深度</label>
-                <select 
-                  value={toneConfig.depth} 
+                <select
+                  value={toneConfig.depth}
                   onChange={(e) => setToneConfig({ ...toneConfig, depth: e.target.value as AiToneConfig['depth'] })}
                   className="w-full border rounded px-2 py-1.5 text-sm"
                 >
@@ -651,8 +654,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">开场白</label>
-                <select 
-                  value={toneConfig.opening} 
+                <select
+                  value={toneConfig.opening}
                   onChange={(e) => setToneConfig({ ...toneConfig, opening: e.target.value as AiToneConfig['opening'] })}
                   className="w-full border rounded px-2 py-1.5 text-sm"
                 >
@@ -663,8 +666,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">追问敏感度</label>
-                <select 
-                  value={toneConfig.sensitivity} 
+                <select
+                  value={toneConfig.sensitivity}
                   onChange={(e) => setToneConfig({ ...toneConfig, sensitivity: e.target.value as AiToneConfig['sensitivity'] })}
                   className="w-full border rounded px-2 py-1.5 text-sm"
                 >
@@ -705,9 +708,9 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               <h2 className="font-semibold">AI测试窗口</h2>
               {chatMessages.length > 0 && (
                 <span className={`text-xs px-2 py-0.5 rounded ${
-                  isComplete 
-                    ? 'bg-green-100 text-green-700' 
-                    : questionCount >= 3 
+                  isComplete
+                    ? 'bg-green-100 text-green-700'
+                    : questionCount >= 3
                       ? 'bg-yellow-100 text-yellow-700'
                       : 'bg-blue-100 text-blue-700'
                 }`}>
@@ -716,13 +719,13 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               )}
             </div>
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={startNewTest}
                 className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700"
               >
                 开始新对话
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setChatMessages([]);
                   setQuestionCount(0);
@@ -744,14 +747,14 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               </div>
             ) : (
               chatMessages.map((msg, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className={`flex ${msg.role === 'ai' ? 'justify-start' : 'justify-end'}`}
                 >
-                  <div 
+                  <div
                     className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                      msg.role === 'ai' 
-                        ? 'bg-white border border-gray-200 text-gray-800' 
+                      msg.role === 'ai'
+                        ? 'bg-white border border-gray-200 text-gray-800'
                         : 'bg-blue-600 text-white'
                     }`}
                   >
