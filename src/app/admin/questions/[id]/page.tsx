@@ -594,7 +594,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               value={question.closing_message ?? ''}
               onChange={(e) => {
                 const value = e.target.value;
-                setQuestion(prev => ({ ...prev, closing_message: value }));
+                setQuestion(prev => prev ? { ...prev, closing_message: value } : null);
               }}
               placeholder="例如：这个话题我们就聊到这儿～接下来我们聊聊下一个问题。"
               rows={3}
