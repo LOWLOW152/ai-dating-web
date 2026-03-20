@@ -102,17 +102,28 @@ function generateMockReply(messages: ChatMessage[]): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages } = body;
-
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ success: false, error: '缺少消息' }, { status: 400 });
-    }
+    const { messages, prompt, message } = body;
 
     const apiKey = process.env.MOONSHOT_API_KEY;
     
     // 如果有API Key，调用真实的Kimi
     if (apiKey) {
       try {
+        let chatMessages;
+        
+        if (prompt) {
+          // 新格式：直接传入完整prompt
+          chatMessages = [
+            { role: 'system', content: prompt },
+            ...(message ? [{ role: 'user', content: message }] : []),
+          ];
+        } else if (messages && Array.isArray(messages)) {
+          // 旧格式：messages数组
+          chatMessages = messages;
+        } else {
+          return NextResponse.json({ success: false, error: '缺少消息或提示词' }, { status: 400 });
+        }
+
         const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -121,9 +132,9 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             model: 'moonshot-v1-8k',
-            messages,
+            messages: chatMessages,
             temperature: 0.7,
-            max_tokens: 500,
+            max_tokens: 1000,
           }),
         });
 
@@ -132,18 +143,26 @@ export async function POST(request: NextRequest) {
           const reply = data.choices?.[0]?.message?.content || 'AI没有回应';
           return NextResponse.json({ success: true, reply });
         }
-      } catch {
-        console.log('Kimi API failed, fallback to mock');
+      } catch (err) {
+        console.log('Kimi API failed:', err);
       }
     }
 
-    // 模拟模式：根据配置生成追问
-    const reply = generateMockReply(messages);
-    
-    // 模拟延迟，更像真实AI
+    // 模拟模式
     await new Promise(resolve => setTimeout(resolve, 800));
     
+    if (prompt) {
+      // 新格式的模拟回复
+      return NextResponse.json({ 
+        success: true, 
+        reply: `你好呀～我是狗蛋！很高兴认识你😊\n\n你刚才说喜欢运动，具体是什么类型的运动呢？比如羽毛球、跑步、还是健身？\n\n---DATA---\n{\n  "hobbies": {\n    "type": "运动"\n  }\n}` 
+      });
+    }
+    
+    // 旧格式的模拟回复
+    const reply = generateMockReply(messages || []);
     return NextResponse.json({ success: true, reply });
+    
   } catch (error) {
     console.error('AI chat error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
