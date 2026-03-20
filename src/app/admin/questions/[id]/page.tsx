@@ -591,8 +591,11 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               <span className="text-xs text-gray-400">AI结束本话题时使用的话术</span>
             </div>
             <textarea
-              value={question.closing_message || ''}
-              onChange={(e) => setQuestion({ ...question, closing_message: e.target.value })}
+              value={question.closing_message ?? ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setQuestion(prev => ({ ...prev, closing_message: value }));
+              }}
               placeholder="例如：这个话题我们就聊到这儿～接下来我们聊聊下一个问题。"
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
