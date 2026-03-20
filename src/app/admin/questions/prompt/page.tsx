@@ -194,7 +194,7 @@ ${dataFormatTemplate}${historySection}`;
             const jsonStr = dataMatch[1].trim();
             const parsed = JSON.parse(jsonStr);
             setExtractedData(prev => ({ ...prev, ...parsed }));
-          } catch (e) {
+          } catch {
             // JSON解析失败，忽略
           }
         }
@@ -212,7 +212,7 @@ ${dataFormatTemplate}${historySection}`;
           content: '出错了: ' + (data.error || '未知错误')
         }]);
       }
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { 
         role: 'ai', 
         content: '请求失败，请检查网络'
@@ -374,7 +374,7 @@ ${dataFormatTemplate}${historySection}`;
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && (
               <div className="text-center text-gray-400 text-sm mt-8">
-                点击"开始对话"测试AI效果
+                点击&quot;开始对话&quot;测试AI效果
               </div>
             )}
             
