@@ -36,7 +36,7 @@ export async function PUT(
         field_type,
         ai_prompt,
         closing_message,
-        hierarchy ? JSON.stringify(hierarchy) : null,
+        hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
         is_active,
         is_required,
         params.id,

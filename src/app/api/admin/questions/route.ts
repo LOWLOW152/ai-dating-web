@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
         question_text,
         field_type,
         JSON.stringify(validation || {}),
-        options ? JSON.stringify(options) : null,
+        options ? (typeof options === 'string' ? options : JSON.stringify(options)) : null,
         ai_prompt,
         closing_message,
-        hierarchy ? JSON.stringify(hierarchy) : null,
+        hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
         is_active,
         is_required,
       ]
