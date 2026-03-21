@@ -1,10 +1,63 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+// 简单的 Basic Auth 验证
+function checkAuth(): boolean {
+  const headersList = headers();
+  const auth = headersList.get('authorization');
+  
+  if (!auth) return false;
+  
+  try {
+    const base64 = auth.split(' ')[1];
+    const credentials = Buffer.from(base64, 'base64').toString('utf-8');
+    const [username, password] = credentials.split(':');
+    
+    // 从环境变量读取密码，默认用简单密码（部署前记得改）
+    const adminUser = process.env.ADMIN_USER || 'admin';
+    const adminPass = process.env.ADMIN_PASS || 'luo2026';
+    
+    return username === adminUser && password === adminPass;
+  } catch {
+    return false;
+  }
+}
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // 验证失败时返回 401
+  if (!checkAuth()) {
+    return (
+      <html>
+        <head>
+          <meta httpEquiv="refresh" content="0; url=/admin/login" />
+        </head>
+        <body>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100vh',
+            fontFamily: 'system-ui'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <h1>🔒 需要登录</h1>
+              <p>请使用用户名密码访问后台</p>
+              <p style={{ color: '#666', fontSize: '14px', marginTop: '20px' }}>
+                默认账号: admin / luo2026<br/>
+                建议部署后修改环境变量
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+    );
+  }
+
   const navItems = [
     { href: '/admin', label: '首页' },
     { href: '/admin/questions', label: '题库' },
