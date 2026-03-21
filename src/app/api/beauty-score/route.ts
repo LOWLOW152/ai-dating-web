@@ -165,7 +165,7 @@ async function analyzeBeauty(imageBase64: string, apiKey: string): Promise<AiAna
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': apiKey,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(requestBody),
     });
