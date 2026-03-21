@@ -128,7 +128,7 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': apiKey,  // 火山引擎可能不需要 Bearer 前缀
     },
     body: JSON.stringify({
       model: ARK_MODEL,
