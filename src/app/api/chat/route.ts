@@ -200,9 +200,7 @@ function buildPrompt(
 **优先级：** 数据完整 > 继续追问。一旦收集到足够信息，立即停止追问，静默切题。
 
 【静默结束格式】
-如果决定静默结束（数据完整），第一部分留空：
-
-（第一部分留空，不要写任何内容）
+如果决定静默结束（数据完整），第一部分留空，直接输出分隔符：
 
 ---DATA---
 {当前题提取的数据}
@@ -344,10 +342,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 模拟模式
+    // 模拟模式 - AI延迟时的友好提示
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const mockReply = `[🤖 模拟模式 - 豆包AI未配置] 这是后端构建的提示词测试回复\n\n---DATA---\n{}`;
+    const mockReply = `哎呀，好像AI有点延迟，我先随便回复点内容吧～\n\n你刚才说的我记下了，咱们继续聊。\n\n---DATA---\n{}`;
     
     return NextResponse.json({ success: true, reply: mockReply, prompt });
     
