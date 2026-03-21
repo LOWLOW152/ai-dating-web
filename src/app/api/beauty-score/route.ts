@@ -304,15 +304,15 @@ export async function POST(request: NextRequest) {
         };
         
         const details = {
-          body_shape: Math.max(0, Math.min(4, parseFloat(aiResult.body_shape) || 2)),
-          skin_quality: Math.max(0, Math.min(3, parseFloat(aiResult.skin_quality) || 1.5)),
-          symmetry: Math.max(0, Math.min(3, parseFloat(aiResult.symmetry) || 2)),
-          face_age: Math.max(0, Math.min(3, parseFloat(aiResult.face_age) || 2)),
-          hairline: Math.max(0, Math.min(2, parseFloat(aiResult.hairline) || 1.5)),
-          eye_bags: Math.max(0, Math.min(2, parseFloat(aiResult.eye_bags) || 1.2)),
-          teeth: Math.max(0, Math.min(2, parseFloat(aiResult.teeth) || 1.3)),
-          nose_bridge: Math.max(0, Math.min(2, parseFloat(aiResult.nose_bridge) || 1.2)),
-          photoshop_deduction: Math.max(0, Math.min(3, parseFloat(aiResult.photoshop_deduction) || 0)),
+          body_shape: Math.max(0, Math.min(4, parseFloat(String(aiResult.body_shape)) || 2)),
+          skin_quality: Math.max(0, Math.min(3, parseFloat(String(aiResult.skin_quality)) || 1.5)),
+          symmetry: Math.max(0, Math.min(3, parseFloat(String(aiResult.symmetry)) || 2)),
+          face_age: Math.max(0, Math.min(3, parseFloat(String(aiResult.face_age)) || 2)),
+          hairline: Math.max(0, Math.min(2, parseFloat(String(aiResult.hairline)) || 1.5)),
+          eye_bags: Math.max(0, Math.min(2, parseFloat(String(aiResult.eye_bags)) || 1.2)),
+          teeth: Math.max(0, Math.min(2, parseFloat(String(aiResult.teeth)) || 1.3)),
+          nose_bridge: Math.max(0, Math.min(2, parseFloat(String(aiResult.nose_bridge)) || 1.2)),
+          photoshop_deduction: Math.max(0, Math.min(3, parseFloat(String(aiResult.photoshop_deduction)) || 0)),
         };
         
         const weightedScore = 
