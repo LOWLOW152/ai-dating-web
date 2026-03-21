@@ -9,6 +9,7 @@ const ARK_MODEL = 'doubao-1-5-vision-pro-250328'; // 豆包视觉模型
 function getArkApiKey(): string | undefined {
   const key = process.env.ARK_API_KEY;
   console.log('[Env] ARK_API_KEY present:', !!key);
+  console.log('[Env] All env keys:', Object.keys(process.env).filter(k => k.includes('ARK') || k.includes('API')));
   if (key) {
     console.log('[Env] ARK_API_KEY length:', key.length);
     console.log('[Env] ARK_API_KEY first 10 chars:', key.substring(0, 10) + '...');
