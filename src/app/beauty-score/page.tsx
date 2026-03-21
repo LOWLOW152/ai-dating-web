@@ -16,6 +16,13 @@ interface BeautyResult {
   };
 }
 
+interface ApiResponse {
+  success: boolean;
+  data: BeautyResult;
+  source?: 'mock' | 'ai';
+  error?: string;
+}
+
 const BEAUTY_LEVELS = [
   { min: 9, max: 10, label: '明星级', color: 'text-yellow-600', bg: 'bg-yellow-50', desc: '素颜能打，镜头扛得住' },
   { min: 8, max: 8.9, label: '小网红', color: 'text-purple-600', bg: 'bg-purple-50', desc: '好看，微调/轻P就能出片' },
@@ -35,6 +42,7 @@ export default function BeautyScoreUserPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BeautyResult | null>(null);
+  const [dataSource, setDataSource] = useState<'mock' | 'ai' | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -90,6 +98,7 @@ export default function BeautyScoreUserPage() {
       const data = await res.json();
       if (data.success) {
         setResult(data.data);
+        setDataSource(data.source || 'mock');
       } else {
         setError(data.error || '评分失败');
       }
@@ -135,6 +144,15 @@ export default function BeautyScoreUserPage() {
               <div className="text-center mb-6">
                 <div className="text-5xl font-bold text-pink-600 mb-1">{result.beauty_score}</div>
                 <p className="text-sm text-gray-400">满分10分</p>
+                {dataSource && (
+                  <span className={`inline-block mt-2 px-2 py-1 rounded text-xs ${
+                    dataSource === 'ai' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {dataSource === 'ai' ? '🤖 AI真实评分' : '⚠️ 模拟数据（API未配置）'}
+                  </span>
+                )}
               </div>
               
               {result.details && (
