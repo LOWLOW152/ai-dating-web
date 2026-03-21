@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
     // 模拟模式
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    let mockReply = `[🤖 模拟模式] 这是后端构建的提示词测试回复\n\n---DATA---\n{}`;
+    const mockReply = `[🤖 模拟模式] 这是后端构建的提示词测试回复\n\n---DATA---\n{}`;
     
     return NextResponse.json({ success: true, reply: mockReply, prompt });
     
