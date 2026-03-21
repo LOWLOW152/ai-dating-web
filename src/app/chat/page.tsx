@@ -7,7 +7,6 @@ interface ChatMessage {
   role: 'ai' | 'user';
   content: string;
   timestamp: number;
-  source?: 'bank' | 'coordinator'; // AI消息来源
 }
 
 interface Question {
@@ -24,7 +23,6 @@ interface GlobalConfig {
   progress_template: string;
   data_format_template: string;
   context_limit: number;
-  coordinator_prompt?: string; // 提问AI配置
 }
 
 // 默认配置 fallback
@@ -61,32 +59,7 @@ const DEFAULT_CONFIG: GlobalConfig = {
 ---DATA---
 
 第二部分：当前题提取的数据（JSON格式）`,
-  context_limit: 5,
-  coordinator_prompt: `你是"提问AI"，是用户和"题库AI"之间的审核层。
-
-【你的角色】
-你是审核员，不是出题人。题库AI负责生成问题，你负责检查质量。
-
-【强制规则 - 必须遵守】
-1. **除非有明显错误，否则必须直接使用题库AI的建议**（允许微调语气和措辞）
-2. **禁止完全重新生成回答** - 不能抛开题库AI的建议自己写
-3. **禁止添加题库AI没有的内容** - 不能扩展问题范围
-4. **修改幅度限制**：只能改 0-30%，保留题库AI的核心意图
-
-【审核清单 - 按优先级处理】
-1. **重复提问（最高优先级）**：
-   - 检查【当前对话上下文】，如果用户已经回答过类似问题 → 输出"[REPEAT]这个问题用户已回答"，然后跳过或换角度
-   - 重复包括但不限于：同一问题、换说法的同一问题、意思相同的追问
-
-2. 突兀过渡：没有上下文衔接 → 添加过渡句，但保留原问题
-
-3. 过长啰嗦：超过3句话 → 精简
-
-【输出要求】
-- 保持温暖、真诚的语气（你是狗蛋）
-- 不要暴露"题库AI"的存在
-- 用户看到的只是你一个人在对话
-- 必须包含 ---DATA--- 分隔符和JSON数据`
+  context_limit: 5
 };
 
 export default function ChatPage() {
@@ -106,7 +79,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [currentPrompt, setCurrentPrompt] = useState<string>(''); // 当前传给AI的提示词
   const [showPrompt, setShowPrompt] = useState(false); // 是否显示右侧面板
-  const [rightPanelTab, setRightPanelTab] = useState<'prompt' | 'coordinator' | 'data'>('prompt'); // 右侧面板当前标签
+  const [rightPanelTab, setRightPanelTab] = useState<'prompt' | 'data'>('prompt'); // 右侧面板当前标签
   const requestLock = useRef(false); // 请求锁，防止重复发送
 
   useEffect(() => {
@@ -202,70 +175,21 @@ ${cfg.data_format_template}`;
     const roundToCheck = currentRound !== undefined ? currentRound : questionRound;
     
     try {
-      // ========== 第一步：调用题库AI获取建议 ==========
-      const bankPrompt = buildPrompt(qIndex, chatHistory);
-      setCurrentPrompt(bankPrompt); // 保存题库AI提示词用于显示
+      const prompt = buildPrompt(qIndex, chatHistory);
+      setCurrentPrompt(prompt); // 保存当前提示词用于显示
       
-      console.log('Step 1: Calling Bank AI...');
-      const bankRes = await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: bankPrompt }),
+        body: JSON.stringify({ prompt }),
       });
+
+      const data = await res.json();
       
-      const bankData = await bankRes.json();
-      
-      if (!bankData.success) {
-        throw new Error('题库AI调用失败: ' + bankData.error);
+      if (data.success) {
+        const content = data.reply || '';
+        processAiResponse(content, qIndex, roundToCheck, isInitialLoad);
       }
-      
-      const bankReply = bankData.reply || '';
-      console.log('Bank AI reply:', bankReply.slice(0, 100));
-      
-      // ========== 第二步：调用提问AI审核 ==========
-      const cfg = config || DEFAULT_CONFIG;
-      const coordinatorPrompt = cfg.coordinator_prompt || DEFAULT_CONFIG.coordinator_prompt!;
-      
-      // 构建提问AI的提示词
-      const recentContext = messages.slice(-6).map(m => 
-        `${m.role === 'ai' ? '狗蛋' : '用户'}: ${m.content}`
-      ).join('\n');
-      
-      const coordinatorFullPrompt = `${coordinatorPrompt}
-
-【当前对话上下文】
-${recentContext || '（对话刚开始）'}
-
-【题库AI的建议回复】
-${bankReply}
-
-【你的任务】
-请审核题库AI的建议回复，检查是否有重复提问、突兀过渡等问题。
-如果有问题请修改后输出，如果没问题可以直接输出或微调。
-必须保持温暖友好的语气，不要暴露"题库AI"的存在。
-
-【输出格式】
-和题库AI一样，必须包含 ---DATA--- 分隔符和JSON数据。`;
-      
-      console.log('Step 2: Calling Coordinator AI...');
-      const coordRes = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: coordinatorFullPrompt }),
-      });
-      
-      const coordData = await coordRes.json();
-      
-      if (!coordData.success) {
-        // 提问AI失败，直接使用题库AI的结果
-        console.warn('Coordinator AI failed, using Bank AI result');
-        processAiResponse(bankReply, qIndex, roundToCheck, isInitialLoad, 'bank');
-      } else {
-        const finalReply = coordData.reply || bankReply;
-        console.log('Coordinator AI reply:', finalReply.slice(0, 100));
-        processAiResponse(finalReply, qIndex, roundToCheck, isInitialLoad, 'coordinator');
-      }
-      
     } catch (error) {
       console.error('AI error:', error);
       setMessages(prev => [...prev, {
@@ -279,7 +203,7 @@ ${bankReply}
   }
   
   // 处理AI返回的内容（提取数据、显示、判断下一题等）
-  function processAiResponse(content: string, qIndex: number, roundToCheck: number, isInitialLoad: boolean, source: 'bank' | 'coordinator' = 'coordinator') {
+  function processAiResponse(content: string, qIndex: number, roundToCheck: number, isInitialLoad: boolean) {
     // 提取数据
     const dataMatch = content.match(/---DATA---\s*([\s\S]*)$/);
     let parsedData = {};
@@ -299,7 +223,6 @@ ${bankReply}
       role: 'ai',
       content: displayContent || '（AI未返回有效回复）',
       timestamp: Date.now(),
-      source,
     };
     
     setMessages(prev => [...prev, newMessage]);
@@ -450,16 +373,7 @@ ${bankReply}
                       : 'bg-green-500 text-white'
                   }`}
                 >
-                  <div>{msg.content}</div>
-                  {msg.role === 'ai' && msg.source && (
-                    <div className={`text-[10px] mt-1.5 pt-1 border-t ${
-                      msg.source === 'bank' 
-                        ? 'text-orange-400 border-orange-100' 
-                        : 'text-purple-400 border-purple-100'
-                    }`}>
-                      {msg.source === 'bank' ? '📚 题库AI' : '🎯 提问AI'}
-                    </div>
-                  )}
+                  {msg.content}
                 </div>
               </div>
             ))}
@@ -530,17 +444,7 @@ ${bankReply}
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                题库AI
-              </button>
-              <button
-                onClick={() => setRightPanelTab('coordinator')}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  rightPanelTab === 'coordinator'
-                    ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                提问AI
+                提示词
               </button>
               <button
                 onClick={() => setRightPanelTab('data')}
@@ -556,17 +460,11 @@ ${bankReply}
             
             {/* 面板内容 */}
             <div className="flex-1 overflow-y-auto p-4">
-              {rightPanelTab === 'prompt' && (
+              {rightPanelTab === 'prompt' ? (
                 <pre className="text-xs whitespace-pre-wrap font-mono bg-gray-800 text-green-400 p-4 rounded-lg overflow-x-auto">
                   {currentPrompt || '提示词加载中...'}
                 </pre>
-              )}
-              {rightPanelTab === 'coordinator' && (
-                <pre className="text-xs whitespace-pre-wrap font-mono bg-pink-900 text-pink-200 p-4 rounded-lg overflow-x-auto">
-                  {(config || DEFAULT_CONFIG).coordinator_prompt || '提问AI配置加载中...'}
-                </pre>
-              )}
-              {rightPanelTab === 'data' && (
+              ) : (
                 <div className="space-y-3">
                   {Object.keys(extractedData).length === 0 ? (
                     <div className="text-center text-gray-400 py-8 text-sm">
