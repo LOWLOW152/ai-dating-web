@@ -316,8 +316,6 @@ export async function POST(request: NextRequest) {
     
     if (apiKey) {
       try {
-        const startTime = Date.now();
-        
         // 估算请求 tokens ( roughly 1 token ≈ 4 chars for Chinese)
         const requestTokens = Math.ceil(prompt.length / 4);
         
