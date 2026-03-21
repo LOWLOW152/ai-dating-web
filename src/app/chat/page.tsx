@@ -129,7 +129,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  function buildPrompt(questionIndex: number, chatHistory: ChatMessage[] = []) {
+  function buildPrompt(questionIndex: number, chatHistory: ChatMessage[] = [], isNewQuestion = false) {
     // 使用配置或默认配置
     const cfg = config || DEFAULT_CONFIG;
     if (questions.length === 0) return '';
@@ -152,18 +152,23 @@ export default function ChatPage() {
 
     const questionPrompt = question.ai_prompt || '';
     
-    // 构建当前题目的对话历史（简单版本：只包含最近几条）
-    const currentTopicHistory = chatHistory.length > 0
-      ? `【当前题目对话记录】\n${chatHistory.slice(-4).map(m => 
+    // 构建完整的对话历史（方案B：保留所有历史）
+    const fullHistory = chatHistory.length > 0
+      ? `【历史对话记录】\n${chatHistory.slice(-10).map(m => 
           `${m.role === 'ai' ? '你' : '用户'}: ${m.content}`
         ).join('\n')}\n`
+      : '';
+    
+    // 新题目标记
+    const newQuestionMarker = isNewQuestion 
+      ? `【重要】这是第 ${question.order} 题的首次对话。请基于上面的历史记录自然过渡，引入新话题。不要重复问历史记录中已问过的问题。\n`
       : '';
 
     return `${cfg.system_prompt}
 
 ${progressSection}
 
-${currentTopicHistory}${questionPrompt}
+${fullHistory}${newQuestionMarker}【当前题目策略】\n${questionPrompt}
 
 ${cfg.data_format_template}`;
   }
@@ -175,7 +180,8 @@ ${cfg.data_format_template}`;
     const roundToCheck = currentRound !== undefined ? currentRound : questionRound;
     
     try {
-      const prompt = buildPrompt(qIndex, chatHistory);
+      // isInitialLoad=true 表示这是新题目的首次对话
+      const prompt = buildPrompt(qIndex, chatHistory, isInitialLoad);
       setCurrentPrompt(prompt); // 保存当前提示词用于显示
       
       const res = await fetch('/api/chat', {
@@ -288,10 +294,11 @@ ${cfg.data_format_template}`;
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setQuestionRound(0);
-      // 不清空聊天记录，保持连贯性
+      // 保留完整历史记录，让新题目能看到之前所有对话
       
       setTimeout(() => {
-        sendAiMessage(nextIndex, [], true); // true = 新题目初始加载
+        // 传递 messages（完整历史），isInitialLoad=true 表示新题目首次对话
+        sendAiMessage(nextIndex, messages, true);
       }, 100);
     } else {
       // 完成所有题目
