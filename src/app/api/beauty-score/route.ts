@@ -3,7 +3,7 @@ import { sql } from '@/lib/db';
 
 // 火山引擎 ARK API 配置
 const ARK_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-const ARK_MODEL = 'ep-20250321142905-wv4d8'; // 豆包视觉模型 endpoint ID
+const ARK_MODEL = 'ep-20260321224626-zxbvl'; // 豆包视觉模型 endpoint ID
 
 // 调试日志（返回给前端）
 let debugLogs: string[] = [];
