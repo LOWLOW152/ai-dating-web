@@ -1,6 +1,10 @@
 import { sql } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+// 强制动态渲染，使用 Node.js runtime
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // GET /api/admin/system-configs
 export async function GET(request: NextRequest) {
   try {
