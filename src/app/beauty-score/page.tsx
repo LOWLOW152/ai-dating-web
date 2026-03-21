@@ -229,7 +229,7 @@ export default function BeautyScoreUserPage() {
                   <p className="font-bold text-pink-600">{result.beauty_type}</p>
                 </div>
                 <div className="bg-orange-50 p-3 rounded-lg text-center">
-                  <p className="text-xs text-gray-500 mb-1">P图程度</span>
+                  <p className="text-xs text-gray-500 mb-1">P图程度</p>
                   <p className="font-bold text-orange-600">{result.photoshop_level}</p>
                   <p className="text-xs text-gray-400">
                     {Number(result.photoshop_level) <= 0.5 ? '原生感' : 
