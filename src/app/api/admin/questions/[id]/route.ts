@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    console.log('Update question request:', { id: params.id, body });
+    console.log('Update question request:', { id, body });
     
     const {
       category,
@@ -41,7 +42,7 @@ export async function PUT(
         hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
         is_active,
         is_required,
-        params.id,
+        id,
       ]
     );
 
@@ -54,13 +55,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // 先检查是否有模板在使用这道题
     const inUse = await sql.query(
       'SELECT template_id FROM template_weights WHERE question_id = $1 LIMIT 1',
-      [params.id]
+      [id]
     );
     
     if (inUse.rows.length > 0) {
@@ -70,7 +73,7 @@ export async function DELETE(
       );
     }
 
-    await sql.query('DELETE FROM questions WHERE id = $1', [params.id]);
+    await sql.query('DELETE FROM questions WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete question error:', error);

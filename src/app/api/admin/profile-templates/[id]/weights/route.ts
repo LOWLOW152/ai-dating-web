@@ -4,9 +4,10 @@ import { NextRequest } from 'next/server';
 // GET /api/admin/profile-templates/:id/weights
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const result = await sql.query(
       `SELECT 
         id,
@@ -18,7 +19,7 @@ export async function GET(
         algorithm_params
       FROM template_weights 
       WHERE template_id = $1`,
-      [params.id]
+      [id]
     );
     
     return Response.json({ 
@@ -39,11 +40,12 @@ export async function GET(
 // PUT /api/admin/profile-templates/:id/weights
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { weights } = await request.json();
-    const templateId = params.id;
+    const templateId = id;
 
     // 开启事务
     await sql.query('BEGIN');

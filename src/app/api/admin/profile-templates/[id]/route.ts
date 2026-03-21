@@ -4,12 +4,13 @@ import { NextRequest } from 'next/server';
 // GET /api/admin/profile-templates/:id
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const result = await sql.query(
       'SELECT * FROM profile_templates WHERE id = $1',
-      [params.id]
+      [id]
     );
     
     if (result.rows.length === 0) {

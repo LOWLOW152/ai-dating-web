@@ -4,9 +4,10 @@ import { NextRequest } from 'next/server';
 // PUT /api/admin/profile-templates/:id/prompt
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { system_prompt, progress_template, data_format_template, context_limit } = await request.json();
 
     await sql.query(
@@ -17,7 +18,7 @@ export async function PUT(
            context_limit = $4,
            updated_at = NOW()
        WHERE id = $5`,
-      [system_prompt, progress_template, data_format_template, context_limit, params.id]
+      [system_prompt, progress_template, data_format_template, context_limit, id]
     );
 
     return Response.json({ success: true });

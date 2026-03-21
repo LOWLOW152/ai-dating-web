@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await sql.query('SELECT * FROM questions WHERE id = $1', [params.id]);
+    const { id } = await params;
+    const result = await sql.query('SELECT * FROM questions WHERE id = $1', [id]);
     
     if (result.rows.length === 0) {
       return NextResponse.json({ success: false, error: '题目不存在' }, { status: 404 });
