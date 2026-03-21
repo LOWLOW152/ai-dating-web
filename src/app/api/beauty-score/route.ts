@@ -3,135 +3,125 @@ import { sql } from '@/lib/db';
 
 // 火山引擎 ARK API 配置
 const ARK_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-const ARK_MODEL = 'doubao-1-5-vision-pro-250328'; // 豆包视觉模型
+const ARK_MODEL = 'doubao-1-5-vision-pro-250328';
 
 // 获取环境变量（运行时）
 function getArkApiKey(): string | undefined {
-  // 临时硬编码测试
   const HARDCODED_KEY = '66fe12c6-1a14-4fdc-beda-960abb6b28ad';
-  
   const key = process.env.ARK_API_KEY;
-  console.log('[Env] ARK_API_KEY present:', !!key);
-  
-  if (!key && HARDCODED_KEY) {
-    console.log('[Env] Using hardcoded key');
-    return HARDCODED_KEY;
-  }
-  
+  if (!key && HARDCODED_KEY) return HARDCODED_KEY;
   return key;
 }
 
-// 调用火山引擎视觉模型
-async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
-  beauty_type: string;
-  beauty_score: number;
-  ai_comment: string;
-  details: {
-    facial_features: number;
-    skin_quality: number;
-    temperament: number;
-    photoshop_deduction: number;
-  };
-}> {
-  console.log('[VisionAPI] Starting call to', ARK_API_URL);
-  console.log('[VisionAPI] Model:', ARK_MODEL);
-  console.log('[VisionAPI] API Key length:', apiKey.length);
-  console.log('[VisionAPI] Image base64 length:', imageBase64.length);
-  console.log('[VisionAPI] Image base64 starts with:', imageBase64.substring(0, 50));
+// 正态分布映射函数
+function normalMapping(rawScore: number): number {
+  // 原始分范围大约 -3 ~ 9.4
+  // 目标：均值 5.5，标准差 1.8
+  const mu = 5.5;
+  const sigma = 1.8;
   
-  const prompt = `你是一位极其严格的形象分析师，请冷酷客观地分析这张照片中的人物。你的评分标准必须非常严苛，绝大多数人都是5分左右。
+  // 线性映射到正态分布的分位数
+  // 原始分 4 分 → 5 分（普通人）
+  // 原始分 6 分 → 6.5 分
+  // 原始分 2 分 → 3.5 分
+  
+  const normalized = (rawScore - 4) / 2.5; // 归一化
+  const mapped = mu + normalized * sigma;
+  
+  // 限制在 0-10
+  return Math.max(0, Math.min(10, Math.round(mapped * 10) / 10));
+}
 
-【铁律 - 必须遵守】
-- 5分 = 普通人，大街上70%的人都是这个水平
-- 5.5分 = 比普通人好一点点，但完全不出众
-- 6分 = 小帅/小美，走在路上会有人多看一眼（前30%）
-- 6.5分 = 确实好看，但不出挑（前15%）
-- 7分 = 班草/班花级别，一个班40人里的TOP 3（前7%）
-- 7.5分 = 系草/系花级别，很出众（前3%）
-- 8分 = 能当小网红，靠脸吃饭的水平（前1%）
-- 8.5分以上 = 明星级别，普通人见不到（前0.1%）
-- 4分及以下 = 有明显硬伤（肥胖、严重不对称、皮肤问题严重、油腻猥琐）
+// 调用火山引擎视觉模型
+async function analyzeBeauty(imageBase64: string, apiKey: string) {
+  const prompt = `你是一位严格的形象分析师。请客观分析这张照片中的人物，给出9项具体分数。
 
-【扣分项 - 看到就扣】
-- 肥胖/大肚腩：五官最多给0.8分，总分最多5.5
-- 皮肤差（痘痘、油光、暗沉）：皮肤最多给0.5分
-- 表情油腻/猥琐/呆滞：气质最多给0.5分
-- 体态差（驼背、脖子前倾）：气质扣0.3
-- 普通人长相：五官1.0分封顶，别想太高
+【必须分析的9项指标】
 
-【分析步骤】
-1. 先看性别和年龄
-2. 严格逐项打分：
+1. **体型肥胖** (0-4分)
+   - 0-0.5: 严重肥胖/大胃袋，轮廓严重变形
+   - 0.5-1.5: 微胖/双下巴明显
+   - 2-2.5: 正常体型
+   - 2.5-3.5: 偏瘦/轮廓清晰
+   - 3.5-4: 健美/线条好
 
-【五官协调度】(0-2分，极其严格)
-- 0-0.3分: 严重不协调，大胃袋/极胖/五官畸形
-- 0.3-0.6分: 明显不协调，大圆脸/小眼睛/塌鼻梁明显
-- 0.6-1.0分: 一般，有明显瑕疵（如良子那种水平）
-- 1.0-1.2分: 正常普通人，不丑也不帅（大多数人在这里）
-- 1.2-1.5分: 五官端正，有点小帅/美（前20%）
-- 1.5-1.8分: 五官精致，好看（前5%）
-- 1.8-2.0分: 神颜，网红/明星级别（前0.5%）
+2. **皮肤状况** (0-3分)
+   - 0-0.5: 很差（满脸痘/油光/暗沉发黄）
+   - 0.5-1.0: 较差（有痘/油光）
+   - 1.0-1.5: 一般（小问题，大多数人）
+   - 1.5-2.0: 正常
+   - 2.0-3.0: 细腻光滑
 
-【皮肤状态】(0-1.5分，极其严格)
-- 0-0.3分: 严重皮肤问题（满脸痘、极其油腻、肤色暗沉发黄）
-- 0.3-0.6分: 皮肤问题明显（有痘、油光、粗糙）
-- 0.6-0.9分: 一般，有些问题但正常（大多数人）
-- 0.9-1.2分: 皮肤还行，没大问题
-- 1.2-1.5分: 皮肤好，细腻（很少见）
+3. **五官对称性** (0-3分)
+   - 0-0.5: 明显不对称（大小眼/歪嘴）
+   - 0.5-1.5: 轻微不对称
+   - 1.5-2.5: 基本对称（大多数人）
+   - 2.5-3.0: 很对称
 
-【气质神态】(0-1.5分，极其严格)
-- 0-0.3分: 极其油腻、猥琐、眼神呆滞如死鱼、像良子
-- 0.3-0.6分: 没精神、眼神空洞、表情僵硬
-- 0.6-0.9分: 普通，没特点，路人感（大多数人）
-- 0.9-1.2分: 自然放松，有点亲和力
-- 1.2-1.5分: 眼神有光，有气场，出众（很少见）
+4. **脸部年龄评分** (0-3分) - 以22岁为最优
+   - 0-0.5: <15岁或>35岁
+   - 0.5-1.5: 15-18岁或30-35岁
+   - 1.5-2.0: 19-21岁或26-29岁
+   - 2.0-3.0: 22-25岁（最优）
 
-【P图程度扣分】(0-2分)
-- 0分: 原图直出
-- 0.5分: 轻度美颜
-- 1.0分: 磨皮瘦脸明显
-- 1.5分: 高P
-- 2.0分: 完全不像本人
+5. **发际线/发量** (0-2分)
+   - 0-0.3: 秃顶/严重脱发
+   - 0.3-0.8: 发际线明显后移
+   - 0.8-1.2: 轻微后移
+   - 1.2-1.8: 正常
+   - 1.8-2.0: 浓密完美
 
-【总分计算】
-基准5分 + 五官 + 皮肤 + 气质 - P图扣分 = 最终得分(0-10)
+6. **黑眼圈/眼袋** (0-2分)
+   - 0-0.3: 严重（眼袋下垂/黑眼圈很深）
+   - 0.3-0.8: 明显疲态
+   - 0.8-1.5: 轻微
+   - 1.5-2.0: 无/精神
 
-【颜值类型】
-- 女性：清纯型、御姐型、知性型、甜美型、冷艳型、阳光型、成熟型、可爱型、优雅型、时尚型
-- 男性：阳光型、成熟型、斯文型、硬朗型、儒雅型、清爽型、稳重型、时尚型、痞帅型
+7. **牙齿/嘴型** (0-2分)
+   - 0-0.5: 严重问题（龅牙/地包天/严重不齐）
+   - 0.5-1.0: 轻微问题
+   - 1.0-1.5: 正常
+   - 1.5-2.0: 整齐洁白
 
-【评语要求】
-50字以内，根据分数诚实评价，不要给面子：
-- 4-5分：直接说哪里不好（胖、皮肤差、没精神等）
-- 5-6分：正常评价，不吹不黑
-- 6-7分：确实有点小帅/小美，但也就那样
-- 7分以上：确实好看，值得夸
+8. **鼻梁高度** (0-2分)
+   - 0-0.5: 塌鼻梁/蒜头鼻
+   - 0.5-1.0: 偏低
+   - 1.0-1.5: 正常
+   - 1.5-2.0: 挺拔
 
-【最后提醒】
-- 如果这人看着像良子那种水平，直接4-5分，别给7分
-- 如果这人看着像普通路人，5-5.5分，别想太高
-- 如果这人确实好看，6分以上
-- 绝大多数人都是5分左右，这是正常的
-- 必须根据实际照片分析，不要套用示例数据
+9. **P图程度** (0-3分，扣分项)
+   - 0: 原图
+   - 0.5-1.0: 轻度美颜
+   - 1.0-2.0: 明显P图（磨皮瘦脸）
+   - 2.0-3.0: 高P/换头
 
-【输出格式】
-纯JSON，直接输出最终分数（不要原始分数，直接输出最终得分）：
+【计算方式】
+加权基础分 = 体型×0.9 + 皮肤×0.7 + 对称×0.7 + 年龄×0.6 + 发际线×0.5 + 黑眼圈×0.5 + 牙齿×0.5 + 鼻梁×0.5
+原始总分 = 加权基础分 - P图扣分
+最终分 = 原始总分映射到正态分布（普通人5分左右，极少7分以上）
 
+【输出格式】纯JSON：
 {
-  "beauty_type": "根据实际情况选择类型",
-  "facial_features": 显示原始五官分,
-  "skin_quality": 显示原始皮肤分,
-  "temperament": 显示原始气质分,
-  "photoshop_deduction": 显示P图扣分,
-  "beauty_score": AI直接给出的最终分数(0-10),
-  "ai_comment": "根据实际照片评语"
+  "body_shape": 分数,
+  "skin_quality": 分数,
+  "symmetry": 分数,
+  "face_age": 分数,
+  "hairline": 分数,
+  "eye_bags": 分数,
+  "teeth": 分数,
+  "nose_bridge": 分数,
+  "photoshop_deduction": 分数,
+  "raw_score": 原始总分,
+  "beauty_score": 映射后的最终分,
+  "beauty_type": "类型",
+  "ai_comment": "评语"
 }`;
 
   const response = await fetch(ARK_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': apiKey,  // 火山引擎可能不需要 Bearer 前缀
+      'Authorization': apiKey,
     },
     body: JSON.stringify({
       model: ARK_MODEL,
@@ -144,80 +134,27 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
           ]
         }
       ],
-      temperature: 0.3,
+      temperature: 0.2,
     }),
   });
-  
-  console.log('[VisionAPI] Response status:', response.status);
-  
+
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[VisionAPI] HTTP Error:', response.status, errorText);
-    throw new Error(`Vision API error: ${response.status} - ${errorText}`);
+    throw new Error(`API error: ${response.status}`);
   }
-  
+
   const data = await response.json();
-  console.log('[VisionAPI] Raw response:', JSON.stringify(data, null, 2));
-  
   const content = data.choices?.[0]?.message?.content;
   
   if (!content) {
-    console.error('[VisionAPI] No content in response');
-    throw new Error('Invalid API response');
+    throw new Error('Empty response');
   }
-  
-  console.log('[VisionAPI] Content:', content);
-  
+
   // 解析JSON
-  try {
-    // 清理可能的 markdown 代码块
-    const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
-    const result = JSON.parse(jsonStr);
-    
-    console.log('[VisionAPI] Parsed result:', result);
-    
-    // 使用AI直接给出的分数，不再重新计算
-    const facial = Math.max(0, Math.min(4, parseFloat(result.facial_features) || 2));
-    const skin = Math.max(0, Math.min(3, parseFloat(result.skin_quality) || 1.5));
-    const temper = Math.max(0, Math.min(3, parseFloat(result.temperament) || 1.5));
-    const ps = Math.max(0, Math.min(3, parseFloat(result.photoshop_deduction) || 0));
-    
-    // AI直接给出最终分数
-    const finalScore = Math.max(0, Math.min(10, parseFloat(result.beauty_score) || 5));
-    
-    console.log('[VisionAPI] AI gave score:', finalScore);
-    console.log('[VisionAPI] Details:', { facial, skin, temper, ps });
-    
-    return {
-      beauty_type: result.beauty_type || '成熟型',
-      beauty_score: finalScore,
-      ai_comment: result.ai_comment || '整体形象不错，给人感觉很舒服。',
-      details: {
-        facial_features: facial,
-        skin_quality: skin,
-        temperament: temper,
-        photoshop_deduction: ps,
-      }
-    };
-  } catch (err) {
-    // JSON解析失败，返回默认值
-    console.error('[VisionAPI] JSON parse error:', err);
-    console.log('[VisionAPI] Raw content was:', content);
-    return {
-      beauty_type: '成熟型',
-      beauty_score: 5.5,
-      ai_comment: content.slice(0, 100),
-      details: {
-        facial_features: 1.0,
-        skin_quality: 0.8,
-        temperament: 0.8,
-        photoshop_deduction: 0.5,
-      }
-    };
-  }
+  const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
+  return JSON.parse(jsonStr);
 }
 
-// POST /api/beauty-score - 用户提交照片获取评分
+// POST /api/beauty-score
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -237,11 +174,8 @@ export async function POST(request: NextRequest) {
     );
 
     let profileId: string;
-
     if (profileRes.rows.length === 0) {
-      // 档案不存在，自动创建
       profileId = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${inviteCode}`;
-      
       await sql.query(
         `INSERT INTO profiles (id, invite_code, answers, status, created_at)
          VALUES ($1, $2, $3, 'active', NOW())`,
@@ -251,111 +185,145 @@ export async function POST(request: NextRequest) {
       profileId = profileRes.rows[0].id;
     }
 
+    const arkApiKey = getArkApiKey();
+    
     let result: {
       photoshop_level: string;
       beauty_type: string;
       beauty_score: string;
       ai_comment: string;
       details: {
-        facial_features: number;
+        body_shape: number;
         skin_quality: number;
-        temperament: number;
+        symmetry: number;
+        face_age: number;
+        hairline: number;
+        eye_bags: number;
+        teeth: number;
+        nose_bridge: number;
         photoshop_deduction: number;
       };
+      raw_score?: number;
     };
 
-    // 运行时获取 API Key
-    const arkApiKey = getArkApiKey();
-    console.log(`[BeautyScore] API Key configured: ${!!arkApiKey}`);
-    console.log(`[BeautyScore] Profile ID: ${profileId}`);
-    console.time('[BeautyScore] Total time');
-
-    // 检查是否配置了火山引擎API
     if (!arkApiKey) {
-      console.log('[BeautyScore] Using MOCK data (no API key)');
-      // 未配置API，使用模拟数据（也包含详细分数）
-      const mockFacial = Number((0.8 + Math.random() * 0.8).toFixed(1));
-      const mockSkin = Number((0.6 + Math.random() * 0.6).toFixed(1));
-      const mockTemper = Number((0.7 + Math.random() * 0.6).toFixed(1));
-      const mockPs = Number((Math.random() * 1.5).toFixed(1));
-      const mockTotal = Number((5 + mockFacial + mockSkin + mockTemper - mockPs).toFixed(1));
-      
+      // 模拟数据
       result = {
-        photoshop_level: mockPs.toFixed(1),
-        beauty_type: ['清纯型', '甜美型', '知性型', '优雅型', '阳光型', '成熟型'][Math.floor(Math.random() * 6)],
-        beauty_score: Math.min(10, mockTotal).toFixed(1),
-        ai_comment: '整体形象不错，气质自然，给人感觉很舒服。建议保持自信！',
+        photoshop_level: '0.5',
+        beauty_type: '成熟型',
+        beauty_score: '5.2',
+        ai_comment: '基于9项客观指标的综合评分',
         details: {
-          facial_features: mockFacial,
-          skin_quality: mockSkin,
-          temperament: mockTemper,
-          photoshop_deduction: mockPs,
-        }
+          body_shape: 2.0,
+          skin_quality: 1.5,
+          symmetry: 2.0,
+          face_age: 2.5,
+          hairline: 1.5,
+          eye_bags: 1.2,
+          teeth: 1.3,
+          nose_bridge: 1.2,
+          photoshop_deduction: 0.5,
+        },
+        raw_score: 4.2,
       };
-      console.log('[BeautyScore] Mock result:', result);
     } else {
-      console.log('[BeautyScore] Calling Vision API...');
-      console.time('[BeautyScore] Vision API call');
-      
       try {
-        // 调用视觉模型分析颜值
-        const visionResult = await callVisionModel(photoBase64, arkApiKey);
+        const aiResult = await analyzeBeauty(photoBase64, arkApiKey);
         
-        console.timeEnd('[BeautyScore] Vision API call');
-        console.log('[BeautyScore] Vision API result:', visionResult);
+        // 计算原始分（如果AI没算）
+        const weights = {
+          body_shape: 0.9,
+          skin_quality: 0.7,
+          symmetry: 0.7,
+          face_age: 0.6,
+          hairline: 0.5,
+          eye_bags: 0.5,
+          teeth: 0.5,
+          nose_bridge: 0.5,
+        };
         
+        const details = {
+          body_shape: Math.max(0, Math.min(4, parseFloat(aiResult.body_shape) || 2)),
+          skin_quality: Math.max(0, Math.min(3, parseFloat(aiResult.skin_quality) || 1.5)),
+          symmetry: Math.max(0, Math.min(3, parseFloat(aiResult.symmetry) || 2)),
+          face_age: Math.max(0, Math.min(3, parseFloat(aiResult.face_age) || 2)),
+          hairline: Math.max(0, Math.min(2, parseFloat(aiResult.hairline) || 1.5)),
+          eye_bags: Math.max(0, Math.min(2, parseFloat(aiResult.eye_bags) || 1.2)),
+          teeth: Math.max(0, Math.min(2, parseFloat(aiResult.teeth) || 1.3)),
+          nose_bridge: Math.max(0, Math.min(2, parseFloat(aiResult.nose_bridge) || 1.2)),
+          photoshop_deduction: Math.max(0, Math.min(3, parseFloat(aiResult.photoshop_deduction) || 0)),
+        };
+        
+        const weightedScore = 
+          details.body_shape * weights.body_shape +
+          details.skin_quality * weights.skin_quality +
+          details.symmetry * weights.symmetry +
+          details.face_age * weights.face_age +
+          details.hairline * weights.hairline +
+          details.eye_bags * weights.eye_bags +
+          details.teeth * weights.teeth +
+          details.nose_bridge * weights.nose_bridge;
+        
+        const rawScore = weightedScore - details.photoshop_deduction;
+        const finalScore = aiResult.beauty_score 
+          ? parseFloat(aiResult.beauty_score)
+          : normalMapping(rawScore);
+
         result = {
-          photoshop_level: visionResult.details.photoshop_deduction.toFixed(1),
-          beauty_type: visionResult.beauty_type,
-          beauty_score: visionResult.beauty_score.toFixed(1),
-          ai_comment: visionResult.ai_comment,
-          details: visionResult.details
+          photoshop_level: details.photoshop_deduction.toFixed(1),
+          beauty_type: aiResult.beauty_type || '成熟型',
+          beauty_score: Math.max(0, Math.min(10, finalScore)).toFixed(1),
+          ai_comment: aiResult.ai_comment || '综合9项客观指标的评分结果',
+          details,
+          raw_score: Math.round(rawScore * 100) / 100,
         };
       } catch (error) {
-        console.error('[BeautyScore] Vision API failed:', error);
-        console.log('[BeautyScore] Falling back to mock data');
-        
-        // API调用失败，使用模拟数据作为fallback
-        const mockFacial = Number((0.8 + Math.random() * 0.8).toFixed(1));
-        const mockSkin = Number((0.6 + Math.random() * 0.6).toFixed(1));
-        const mockTemper = Number((0.7 + Math.random() * 0.6).toFixed(1));
-        const mockPs = Number((Math.random() * 1.5).toFixed(1));
-        const mockTotal = Number((5 + mockFacial + mockSkin + mockTemper - mockPs).toFixed(1));
-        
+        console.error('AI分析失败:', error);
+        // fallback 到模拟数据
         result = {
-          photoshop_level: mockPs.toFixed(1),
+          photoshop_level: '0.5',
           beauty_type: '成熟型',
-          beauty_score: Math.min(10, mockTotal).toFixed(1),
-          ai_comment: 'AI服务暂时不可用，这是模拟评分。',
+          beauty_score: '5.2',
+          ai_comment: 'AI服务暂时不可用',
           details: {
-            facial_features: mockFacial,
-            skin_quality: mockSkin,
-            temperament: mockTemper,
-            photoshop_deduction: mockPs,
-          }
+            body_shape: 2.0,
+            skin_quality: 1.5,
+            symmetry: 2.0,
+            face_age: 2.5,
+            hairline: 1.5,
+            eye_bags: 1.2,
+            teeth: 1.3,
+            nose_bridge: 1.2,
+            photoshop_deduction: 0.5,
+          },
+          raw_score: 4.2,
         };
       }
     }
-    
-    console.timeEnd('[BeautyScore] Total time');
-    console.log('[BeautyScore] Final result:', result);
 
-    // 保存评分
-    await saveScore(profileId, result);
+    // 保存到数据库
+    await sql.query(
+      `INSERT INTO beauty_scores 
+      (profile_id, photoshop_level, beauty_type, beauty_score, ai_comment,
+       body_shape, skin_quality, symmetry, face_age, hairline, eye_bags, teeth, nose_bridge, photoshop_deduction, evaluator)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'ai')`,
+      [profileId, result.photoshop_level, result.beauty_type, result.beauty_score, result.ai_comment,
+       result.details.body_shape, result.details.skin_quality, result.details.symmetry, result.details.face_age,
+       result.details.hairline, result.details.eye_bags, result.details.teeth, result.details.nose_bridge, result.details.photoshop_deduction]
+    );
 
-    console.log('[BeautyScore] Saved to database, returning response');
+    await sql.query(
+      `UPDATE profiles 
+      SET photoshop_level = $1, beauty_type = $2, beauty_score = $3, beauty_evaluated_at = NOW()
+      WHERE id = $4`,
+      [result.photoshop_level, result.beauty_type, result.beauty_score, profileId]
+    );
 
     return NextResponse.json({
       success: true,
       data: result,
       source: !arkApiKey ? 'mock' : 'ai',
-      debug: {
-        apiKeyConfigured: !!arkApiKey,
-        apiKeyLength: arkApiKey?.length || 0,
-        imageBase64Length: photoBase64?.length || 0,
-      }
     });
-
   } catch (error) {
     console.error('Beauty score error:', error);
     return NextResponse.json(
@@ -365,7 +333,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/beauty-score/check - 检查是否已有评分
+// GET /api/beauty-score/check
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -378,87 +346,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 从profiles表获取最新评分（档案可能不存在，不报错）
     const profileRes = await sql.query(
-      `SELECT 
-        photoshop_level,
-        beauty_type,
-        beauty_score,
-        beauty_evaluated_at
-      FROM profiles 
-      WHERE invite_code = $1 
-      AND beauty_score IS NOT NULL`,
+      `SELECT photoshop_level, beauty_type, beauty_score, beauty_evaluated_at
+      FROM profiles WHERE invite_code = $1 AND beauty_score IS NOT NULL`,
       [code]
     );
 
     if (profileRes.rows.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: null
-      });
+      return NextResponse.json({ success: true, data: null });
     }
 
     const row = profileRes.rows[0];
-
     return NextResponse.json({
       success: true,
       data: {
         photoshop_level: row.photoshop_level,
         beauty_type: row.beauty_type,
         beauty_score: row.beauty_score,
-        evaluated_at: row.beauty_evaluated_at
-      }
+        evaluated_at: row.beauty_evaluated_at,
+      },
     });
-
   } catch (error) {
-    console.error('Check beauty score error:', error);
+    console.error('Check error:', error);
     return NextResponse.json(
       { success: false, error: '服务器错误' },
       { status: 500 }
     );
   }
-}
-
-// 保存评分到数据库
-interface BeautyScore {
-  photoshop_level: string;
-  beauty_type: string;
-  beauty_score: string;
-  ai_comment: string;
-  details: {
-    facial_features: number;
-    skin_quality: number;
-    temperament: number;
-    photoshop_deduction: number;
-  };
-}
-
-async function saveScore(profileId: string, score: BeautyScore) {
-  // 保存到beauty_scores历史表
-  await sql.query(
-    `INSERT INTO beauty_scores 
-    (profile_id, photoshop_level, beauty_type, beauty_score, ai_comment, evaluator,
-     facial_features, skin_quality, temperament, photoshop_deduction)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [profileId, score.photoshop_level, score.beauty_type, score.beauty_score, score.ai_comment, 'ai',
-     score.details.facial_features, score.details.skin_quality, score.details.temperament, score.details.photoshop_deduction]
-  );
-
-  // 更新profiles表的最新评分
-  await sql.query(
-    `UPDATE profiles 
-    SET 
-      photoshop_level = $1,
-      beauty_type = $2,
-      beauty_score = $3,
-      facial_features = $4,
-      skin_quality = $5,
-      temperament = $6,
-      photoshop_deduction = $7,
-      beauty_evaluated_at = NOW()
-    WHERE id = $8`,
-    [score.photoshop_level, score.beauty_type, score.beauty_score,
-     score.details.facial_features, score.details.skin_quality, score.details.temperament, score.details.photoshop_deduction,
-     profileId]
-  );
 }

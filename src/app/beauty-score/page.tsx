@@ -8,22 +8,28 @@ interface BeautyResult {
   beauty_type: string;
   beauty_score: number;
   ai_comment: string;
-  details?: {
-    facial_features: number;
+  details: {
+    body_shape: number;
     skin_quality: number;
-    temperament: number;
+    symmetry: number;
+    face_age: number;
+    hairline: number;
+    eye_bags: number;
+    teeth: number;
+    nose_bridge: number;
     photoshop_deduction: number;
   };
+  raw_score?: number;
 }
 
 const BEAUTY_LEVELS = [
-  { min: 9, max: 10, label: '明星级', color: 'text-yellow-600', bg: 'bg-yellow-50', desc: '素颜能打，镜头扛得住' },
-  { min: 8, max: 8.9, label: '小网红', color: 'text-purple-600', bg: 'bg-purple-50', desc: '好看，微调/轻P就能出片' },
-  { min: 7, max: 7.9, label: '素人天花板', color: 'text-blue-600', bg: 'bg-blue-50', desc: '底子好，打扮后很亮眼' },
-  { min: 6, max: 6.9, label: '好看普通人', color: 'text-green-600', bg: 'bg-green-50', desc: '顺眼，有亮点' },
-  { min: 5, max: 5.9, label: '普通', color: 'text-gray-600', bg: 'bg-gray-50', desc: '大街上一抓一大把' },
-  { min: 4, max: 4.9, label: '略差', color: 'text-orange-600', bg: 'bg-orange-50', desc: '有明显硬伤' },
-  { min: 0, max: 3.9, label: '需要改善', color: 'text-red-600', bg: 'bg-red-50', desc: '严重问题' },
+  { min: 9, max: 10, label: '明星级', color: 'text-yellow-600', bg: 'bg-yellow-50', desc: '极少数，扛得住镜头' },
+  { min: 8, max: 8.9, label: '班草/班花', color: 'text-purple-600', bg: 'bg-purple-50', desc: '很出众，前3%' },
+  { min: 7, max: 7.9, label: '小帅/小美', color: 'text-blue-600', bg: 'bg-blue-50', desc: '有亮点，前15%' },
+  { min: 6, max: 6.9, label: '顺眼', color: 'text-green-600', bg: 'bg-green-50', desc: '比普通人好一点' },
+  { min: 4.5, max: 5.9, label: '普通人', color: 'text-gray-600', bg: 'bg-gray-50', desc: '大街上一抓一大把，70%' },
+  { min: 3, max: 4.4, label: '略差', color: 'text-orange-600', bg: 'bg-orange-50', desc: '有明显问题' },
+  { min: 0, max: 2.9, label: '需改善', color: 'text-red-600', bg: 'bg-red-50', desc: '有明显硬伤' },
 ];
 
 function getBeautyLevel(score: number) {
@@ -37,7 +43,6 @@ export default function BeautyScoreUserPage() {
   const [result, setResult] = useState<BeautyResult | null>(null);
   const [dataSource, setDataSource] = useState<'mock' | 'ai' | null>(null);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
 
   useEffect(() => {
     const code = localStorage.getItem('inviteCode');
@@ -55,7 +60,7 @@ export default function BeautyScoreUserPage() {
       const data = await res.json();
       if (data.success && data.data) {
         setResult(data.data);
-        setDataSource('ai'); // 数据库里存的是之前AI评的
+        setDataSource('ai');
       }
     } catch {
       // ignore
@@ -91,8 +96,6 @@ export default function BeautyScoreUserPage() {
         body: JSON.stringify({ inviteCode, photoBase64: base64 }),
       });
       const data = await res.json();
-      console.log('[Frontend] Response:', data);
-      setDebugInfo(JSON.stringify(data, null, 2));
       if (data.success) {
         setResult(data.data);
         setDataSource(data.source || 'mock');
@@ -147,55 +150,97 @@ export default function BeautyScoreUserPage() {
                       ? 'bg-green-100 text-green-700' 
                       : 'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {dataSource === 'ai' ? '🤖 AI真实评分' : '⚠️ 模拟数据（API未配置）'}
+                    {dataSource === 'ai' ? '🤖 AI真实评分' : '⚠️ 模拟数据'}
                   </span>
                 )}
               </div>
               
               {result.details && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">详细评分</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">客观指标评分</h3>
+                  <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">五官协调度</span>
+                      <span className="text-gray-600">体型肥胖</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(result.details.facial_features / 2) * 100}%` }} />
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-red-500 rounded-full" style={{ width: `${(result.details.body_shape / 4) * 100}%` }} />
                         </div>
-                        <span className="text-sm font-medium w-8 text-right">{result.details.facial_features}</span>
+                        <span className="font-medium w-8 text-right">{result.details.body_shape}</span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">皮肤状态</span>
+                      <span className="text-gray-600">皮肤状况</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(result.details.skin_quality / 1.5) * 100}%` }} />
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(result.details.skin_quality / 3) * 100}%` }} />
                         </div>
-                        <span className="text-sm font-medium w-8 text-right">{result.details.skin_quality}</span>
+                        <span className="font-medium w-8 text-right">{result.details.skin_quality}</span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">气质神态</span>
+                      <span className="text-gray-600">五官对称</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: `${(result.details.temperament / 1.5) * 100}%` }} />
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${(result.details.symmetry / 3) * 100}%` }} />
                         </div>
-                        <span className="text-sm font-medium w-8 text-right">{result.details.temperament}</span>
+                        <span className="font-medium w-8 text-right">{result.details.symmetry}</span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">P图扣分</span>
+                      <span className="text-gray-600">脸部年龄</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(result.details.photoshop_deduction / 2) * 100}%` }} />
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-500 rounded-full" style={{ width: `${(result.details.face_age / 3) * 100}%` }} />
                         </div>
-                        <span className="text-sm font-medium w-8 text-right text-orange-600">-{result.details.photoshop_deduction}</span>
+                        <span className="font-medium w-8 text-right">{result.details.face_age}</span>
                       </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">发际线</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-teal-500 rounded-full" style={{ width: `${(result.details.hairline / 2) * 100}%` }} />
+                        </div>
+                        <span className="font-medium w-8 text-right">{result.details.hairline}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">黑眼圈</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(result.details.eye_bags / 2) * 100}%` }} />
+                        </div>
+                        <span className="font-medium w-8 text-right">{result.details.eye_bags}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">牙齿嘴型</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(result.details.teeth / 2) * 100}%` }} />
+                        </div>
+                        <span className="font-medium w-8 text-right">{result.details.teeth}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">鼻梁高度</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(result.details.nose_bridge / 2) * 100}%` }} />
+                        </div>
+                        <span className="font-medium w-8 text-right">{result.details.nose_bridge}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-gray-600">P图扣分</span>
+                      <span className="font-medium text-red-600">-{result.details.photoshop_deduction}</span>
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t text-xs text-gray-400">
-                    公式：5 + {result.details.facial_features} + {result.details.skin_quality} + {result.details.temperament} - {result.details.photoshop_deduction} = {result.beauty_score}
-                  </div>
+                  {result.raw_score !== undefined && (
+                    <div className="mt-3 pt-2 border-t text-xs text-gray-400">
+                      原始分: {result.raw_score.toFixed(2)} → 映射分: {result.beauty_score}
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -232,13 +277,13 @@ export default function BeautyScoreUserPage() {
                   <span className="text-3xl">🤳</span>
                 </div>
                 <h2 className="text-xl font-semibold text-gray-800 mb-2">上传照片</h2>
-                <p className="text-sm text-gray-500">AI将分析你的照片并给出评分</p>
+                <p className="text-sm text-gray-500">AI分析9项客观指标</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="bg-white rounded-xl shadow p-6">
                   <input type="file" name="photo" accept="image/*" required className="w-full" />
-                  <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG 格式，最大 5MB</p>
+                  <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG，最大 5MB</p>
                 </div>
 
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
@@ -247,28 +292,21 @@ export default function BeautyScoreUserPage() {
                   {loading ? 'AI分析中...' : '开始颜值打分'}
                 </button>
 
-                <p className="text-xs text-gray-400 text-center">照片仅用于AI分析，不会被保存</p>
+                <p className="text-xs text-gray-400 text-center">基于9项客观指标 · 正态分布评分</p>
               </form>
 
               <div className="mt-8 bg-white rounded-xl shadow p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">评分等级说明</h3>
-                <div className="space-y-2 text-xs">
-                  {BEAUTY_LEVELS.slice(0, 5).map((lvl) => (
-                    <div key={lvl.label} className={`flex items-center gap-2 p-2 rounded ${lvl.bg}`}>
-                      <span className={`font-bold ${lvl.color} w-16`}>{lvl.label}</span>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">评分等级</h3>
+                <div className="space-y-1.5 text-xs">
+                  {BEAUTY_LEVELS.map((lvl) => (
+                    <div key={lvl.label} className={`flex items-center gap-2 p-1.5 rounded ${lvl.bg}`}>
+                      <span className={`font-bold ${lvl.color} w-14`}>{lvl.label}</span>
                       <span className="text-gray-500 w-16">{lvl.min}-{lvl.max}分</span>
-                      <span className="text-gray-600">{lvl.desc}</span>
+                      <span className="text-gray-600 truncate">{lvl.desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {debugInfo && (
-                <div className="mt-4 bg-gray-800 text-green-400 p-3 rounded-lg text-xs font-mono overflow-auto max-h-40">
-                  <p className="text-gray-400 mb-1">调试信息:</p>
-                  <pre>{debugInfo}</pre>
-                </div>
-              )}
             </div>
           )}
         </div>
