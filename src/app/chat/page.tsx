@@ -117,7 +117,7 @@ export default function ChatPage() {
   // 开始第一题
   useEffect(() => {
     if (questions.length > 0 && messages.length === 0 && !loading) {
-      sendAiMessage(0, []);
+      sendAiMessage(0, [], true); // true = 初始加载，不触发自动跳转
     }
   }, [questions, loading]);
 
@@ -164,7 +164,7 @@ ${contextSection}
 ${cfg.data_format_template}`;
   }
 
-  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[]) {
+  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false) {
     setIsAiResponding(true);
     
     try {
@@ -212,18 +212,21 @@ ${cfg.data_format_template}`;
           window.speechSynthesis.speak(utterance);
         }
 
-        // 判断是否要进入下一题
-        // 条件1：AI使用了结束语（包含"下一个问题"、"聊聊"、"下一题"等关键词）
-        // 条件2：达到追问次数上限（通过chatHistory中AI消息数量判断）
-        const aiMessageCount = chatHistory.filter(m => m.role === 'ai').length + 1; // +1 包含当前这条
-        const isEnding = /(?:下一个问题|聊聊.*下一个|下一题|结束.*话题|这个话题|我们聊)/i.test(displayContent);
-        const isMaxRound = aiMessageCount >= (questions[qIndex]?.max_questions || 3);
-        
-        if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
-          // 延迟一下让用户看到结束语，然后自动进入下一题
-          setTimeout(() => {
-            handleNextQuestion();
-          }, 2000);
+        // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
+        if (!isInitialLoad) {
+          // 条件1：AI明确使用了结束语
+          // 条件2：达到追问次数上限
+          const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题)/i.test(displayContent);
+          const isMaxRound = questionRound >= (questions[qIndex]?.max_questions || 3);
+          
+          console.log('Auto next check:', { questionRound, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
+          
+          if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
+            // 延迟一下让用户看到结束语，然后自动进入下一题
+            setTimeout(() => {
+              handleNextQuestion();
+            }, 3000);
+          }
         }
       }
     } catch (error) {
@@ -256,7 +259,7 @@ ${cfg.data_format_template}`;
     const newRound = questionRound + 1;
     setQuestionRound(newRound);
     
-    await sendAiMessage(currentIndex, newMessages);
+    await sendAiMessage(currentIndex, newMessages, false); // false = 用户对话后，可以触发跳转
   }
 
   function handleNextQuestion() {
@@ -267,7 +270,7 @@ ${cfg.data_format_template}`;
       // 不清空聊天记录，保持连贯性
       
       setTimeout(() => {
-        sendAiMessage(nextIndex, []);
+        sendAiMessage(nextIndex, [], true); // true = 新题目初始加载
       }, 100);
     } else {
       // 完成所有题目
