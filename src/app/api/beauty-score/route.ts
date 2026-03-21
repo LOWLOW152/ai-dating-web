@@ -345,7 +345,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: result,
-      source: !arkApiKey ? 'mock' : 'ai'
+      source: !arkApiKey ? 'mock' : 'ai',
+      debug: {
+        apiKeyConfigured: !!arkApiKey,
+        apiKeyLength: arkApiKey?.length || 0,
+        imageBase64Length: photoBase64?.length || 0,
+      }
     });
 
   } catch (error) {

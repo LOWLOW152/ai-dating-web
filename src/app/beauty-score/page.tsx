@@ -37,6 +37,7 @@ export default function BeautyScoreUserPage() {
   const [result, setResult] = useState<BeautyResult | null>(null);
   const [dataSource, setDataSource] = useState<'mock' | 'ai' | null>(null);
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
 
   useEffect(() => {
     const code = localStorage.getItem('inviteCode');
@@ -90,6 +91,8 @@ export default function BeautyScoreUserPage() {
         body: JSON.stringify({ inviteCode, photoBase64: base64 }),
       });
       const data = await res.json();
+      console.log('[Frontend] Response:', data);
+      setDebugInfo(JSON.stringify(data, null, 2));
       if (data.success) {
         setResult(data.data);
         setDataSource(data.source || 'mock');
@@ -259,6 +262,13 @@ export default function BeautyScoreUserPage() {
                   ))}
                 </div>
               </div>
+
+              {debugInfo && (
+                <div className="mt-4 bg-gray-800 text-green-400 p-3 rounded-lg text-xs font-mono overflow-auto max-h-40">
+                  <p className="text-gray-400 mb-1">调试信息:</p>
+                  <pre>{debugInfo}</pre>
+                </div>
+              )}
             </div>
           )}
         </div>
