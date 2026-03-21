@@ -54,6 +54,7 @@ export default function BeautyScoreUserPage() {
       const data = await res.json();
       if (data.success && data.data) {
         setResult(data.data);
+        setDataSource('ai'); // 数据库里存的是之前AI评的
       }
     } catch {
       // ignore

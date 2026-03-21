@@ -110,18 +110,19 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
 - 如果这人看着像普通路人，5-5.5分，别想太高
 - 如果这人确实好看，6分以上
 - 绝大多数人都是5分左右，这是正常的
+- 必须根据实际照片分析，不要套用示例数据
 
 【输出格式】
-纯JSON格式，不要任何其他文字：
+纯JSON格式，不要任何其他文字，不要复制示例中的数值，必须根据实际照片给出真实评分：
 
 {
-  "beauty_type": "成熟型",
-  "facial_features": 0.8,
-  "skin_quality": 0.7,
-  "temperament": 0.6,
-  "photoshop_deduction": 0,
-  "beauty_score": 5.1,
-  "ai_comment": "五官整体协调，气质稳重，是大部分普通人的水平"
+  "beauty_type": "根据实际情况选择类型",
+  "facial_features": 0.0-2.0之间的实际分数,
+  "skin_quality": 0.0-1.5之间的实际分数,
+  "temperament": 0.0-1.5之间的实际分数,
+  "photoshop_deduction": 0.0-2.0之间的实际分数,
+  "beauty_score": 根据公式计算的实际总分,
+  "ai_comment": "根据实际照片特点给出的评语"
 }`;
 
   const response = await fetch(ARK_API_URL, {
