@@ -103,8 +103,16 @@ function buildPrompt(
   
   // 追问逻辑说明
   const maxQuestions = question.max_questions || 3;
-  const useClosing = question.use_closing_message !== false;
+  // 只有明确为 true 时才启用结束语，null/false/undefined 都视为关闭
+  const useClosing = question.use_closing_message === true;
   const closingMsg = question.closing_message || '好的，我们换个话题。';
+  
+  console.log('Backend buildPrompt:', {
+    questionId: question.id,
+    use_closing_message: question.use_closing_message,
+    useClosing,
+    type: typeof question.use_closing_message
+  });
   const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
   const maxFollowUps = Math.max(0, maxQuestions - 2);
   
