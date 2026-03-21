@@ -36,6 +36,8 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
   console.log('[VisionAPI] Starting call to', ARK_API_URL);
   console.log('[VisionAPI] Model:', ARK_MODEL);
   console.log('[VisionAPI] API Key length:', apiKey.length);
+  console.log('[VisionAPI] Image base64 length:', imageBase64.length);
+  console.log('[VisionAPI] Image base64 starts with:', imageBase64.substring(0, 50));
   
   const prompt = `你是一位极其严格的形象分析师，请冷酷客观地分析这张照片中的人物。你的评分标准必须非常严苛，绝大多数人都是5分左右。
 
