@@ -161,28 +161,22 @@ function buildPrompt(
   
   // 追问逻辑说明
   const maxQuestions = question.max_questions || 3;
-  // 只有明确为 true 时才启用结束语，null/false/undefined 都视为关闭
-  const useClosing = question.use_closing_message === true;
   
   const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
   const isLastRound = currentRoundNum >= maxQuestions;
-  const shouldEnd = isLastRound || useClosing;
   const maxFollowUps = Math.max(0, maxQuestions - 2);
   
   console.log('Backend buildPrompt:', {
     questionId: question.id,
-    use_closing_message: question.use_closing_message,
-    useClosing,
-    type: typeof question.use_closing_message,
+    maxQuestions,
     questionPromptPreview: questionPrompt.slice(0, 200),
     currentRoundNum,
-    isLastRound,
-    shouldEnd
+    isLastRound
   });
   
-  const endInstruction = shouldEnd ? `
+  const endInstruction = isLastRound ? `
 【重要规则 - 静默结束】
-当前是第 ${currentRoundNum} 轮（共 ${maxQuestions} 轮）。
+当前是第 ${currentRoundNum} 轮（共 ${maxQuestions} 轮），这是本题最后一轮。
 
 **判断逻辑：**
 1. 如果用户回答已经完整，可以提取有效数据 → **静默结束**（只返回DATA，不说话）
