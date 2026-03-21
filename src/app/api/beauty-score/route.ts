@@ -7,22 +7,11 @@ const ARK_MODEL = 'doubao-1-5-vision-pro-250328'; // 豆包视觉模型
 
 // 获取环境变量（运行时）
 function getArkApiKey(): string | undefined {
-  // 临时硬编码测试 - 火山引擎 API Key
-  const HARDCODED_KEY = 'f639a5be-223e-43fc-b64b-6589c0e339a3';
-  
   const key = process.env.ARK_API_KEY;
   console.log('[Env] ARK_API_KEY present:', !!key);
-  console.log('[Env] All env keys:', Object.keys(process.env).filter(k => k.includes('ARK') || k.includes('API')));
   if (key) {
     console.log('[Env] ARK_API_KEY length:', key.length);
-    console.log('[Env] ARK_API_KEY first 10 chars:', key.substring(0, 10) + '...');
   }
-  
-  if (!key && HARDCODED_KEY) {
-    console.log('[Env] Using hardcoded key');
-    return HARDCODED_KEY;
-  }
-  
   return key;
 }
 
