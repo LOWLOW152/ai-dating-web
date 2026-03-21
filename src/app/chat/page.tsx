@@ -73,6 +73,7 @@ export default function ChatPage() {
   const [extractedData, setExtractedData] = useState<Record<string, unknown>>({});
   const [questionRound, setQuestionRound] = useState(0);
   const [loading, setLoading] = useState(true);
+  const requestLock = useRef(false); // 请求锁，防止重复发送
 
   useEffect(() => {
     setMounted(true);
@@ -240,7 +241,11 @@ ${cfg.data_format_template}`;
   }
 
   async function handleSend() {
-    if (!inputMessage.trim() || isAiResponding) return;
+    // 严格检查：输入为空、AI正在回复、或请求被锁定
+    if (!inputMessage.trim() || isAiResponding || requestLock.current) return;
+    
+    // 加锁
+    requestLock.current = true;
 
     const userContent = inputMessage.trim();
     setInputMessage('');
@@ -257,7 +262,12 @@ ${cfg.data_format_template}`;
     const newRound = questionRound + 1;
     setQuestionRound(newRound);
     
-    await sendAiMessage(currentIndex, newMessages, false, newRound);
+    try {
+      await sendAiMessage(currentIndex, newMessages, false, newRound);
+    } finally {
+      // 解锁（在 finally 中确保一定会解锁）
+      requestLock.current = false;
+    }
   }
 
   function handleNextQuestion() {
@@ -370,7 +380,7 @@ ${cfg.data_format_template}`;
           />
           <button
             onClick={handleSend}
-            disabled={!inputMessage.trim() || isAiResponding}
+            disabled={!inputMessage.trim() || isAiResponding || requestLock.current}
             className="bg-purple-600 text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400"
           >
             发送
