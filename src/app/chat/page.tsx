@@ -185,7 +185,7 @@ export default function ChatPage() {
     const followUpLogic = `【追问逻辑】
 - 本题最多追问 ${maxQuestions} 轮（包括首次提问）
 - 当前已是第 ${currentRoundNum} 轮
-- 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '使用结束语进入下一题' : '直接结束本题'}${useClosing ? `
+- 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '【✅结束语开启】使用结束语进入下一题' : '【❌结束语关闭】直接结束本题'}${useClosing ? `
 - 结束语：${closingMsg}` : ''}
 - 如果用户回答已经很完整，可以提前结束，不必追问满${maxQuestions}轮
 
