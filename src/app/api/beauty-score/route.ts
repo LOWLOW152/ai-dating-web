@@ -301,16 +301,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 保存到数据库
-    await sql.query(
-      `INSERT INTO beauty_scores 
-      (profile_id, photoshop_level, beauty_type, beauty_score, ai_comment,
-       body_shape, skin_quality, symmetry, face_age, hairline, eye_bags, teeth, nose_bridge, photoshop_deduction, evaluator)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'ai')`,
-      [profileId, result.photoshop_level, result.beauty_type, result.beauty_score, result.ai_comment,
-       result.details.body_shape, result.details.skin_quality, result.details.symmetry, result.details.face_age,
-       result.details.hairline, result.details.eye_bags, result.details.teeth, result.details.nose_bridge, result.details.photoshop_deduction]
-    );
+    // 保存到数据库（兼容旧表结构）
+    try {
+      await sql.query(
+        `INSERT INTO beauty_scores 
+        (profile_id, photoshop_level, beauty_type, beauty_score, ai_comment,
+         body_shape, skin_quality, symmetry, face_age, hairline, eye_bags, teeth, nose_bridge, photoshop_deduction, evaluator)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'ai')`,
+        [profileId, result.photoshop_level, result.beauty_type, result.beauty_score, result.ai_comment,
+         result.details.body_shape, result.details.skin_quality, result.details.symmetry, result.details.face_age,
+         result.details.hairline, result.details.eye_bags, result.details.teeth, result.details.nose_bridge, result.details.photoshop_deduction]
+      );
+    } catch (dbError) {
+      console.log('Insert with new fields failed, using basic insert:', dbError);
+      // 如果新字段不存在，只插入基本字段
+      await sql.query(
+        `INSERT INTO beauty_scores 
+        (profile_id, photoshop_level, beauty_type, beauty_score, ai_comment, evaluator)
+        VALUES ($1, $2, $3, $4, $5, 'ai')`,
+        [profileId, result.photoshop_level, result.beauty_type, result.beauty_score, result.ai_comment]
+      );
+    }
 
     await sql.query(
       `UPDATE profiles 
