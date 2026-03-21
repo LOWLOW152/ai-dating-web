@@ -20,6 +20,7 @@ interface Question {
   ai_prompt: string | null;
   closing_message: string | null;
   max_questions: number;
+  use_closing_message: boolean;
   hierarchy: HierarchyNode[] | null;
   is_active: boolean;
   is_required: boolean;
@@ -646,17 +647,37 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-center mb-3">
               <h2 className="font-semibold text-gray-800">结束语配置</h2>
-              <span className="text-xs text-gray-400">AI结束本话题时的提示词</span>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">启用结束语</label>
+                <button
+                  type="button"
+                  onClick={() => setQuestion({ ...question, use_closing_message: !question.use_closing_message })}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    question.use_closing_message !== false ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      question.use_closing_message !== false ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
             <textarea
               value={closingMessage}
               onChange={(e) => setClosingMessage(e.target.value)}
               placeholder="例如：总结一下用户刚才说的内容，然后告诉他们这个话题结束了，准备进入下一题。不要提出新的问题。"
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={question.use_closing_message === false}
+              className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                question.use_closing_message === false ? 'bg-gray-100 text-gray-500' : ''
+              }`}
             />
             <p className="text-xs text-gray-400 mt-2">
-              留空则使用默认提示词。AI会根据此提示词在结束本话题时给出回应（总结+不提问，或直接结束）。
+              {question.use_closing_message === false 
+                ? '已禁用结束语，AI将直接结束本题不输出结束语。'
+                : '留空则使用默认提示词。AI会根据此提示词在结束本话题时给出回应（总结+不提问，或直接结束）。'}
             </p>
           </div>
 

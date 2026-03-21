@@ -28,6 +28,7 @@ export async function PUT(
       ai_prompt,
       closing_message,
       max_questions,
+      use_closing_message,
       hierarchy,
       is_active,
       is_required,
@@ -45,9 +46,9 @@ export async function PUT(
       await sql.query(
         `UPDATE questions 
          SET category = $1, type = $2, "order" = $3, question_text = $4, 
-             field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, hierarchy = $9, is_active = $10, is_required = $11,
+             field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, use_closing_message = $9, hierarchy = $10, is_active = $11, is_required = $12,
              updated_at = NOW()
-         WHERE id = $12`,
+         WHERE id = $13`,
         [
           category,
           type,
@@ -57,6 +58,7 @@ export async function PUT(
           ai_prompt,
           closing_message,
           max_questions ?? 3,
+          use_closing_message !== false, // 默认开启
           hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
           is_active,
           is_required,

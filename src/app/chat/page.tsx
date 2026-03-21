@@ -16,6 +16,7 @@ interface Question {
   ai_prompt: string | null;
   closing_message: string | null;
   max_questions: number;
+  use_closing_message: boolean; // 结束语开关
 }
 
 interface GlobalConfig {
@@ -163,12 +164,29 @@ export default function ChatPage() {
     const newQuestionMarker = isNewQuestion 
       ? `【重要】这是第 ${question.order} 题的首次对话。请基于上面的历史记录自然过渡，引入新话题。不要重复问历史记录中已问过的问题。\n`
       : '';
+    
+    // 追问逻辑说明
+    const maxQuestions = question.max_questions || 3;
+    const useClosing = question.use_closing_message !== false;
+    const closingMsg = question.closing_message || '好的，我们换个话题。';
+    const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
+    const maxFollowUps = Math.max(0, maxQuestions - 2);
+    
+    const followUpLogic = `【追问逻辑】
+- 本题最多追问 ${maxQuestions} 轮（包括首次提问）
+- 当前已是第 ${currentRoundNum} 轮
+- 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '使用结束语进入下一题' : '直接结束本题'}${useClosing ? `
+- 结束语：${closingMsg}` : ''}
+- 如果用户回答已经很完整，可以提前结束，不必追问满${maxQuestions}轮
+
+`;
 
     return `${cfg.system_prompt}
 
 ${progressSection}
 
-${fullHistory}${newQuestionMarker}【当前题目策略】\n${questionPrompt}
+${fullHistory}${newQuestionMarker}${followUpLogic}【当前题目策略】
+${questionPrompt}
 
 ${cfg.data_format_template}`;
   }
