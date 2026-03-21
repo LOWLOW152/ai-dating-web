@@ -209,6 +209,21 @@ function buildPrompt(
 ${endInstruction}
 `;
 
+  // 根据是否是最后一轮，使用不同的格式说明
+  const formatTemplate = isLastRound ? `
+【返回格式要求 - 静默模式】
+由于是最后一轮追问，本次回复**只返回DATA，不返回对话内容**。
+
+格式：
+第一部分：（留空，什么都不要写）
+
+---DATA---
+
+第二部分：当前题提取的数据（JSON格式）
+
+重要：不要写"收到""好的"等任何回复，第一部分必须留空。
+` : cfg.data_format_template;
+
   return `${cfg.system_prompt}
 
 ${progressSection}
@@ -216,7 +231,7 @@ ${progressSection}
 ${fullHistory}${newQuestionMarker}${followUpLogic}【当前题目策略】
 ${questionPrompt}
 
-${cfg.data_format_template}`;
+${formatTemplate}`;
 }
 
 // POST /api/chat
