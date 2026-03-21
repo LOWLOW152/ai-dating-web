@@ -388,17 +388,30 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      
+      console.log('Response status:', res.status);
+      
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        const text = await res.text();
+        console.error('Parse error, raw response:', text);
+        setError(`服务器返回格式错误: ${text.slice(0, 200)}`);
+        setSaving(false);
+        return;
+      }
+      
       console.log('Save response:', data);
       
       if (data.success) {
         router.push('/admin/questions');
       } else {
-        setError(data.error || '保存失败');
+        setError(data.error || '保存失败，无错误信息');
       }
     } catch (err) {
       console.error('Save error:', err);
-      setError('网络错误');
+      setError(`网络错误: ${err instanceof Error ? err.message : String(err)}`);
     }
     setSaving(false);
   }
