@@ -136,12 +136,6 @@ export default function ChatPage() {
     
     const remaining = questions.length - questionIndex - 1;
     
-    // 获取最近的全局聊天记录（最多10条）作为上下文
-    const recentMessages = messages.slice(-10);
-    const chatContext = recentMessages.length > 0
-      ? recentMessages.map(m => `${m.role === 'ai' ? '狗蛋' : '用户'}: ${m.content}`).join('\n')
-      : '';
-    
     const progressSection = cfg.progress_template
       .replace(/{order}/g, String(question.order))
       .replace(/{remaining}/g, String(remaining))
