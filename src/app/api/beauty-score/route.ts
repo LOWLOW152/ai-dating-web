@@ -6,68 +6,6 @@ const ARK_API_KEY = process.env.ARK_API_KEY;
 const ARK_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 const ARK_MODEL = 'doubao-1-5-vision-pro-250328'; // 豆包视觉模型
 
-// 技术指标分析P图程度
-function analyzePhotoshopLevel(imageBase64: string): number {
-  // 从 base64 提取图片数据
-  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-  const buffer = Buffer.from(base64Data, 'base64');
-  
-  // 文件大小分析（P过的图通常压缩率异常）
-  const fileSizeKB = buffer.length / 1024;
-  
-  // 基础分数
-  let score = 5;
-  
-  // 文件大小异常检测
-  // 正常手机照片: 500KB-3MB
-  // 微信压缩后: 100-500KB
-  // P得很厉害的图（多次压缩/保存）: 可能异常小或异常大
-  if (fileSizeKB < 50) {
-    // 文件太小，可能是多次压缩或截图
-    score += 2;
-  } else if (fileSizeKB > 3000) {
-    // 文件太大，可能是原图未压缩，P图概率较低
-    score -= 1;
-  }
-  
-  // 分析 base64 数据特征（简单启发式）
-  // P过的图常有这些特征：
-  // 1. 平滑区域过多（磨皮）
-  // 2. 高频噪点异常（锐化过度）
-  
-  // 这里用熵值估算（简单版）
-  const entropy = calculateEntropy(buffer);
-  if (entropy < 7) {
-    // 熵值低，可能过度平滑（磨皮）
-    score += 1.5;
-  } else if (entropy > 7.8) {
-    // 熵值高，细节丰富，原生概率大
-    score -= 1;
-  }
-  
-  // 限制在 0-10 范围
-  return Math.max(0, Math.min(10, Math.round(score * 10) / 10));
-}
-
-// 计算熵值（信息论）
-function calculateEntropy(buffer: Buffer): number {
-  const freq = new Array(256).fill(0);
-  for (let i = 0; i < buffer.length; i++) {
-    freq[buffer[i]]++;
-  }
-  
-  let entropy = 0;
-  const len = buffer.length;
-  for (let i = 0; i < 256; i++) {
-    if (freq[i] > 0) {
-      const p = freq[i] / len;
-      entropy -= p * Math.log2(p);
-    }
-  }
-  
-  return entropy;
-}
-
 // 调用火山引擎视觉模型
 async function callVisionModel(imageBase64: string): Promise<{
   beauty_type: string;
