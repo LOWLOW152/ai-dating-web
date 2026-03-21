@@ -1,16 +1,186 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@/lib/db';
+
+interface ChatMessage {
+  role: 'ai' | 'user';
+  content: string;
+  timestamp: number;
+}
+
+interface Question {
+  id: string;
+  order: number;
+  question_text: string;
+  ai_prompt: string | null;
+  closing_message: string | null;
+  max_questions: number;
+  use_closing_message: boolean;
+}
+
+interface GlobalConfig {
+  system_prompt: string;
+  progress_template: string;
+  data_format_template: string;
+  context_limit: number;
+}
+
+// 默认配置 fallback
+const DEFAULT_CONFIG: GlobalConfig = {
+  system_prompt: `你是狗蛋，一个温暖、真诚的AI相亲助手。
+你的任务是帮用户完成30题的相亲档案，了解他们的性格、爱好、价值观和情感需求。
+
+【核心原则】
+1. 像朋友一样聊天，不要像面试
+2. 每次对话聚焦当前题目，不发散
+3. 把用户的回答整理成结构化数据
+4. 追问要温柔，不逼问
+5. **保持对话连贯性**：这是同一个持续进行的对话，只是话题在切换，不要重复打招呼或显得突兀
+
+【绝对禁止 - 违反会导致用户体验极差】
+- **禁止重复提问**：如果【当前题目对话记录】显示用户已经回答过当前问题，绝对不要再问一遍
+- 看到用户回答后，应该追问细节、确认理解，或者结束当前题目，而不是重复原问题
+
+【话题切换规则】
+- 如果是第一题的开场，可以自然打招呼
+- 如果是切换到新话题，用自然过渡的方式引入新问题，不要重新自我介绍
+- 参考之前的对话风格，保持一致的语气`,
+  progress_template: `【当前进度】
+第 {order} 题（共30题），还剩 {remaining} 题
+当前题目：{question_text}
+
+【已收集数据】
+{cached_summary}`,
+  data_format_template: `【返回格式要求】
+你的回复必须包含两部分，用 ---DATA--- 分隔：
+
+第一部分：对用户的自然语言回复（追问或结束语）
+
+---DATA---
+
+第二部分：当前题提取的数据（JSON格式）`,
+  context_limit: 5
+};
+
+// 构建提示词（后端版本）
+function buildPrompt(
+  question: Question,
+  totalQuestions: number,
+  extractedData: Record<string, unknown>,
+  chatHistory: ChatMessage[],
+  config: GlobalConfig | null,
+  isNewQuestion: boolean
+): string {
+  const cfg = config || DEFAULT_CONFIG;
+  
+  const dataEntries = Object.entries(extractedData);
+  const limitedData = dataEntries.slice(-cfg.context_limit);
+  const cachedSummary = limitedData.length > 0
+    ? limitedData.map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`).join('\n')
+    : '暂无';
+  
+  const remaining = totalQuestions - question.order;
+  
+  const progressSection = cfg.progress_template
+    .replace(/{order}/g, String(question.order))
+    .replace(/{remaining}/g, String(remaining))
+    .replace(/{question_id}/g, question.id)
+    .replace(/{question_text}/g, question.question_text)
+    .replace(/{cached_summary}/g, cachedSummary);
+
+  const questionPrompt = question.ai_prompt || '';
+  
+  // 构建完整的对话历史
+  const fullHistory = chatHistory.length > 0
+    ? `【历史对话记录】\n${chatHistory.slice(-10).map(m => 
+        `${m.role === 'ai' ? '你' : '用户'}: ${m.content}`
+      ).join('\n')}\n`
+    : '';
+  
+  // 新题目标记
+  const newQuestionMarker = isNewQuestion 
+    ? `【重要】这是第 ${question.order} 题的首次对话。请基于上面的历史记录自然过渡，引入新话题。不要重复问历史记录中已问过的问题。\n`
+    : '';
+  
+  // 追问逻辑说明
+  const maxQuestions = question.max_questions || 3;
+  const useClosing = question.use_closing_message !== false;
+  const closingMsg = question.closing_message || '好的，我们换个话题。';
+  const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
+  const maxFollowUps = Math.max(0, maxQuestions - 2);
+  
+  const followUpLogic = `【追问逻辑】
+- 本题最多追问 ${maxQuestions} 轮（包括首次提问）
+- 当前已是第 ${currentRoundNum} 轮
+- 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '【✅结束语开启】使用结束语进入下一题' : '【❌结束语关闭】直接结束本题'}${useClosing ? `
+- 结束语：${closingMsg}` : ''}
+- 如果用户回答已经很完整，可以提前结束，不必追问满${maxQuestions}轮
+
+`;
+
+  return `${cfg.system_prompt}
+
+${progressSection}
+
+${fullHistory}${newQuestionMarker}${followUpLogic}【当前题目策略】
+${questionPrompt}
+
+${cfg.data_format_template}`;
+}
 
 // POST /api/chat
 export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await request.json();
+    const body = await request.json();
+    const { 
+      questionId, 
+      chatHistory = [], 
+      extractedData = {}, 
+      isNewQuestion = false,
+      totalQuestions = 30
+    } = body;
 
-    if (!prompt) {
+    if (!questionId) {
       return NextResponse.json(
-        { success: false, error: '缺少提示词' },
+        { success: false, error: '缺少题目ID' },
         { status: 400 }
       );
     }
+
+    // 查询题目数据
+    const questionRes = await sql.query(
+      'SELECT * FROM questions WHERE id = $1 AND is_active = true',
+      [questionId]
+    );
+    
+    if (questionRes.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '题目不存在' },
+        { status: 404 }
+      );
+    }
+    
+    const question: Question = questionRes.rows[0];
+
+    // 查询系统配置
+    const configRes = await sql.query('SELECT key, value FROM system_configs');
+    const config: GlobalConfig = { ...DEFAULT_CONFIG };
+    
+    configRes.rows.forEach((row: { key: string; value: string }) => {
+      if (row.key === 'system_prompt') config.system_prompt = row.value;
+      if (row.key === 'progress_template') config.progress_template = row.value;
+      if (row.key === 'data_format_template') config.data_format_template = row.value;
+      if (row.key === 'context_limit') config.context_limit = parseInt(row.value) || 5;
+    });
+
+    // 构建提示词（后端构建）
+    const prompt = buildPrompt(
+      question,
+      totalQuestions,
+      extractedData,
+      chatHistory,
+      config,
+      isNewQuestion
+    );
 
     const apiKey = process.env.MOONSHOT_API_KEY;
     
@@ -35,7 +205,7 @@ export async function POST(request: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           const reply = data.choices?.[0]?.message?.content || '';
-          return NextResponse.json({ success: true, reply, prompt }); // 返回实际使用的提示词
+          return NextResponse.json({ success: true, reply, prompt });
         }
       } catch (err) {
         console.log('Kimi API failed:', err);
@@ -45,36 +215,9 @@ export async function POST(request: NextRequest) {
     // 模拟模式
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // 根据prompt内容返回不同的模拟回复
-    let mockReply = '';
+    let mockReply = `[🤖 模拟模式] 这是后端构建的提示词测试回复\n\n---DATA---\n{}`;
     
-    if (prompt.includes('昵称') || prompt.includes('名字')) {
-      mockReply = `[🤖 模拟模式] 你好呀～很高兴认识你！我是狗蛋🐕\n\n可以先告诉我你的名字吗？怎么称呼你比较方便呢？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('性别')) {
-      mockReply = `[🤖 模拟模式] 你好！那我们正式开始吧～\n\n先问个基础问题，你的性别是？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('年龄') || prompt.includes('出生')) {
-      mockReply = `[🤖 模拟模式] 了解了～那你的出生年份是？这样我可以知道你的年龄范围。\n\n---DATA---\n{}`;
-    } else if (prompt.includes('城市')) {
-      mockReply = `[🤖 模拟模式] 好的！那你现在在哪个城市生活呢？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('职业')) {
-      mockReply = `[🤖 模拟模式] 了解～方便说一下你的职业吗？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('学历')) {
-      mockReply = `[🤖 模拟模式] 好的！你的学历是什么？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('异地')) {
-      mockReply = `[🤖 模拟模式] 那我们聊一个比较实际的问题～\n\n对于感情中的距离，你能接受异地恋吗？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('年龄差')) {
-      mockReply = `[🤖 模拟模式] 了解了！那你能接受的年龄差范围是多少呢？比如大几岁或小几岁？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('兴趣') || prompt.includes('爱好')) {
-      mockReply = `[🤖 模拟模式] 哈哈，那我们聊聊你的兴趣爱好～\n\n平时工作之余，你都喜欢做些什么来放松自己呢？\n\n---DATA---\n{\n  "hobbies": {\n    "type": "待补充"\n  }\n}`;
-    } else if (prompt.includes('周末')) {
-      mockReply = `[🤖 模拟模式] 了解了！那你的周末一般是怎么安排的呢？\n\n---DATA---\n{}`;
-    } else if (prompt.includes('消费') || prompt.includes('花钱')) {
-      mockReply = `[🤖 模拟模式] 我们来聊聊消费观念～\n\n你觉得自己是偏节俭型还是享受型呢？\n\n---DATA---\n{}`;
-    } else {
-      mockReply = `[🤖 模拟模式] 嗯嗯，这个话题挺有意思的～\n\n可以多跟我聊聊你的想法吗？\n\n---DATA---\n{}`;
-    }
-    
-    return NextResponse.json({ success: true, reply: mockReply, prompt }); // 返回实际使用的提示词
+    return NextResponse.json({ success: true, reply: mockReply, prompt });
     
   } catch (error) {
     console.error('Chat error:', error);
