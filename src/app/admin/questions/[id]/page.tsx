@@ -378,18 +378,29 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
 
     setSaving(true);
     setError('');
+    
+    const saveUrl = `/api/admin/questions/${params.id}`;
+    console.log('Sending save request to:', saveUrl);
 
     try {
       const payload = { ...question, closing_message: closingMessage, max_questions: maxQuestions };
-      console.log('Saving question:', payload);
+      console.log('Payload:', JSON.stringify(payload, null, 2));
       
-      const res = await fetch(`/api/admin/questions/${params.id}`, {
+      const res = await fetch(saveUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       
-      console.log('Response status:', res.status);
+      console.log('Response:', res.status, res.statusText);
+      
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('HTTP error:', res.status, text);
+        setError(`服务器错误 ${res.status}: ${text.slice(0, 300)}`);
+        setSaving(false);
+        return;
+      }
       
       let data;
       try {
@@ -733,11 +744,11 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
             <pre className="text-xs text-green-400 whitespace-pre-wrap font-mono overflow-x-auto">{aiPrompt}</pre>
           </div>
 
-          {/* 错误提示 */}
+          {/* 错误提示 - 始终在保存按钮附近显示 */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-              <div className="font-semibold mb-1">保存失败</div>
-              <div>{error}</div>
+            <div className="bg-red-100 border-2 border-red-500 rounded-lg p-4 mb-4">
+              <div className="font-bold text-red-700 mb-1">❌ 保存失败</div>
+              <div className="text-red-600 text-sm break-all">{error}</div>
             </div>
           )}
 
