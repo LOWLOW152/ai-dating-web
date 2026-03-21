@@ -178,9 +178,9 @@ export default function ChatPage() {
           setQuestionRound(1); // 已经问过了，算作第1轮
         }, 500);
       } else if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
-        // 传统模式：AI只用了结束语，没问下一题，需要自动进入下一题
+        // 传统模式：AI只用了结束语，没问下一题，需要自动进入下一题并调用AI
         setTimeout(() => {
-          handleNextQuestionWithAI();
+          handleNextQuestionWithAI(false);
         }, 1500);
       }
     }
@@ -215,9 +215,9 @@ export default function ChatPage() {
       };
       setMessages(prev => [...prev, skipReply]);
       
-      // 延迟后自动进入下一题
+      // 延迟后自动进入下一题（需要调用AI，因为跳过回复没有问下一题）
       setTimeout(() => {
-        handleNextQuestionWithAI();
+        handleNextQuestionWithAI(false);
       }, 1000);
       
       requestLock.current = false;
@@ -247,11 +247,16 @@ export default function ChatPage() {
   }
 
   // 进入下一题并自动调用AI
-  function handleNextQuestionWithAI() {
+  function handleNextQuestionWithAI(skipAiCall = false) {
     if (currentIndex < questions.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setQuestionRound(0);
+      
+      // 如果不需要调用AI（如合并回复模式），直接返回
+      if (skipAiCall) {
+        return;
+      }
       
       // 直接调用AI发送下一题，不需要等待用户
       setTimeout(() => {
@@ -265,8 +270,8 @@ export default function ChatPage() {
   }
 
   function handleNextQuestion() {
-    // 手动下一题按钮也走同样的逻辑
-    handleNextQuestionWithAI();
+    // 手动下一题按钮正常调用AI
+    handleNextQuestionWithAI(false);
   }
 
   const currentQuestion = questions[currentIndex];
