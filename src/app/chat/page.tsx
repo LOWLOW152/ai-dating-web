@@ -147,7 +147,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  function buildPrompt(questionIndex: number) {
+  function buildPrompt(questionIndex: number, chatHistory: ChatMessage[] = []) {
     // 使用配置或默认配置
     const cfg = config || DEFAULT_CONFIG;
     if (questions.length === 0) return '';
@@ -169,12 +169,19 @@ export default function ChatPage() {
       .replace(/{cached_summary}/g, cachedSummary);
 
     const questionPrompt = question.ai_prompt || '';
+    
+    // 构建当前题目的对话历史（简单版本：只包含最近几条）
+    const currentTopicHistory = chatHistory.length > 0
+      ? `【当前题目对话记录】\n${chatHistory.slice(-4).map(m => 
+          `${m.role === 'ai' ? '你' : '用户'}: ${m.content}`
+        ).join('\n')}\n`
+      : '';
 
     return `${cfg.system_prompt}
 
 ${progressSection}
 
-${questionPrompt}
+${currentTopicHistory}${questionPrompt}
 
 ${cfg.data_format_template}`;
   }
@@ -187,7 +194,7 @@ ${cfg.data_format_template}`;
     
     try {
       // ========== 第一步：调用题库AI获取建议 ==========
-      const bankPrompt = buildPrompt(qIndex);
+      const bankPrompt = buildPrompt(qIndex, chatHistory);
       setCurrentPrompt(bankPrompt); // 保存题库AI提示词用于显示
       
       console.log('Step 1: Calling Bank AI...');
