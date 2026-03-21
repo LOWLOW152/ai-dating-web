@@ -68,6 +68,58 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         )}
       </div>
 
+      {/* 颜值评分 */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">颜值评分</h2>
+          <Link 
+            href={`/admin/beauty-score`}
+            className="text-sm text-pink-600 hover:underline"
+          >
+            去评分 →
+          </Link>
+        </div>
+        
+        {profile.beauty_score !== undefined ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-orange-50 p-3 rounded text-center">
+                <p className="text-xs text-gray-500">P图程度</p>
+                <p className="text-xl font-bold text-orange-600">{profile.photoshop_level}</p>
+                <p className="text-xs text-gray-400">
+                  {profile.photoshop_level <= 3 ? '原生' : 
+                   profile.photoshop_level <= 6 ? '微P' : '重P'}
+                </p>
+              </div>
+              <div className="bg-pink-50 p-3 rounded text-center">
+                <p className="text-xs text-gray-500">颜值类型</p>
+                <p className="text-sm font-bold text-pink-600">{profile.beauty_type}</p>
+              </div>
+              <div className="bg-purple-50 p-3 rounded text-center">
+                <p className="text-xs text-gray-500">颜值评分</p>
+                <p className="text-xl font-bold text-purple-600">{profile.beauty_score}</p>
+              </div>
+            </div>
+            
+            {profile.beauty_evaluated_at && (
+              <p className="text-xs text-gray-400">
+                评分时间: {new Date(profile.beauty_evaluated_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-gray-500 mb-4">该档案尚未颜值评分</p>
+            <Link 
+              href={`/admin/beauty-score`}
+              className="inline-block px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 text-sm"
+            >
+              去评分
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* AI 评价 */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex justify-between items-center mb-4">

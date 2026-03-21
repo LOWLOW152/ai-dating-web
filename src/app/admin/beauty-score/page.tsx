@@ -1,30 +1,46 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-interface Photo {
-  id: number;
-  url: string;
-  is_main: boolean;
-  overall_score?: number;
-  facial_features?: number;
-  temperament?: number;
-  expression?: number;
-  photo_quality?: number;
-  ai_comment?: string;
-  ai_tags?: string[];
+interface Profile {
+  id: string;
+  invite_code: string;
+  photoshop_level?: number;
+  beauty_type?: string;
+  beauty_score?: number;
+  beauty_evaluated_at?: string;
 }
 
-export default function BeautyScorePage() {
-  const [profiles, setProfiles] = useState<{id: string, invite_code: string, avg_beauty_score?: number, has_photos?: boolean}[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<string>('');
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [scoring, setScoring] = useState<number | null>(null);
+interface BeautyScore {
+  id: number;
+  photoshop_level: number;
+  beauty_type: string;
+  beauty_score: number;
+  ai_comment: string | null;
+  evaluator: string;
+  scored_at: string;
+}
 
-  // 获取有照片的档案列表
+const BEAUTY_TYPES = [
+  '清纯型', '御姐型', '知性型', '甜美型', '冷艳型',
+  '阳光型', '成熟型', '可爱型', '优雅型', '时尚型',
+  '知性优雅型', '甜美可爱型', '成熟御姐型'
+];
+
+export default function BeautyScorePage() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [scores, setScores] = useState<BeautyScore[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // 表单状态
+  const [photoshopLevel, setPhotoshopLevel] = useState(5);
+  const [beautyType, setBeautyType] = useState('');
+  const [beautyScore, setBeautyScore] = useState(7);
+  const [comment, setComment] = useState('');
+
   async function fetchProfiles() {
     try {
       const res = await fetch('/api/admin/profiles');
@@ -37,87 +53,55 @@ export default function BeautyScorePage() {
     }
   }
 
-  // 获取选中档案的照片
-  async function fetchPhotos(profileId: string) {
-    if (!profileId) return;
+  async function fetchScores(profileId: string) {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/beauty-score?profileId=${profileId}`);
       const data = await res.json();
       if (data.success) {
-        setPhotos(data.data);
+        setScores(data.data);
       }
     } catch (error) {
-      console.error('Fetch photos error:', error);
+      console.error('Fetch scores error:', error);
     } finally {
       setLoading(false);
     }
   }
 
-  // 上传照片
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !selectedProfile) return;
-    
-    setUploading(true);
-    
-    try {
-      // 转换为 base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        
-        // 保存照片
-        const res = await fetch('/api/admin/photos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            profileId: selectedProfile,
-            imageBase64: base64
-          })
-        });
-        
-        const data = await res.json();
-        if (data.success) {
-          fetchPhotos(selectedProfile);
-        } else {
-          alert('上传失败: ' + data.error);
-        }
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploading(false);
-    }
-  }
-
-  // AI评分
-  async function handleScore(photoId: number, imageUrl: string) {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!selectedProfile) return;
-    setScoring(photoId);
     
+    setSubmitting(true);
     try {
       const res = await fetch('/api/admin/beauty-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          profileId: selectedProfile,
-          photoId,
-          imageBase64: imageUrl
+          profileId: selectedProfile.id,
+          photoshopLevel,
+          beautyType,
+          beautyScore,
+          aiComment: comment
         })
       });
       
       const data = await res.json();
       if (data.success) {
-        fetchPhotos(selectedProfile);
+        // 刷新列表
+        fetchScores(selectedProfile.id);
+        fetchProfiles();
+        // 清空评语
+        setComment('');
+        alert('评价已保存');
       } else {
-        alert('评分失败: ' + data.error);
+        alert('保存失败: ' + data.error);
       }
     } catch (error) {
-      console.error('Score error:', error);
+      console.error('Submit error:', error);
+      alert('提交出错');
     } finally {
-      setScoring(null);
+      setSubmitting(false);
     }
   }
 
@@ -127,7 +111,13 @@ export default function BeautyScorePage() {
 
   useEffect(() => {
     if (selectedProfile) {
-      fetchPhotos(selectedProfile);
+      fetchScores(selectedProfile.id);
+      // 如果有已有评分，填充表单
+      if (selectedProfile.beauty_score !== undefined) {
+        setPhotoshopLevel(selectedProfile.photoshop_level || 5);
+        setBeautyType(selectedProfile.beauty_type || '');
+        setBeautyScore(selectedProfile.beauty_score);
+      }
     }
   }, [selectedProfile]);
 
@@ -139,129 +129,168 @@ export default function BeautyScorePage() {
             ← 返回首页
           </Link>
           <h1 className="text-2xl font-bold text-gray-800 mt-2">颜值打分 🤳</h1>
+          <p className="text-sm text-gray-500">三个维度：P图程度 / 颜值类型 / 颜值评分</p>
         </div>
       </div>
 
-      {/* 选择档案 */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">选择档案</label>
-        <select
-          value={selectedProfile}
-          onChange={(e) => setSelectedProfile(e.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2"
-        >
-          <option value="">请选择...</option>
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.invite_code} {p.avg_beauty_score ? `(平均分: ${p.avg_beauty_score})` : ''}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {selectedProfile && (
-        <>
-          {/* 上传照片 */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="font-semibold mb-4">上传照片</h2>
-            <div className="flex items-center gap-4">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleUpload}
-                disabled={uploading}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {uploading && <span className="text-gray-500">上传中...</span>}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG 格式，建议大小不超过 2MB</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 左侧：选择档案和评价表单 */}
+        <div className="space-y-6">
+          {/* 选择档案 */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">选择档案</label>
+            <select
+              value={selectedProfile?.id || ''}
+              onChange={(e) => {
+                const profile = profiles.find(p => p.id === e.target.value);
+                setSelectedProfile(profile || null);
+              }}
+              className="w-full border border-gray-300 rounded-md px-3 py-2"
+            >
+              <option value="">请选择档案...</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.invite_code} 
+                  {p.beauty_score !== undefined && ` (已评分: ${p.beauty_score}分)`}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* 照片列表 */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="font-semibold mb-4">照片管理</h2>
-            
-            {loading ? (
-              <p className="text-gray-500">加载中...</p>
-            ) : photos.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">暂无照片，请上传</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="border rounded-lg overflow-hidden">
-                    <div className="aspect-square bg-gray-100 relative">
-                      <img 
-                        src={photo.url} 
-                        alt="照片" 
-                        className="w-full h-full object-cover"
-                      />
-                      {photo.is_main && (
-                        <span className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
-                          主照片
-                        </span>
-                      )}
+          {selectedProfile && (
+            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+              <h2 className="font-semibold text-lg">颜值评价</h2>
+              
+              {/* P图程度 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  P图程度 <span className="text-pink-600 font-bold">{photoshopLevel}</span>
+                  <span className="text-xs text-gray-400 ml-2">(0=完全没P, 10=P得妈都不认识)</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={photoshopLevel}
+                  onChange={(e) => setPhotoshopLevel(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>原生</span>
+                  <span>微P</span>
+                  <span>重P</span>
+                </div>
+              </div>
+
+              {/* 颜值类型 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">颜值类型</label>
+                <select
+                  value={beautyType}
+                  onChange={(e) => setBeautyType(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded-md px-3 py-2"
+                >
+                  <option value="">请选择类型...</option>
+                  {BEAUTY_TYPES.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 颜值评分 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  颜值评分 <span className="text-pink-600 font-bold">{beautyScore}</span>
+                  <span className="text-xs text-gray-400 ml-2">(0-10分)</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={beautyScore}
+                  onChange={(e) => setBeautyScore(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>0</span>
+                  <span>5</span>
+                  <span>10</span>
+                </div>
+              </div>
+
+              {/* 评语（可选） */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">评语（可选）</label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="写下你的评价..."
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting || !beautyType}
+                className="w-full py-3 bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:bg-gray-400 font-medium"
+              >
+                {submitting ? '保存中...' : '💾 保存评价'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* 右侧：评价历史 */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="font-semibold mb-4">评价历史</h2>
+          
+          {!selectedProfile ? (
+            <p className="text-gray-500 text-center py-8">请先选择档案</p>
+          ) : loading ? (
+            <p className="text-gray-500">加载中...</p>
+          ) : scores.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">暂无评价记录</p>
+          ) : (
+            <div className="space-y-4">
+              {scores.map((s) => (
+                <div key={s.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs text-gray-400">
+                      {new Date(s.scored_at).toLocaleString()}
+                    </span>
+                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">{s.evaluator}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div className="bg-orange-50 p-2 rounded">
+                      <p className="text-xs text-gray-500">P图程度</p>
+                      <p className="font-bold text-orange-600">{s.photoshop_level}</p>
                     </div>
-                    
-                    <div className="p-4">
-                      {photo.overall_score ? (
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-500">整体评分</span>
-                            <span className="text-2xl font-bold text-pink-600">{photo.overall_score}</span>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="bg-pink-50 p-2 rounded">
-                              <span className="text-gray-500">五官</span>
-                              <span className="float-right font-medium">{photo.facial_features}</span>
-                            </div>
-                            <div className="bg-purple-50 p-2 rounded">
-                              <span className="text-gray-500">气质</span>
-                              <span className="float-right font-medium">{photo.temperament}</span>
-                            </div>
-                            <div className="bg-blue-50 p-2 rounded">
-                              <span className="text-gray-500">表情</span>
-                              <span className="float-right font-medium">{photo.expression}</span>
-                            </div>
-                            <div className="bg-green-50 p-2 rounded">
-                              <span className="text-gray-500">照片质量</span>
-                              <span className="float-right font-medium">{photo.photo_quality}</span>
-                            </div>
-                          </div>
-                          
-                          {photo.ai_comment && (
-                            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                              "{photo.ai_comment}"
-                            </p>
-                          )}
-                          
-                          {photo.ai_tags && (
-                            <div className="flex flex-wrap gap-1">
-                              {photo.ai_tags.map((tag, i) => (
-                                <span key={i} className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleScore(photo.id, photo.url)}
-                          disabled={scoring === photo.id}
-                          className="w-full py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:bg-gray-400"
-                        >
-                          {scoring === photo.id ? '评分中...' : '🤖 AI颜值打分'}
-                        </button>
-                      )}
+                    <div className="bg-pink-50 p-2 rounded">
+                      <p className="text-xs text-gray-500">颜值类型</p>
+                      <p className="font-bold text-pink-600 text-sm">{s.beauty_type}</p>
+                    </div>
+                    <div className="bg-purple-50 p-2 rounded">
+                      <p className="text-xs text-gray-500">颜值评分</p>
+                      <p className="font-bold text-purple-600">{s.beauty_score}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                  
+                  {s.ai_comment && (
+                    <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                      "{s.ai_comment}"
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
