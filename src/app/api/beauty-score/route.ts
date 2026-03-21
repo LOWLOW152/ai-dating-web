@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
         
         const rawScore = weightedScore - details.photoshop_deduction;
         const finalScore = aiResult.beauty_score 
-          ? parseFloat(aiResult.beauty_score)
+          ? parseFloat(String(aiResult.beauty_score))
           : normalMapping(rawScore);
 
         result = {
