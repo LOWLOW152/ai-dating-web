@@ -43,28 +43,61 @@ export async function PUT(
     console.log('Executing SQL update...');
     
     try {
-      await sql.query(
-        `UPDATE questions 
-         SET category = $1, type = $2, "order" = $3, question_text = $4, 
-             field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, use_closing_message = $9, hierarchy = $10, is_active = $11, is_required = $12,
-             updated_at = NOW()
-         WHERE id = $13`,
-        [
-          category,
-          type,
-          order,
-          question_text,
-          field_type,
-          ai_prompt,
-          closing_message,
-          max_questions ?? 3,
-          use_closing_message !== false, // 默认开启
-          hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
-          is_active,
-          is_required,
-          id,
-        ]
-      );
+      // 先检查字段是否存在（兼容旧数据库）
+      const columnCheck = await sql.query(`
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'questions' AND column_name = 'use_closing_message'
+      `);
+      const hasClosingMessageColumn = columnCheck.rows.length > 0;
+      
+      if (hasClosingMessageColumn) {
+        // 字段存在，正常更新
+        await sql.query(
+          `UPDATE questions 
+           SET category = $1, type = $2, "order" = $3, question_text = $4, 
+               field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, use_closing_message = $9, hierarchy = $10, is_active = $11, is_required = $12,
+               updated_at = NOW()
+           WHERE id = $13`,
+          [
+            category,
+            type,
+            order,
+            question_text,
+            field_type,
+            ai_prompt,
+            closing_message,
+            max_questions ?? 3,
+            use_closing_message !== false,
+            hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
+            is_active,
+            is_required,
+            id,
+          ]
+        );
+      } else {
+        // 字段不存在，跳过该字段
+        await sql.query(
+          `UPDATE questions 
+           SET category = $1, type = $2, "order" = $3, question_text = $4, 
+               field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, hierarchy = $9, is_active = $10, is_required = $11,
+               updated_at = NOW()
+           WHERE id = $12`,
+          [
+            category,
+            type,
+            order,
+            question_text,
+            field_type,
+            ai_prompt,
+            closing_message,
+            max_questions ?? 3,
+            hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
+            is_active,
+            is_required,
+            id,
+          ]
+        );
+      }
       console.log('SQL update successful');
     } catch (sqlErr) {
       console.error('SQL update failed:', sqlErr);
