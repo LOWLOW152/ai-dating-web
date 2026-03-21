@@ -73,6 +73,8 @@ export default function ChatPage() {
   const [extractedData, setExtractedData] = useState<Record<string, unknown>>({});
   const [questionRound, setQuestionRound] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [currentPrompt, setCurrentPrompt] = useState<string>(''); // 当前传给AI的提示词
+  const [showPrompt, setShowPrompt] = useState(false); // 是否显示提示词面板
   const requestLock = useRef(false); // 请求锁，防止重复发送
 
   useEffect(() => {
@@ -162,6 +164,7 @@ ${cfg.data_format_template}`;
     
     try {
       const prompt = buildPrompt(qIndex);
+      setCurrentPrompt(prompt); // 保存当前提示词用于显示
       
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -310,88 +313,122 @@ ${cfg.data_format_template}`;
             <p className="text-xs text-gray-500">第 {currentQuestion?.order || 1}/{questions.length} 题</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-500 mb-1">{progress}%</div>
-          <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-purple-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
+        <div className="flex items-center gap-3">
+          {/* 提示词显示切换按钮 */}
+          <button
+            onClick={() => setShowPrompt(!showPrompt)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              showPrompt 
+                ? 'bg-gray-800 text-white border-gray-800' 
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {showPrompt ? '隐藏提示词' : '显示提示词'}
+          </button>
+          <div className="text-right">
+            <div className="text-xs text-gray-500 mb-1">{progress}%</div>
+            <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-purple-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 聊天记录 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'ai' ? 'justify-start' : 'justify-end'}`}>
-            {msg.role === 'ai' && (
-              <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
-                <span className="text-sm">🐕</span>
+      {/* 主内容区 - 左右分栏 */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* 左侧聊天记录 */}
+        <div className={`${showPrompt ? 'w-2/3' : 'w-full'} flex flex-col transition-all duration-300`}>
+          {/* 聊天记录 */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'ai' ? 'justify-start' : 'justify-end'}`}>
+                {msg.role === 'ai' && (
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                    <span className="text-sm">🐕</span>
+                  </div>
+                )}
+                <div 
+                  className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm ${
+                    msg.role === 'ai' 
+                      ? 'bg-white text-gray-800 shadow-sm' 
+                      : 'bg-green-500 text-white'
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            
+            {isAiResponding && (
+              <div className="flex justify-start">
+                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-2">
+                  <span className="text-sm">🐕</span>
+                </div>
+                <div className="bg-white rounded-lg px-4 py-2.5 shadow-sm">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                  </div>
+                </div>
               </div>
             )}
-            <div 
-              className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm ${
-                msg.role === 'ai' 
-                  ? 'bg-white text-gray-800 shadow-sm' 
-                  : 'bg-green-500 text-white'
-              }`}
-            >
-              {msg.content}
+            
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* 底部输入 */}
+          <div className="bg-white border-t px-4 py-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="输入消息..."
+                disabled={isAiResponding}
+                className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-200"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!inputMessage.trim() || isAiResponding || requestLock.current}
+                className="bg-purple-600 text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400"
+              >
+                发送
+              </button>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-xs text-gray-400">
+                追问 {questionRound}/{currentQuestion?.max_questions || 3}
+              </p>
+              <button
+                onClick={handleNextQuestion}
+                disabled={isAiResponding}
+                className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 disabled:opacity-50"
+              >
+                {currentIndex >= questions.length - 1 ? '完成' : '下一题'}
+              </button>
             </div>
           </div>
-        ))}
-        
-        {isAiResponding && (
-          <div className="flex justify-start">
-            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-2">
-              <span className="text-sm">🐕</span>
+        </div>
+
+        {/* 右侧提示词面板 */}
+        {showPrompt && (
+          <div className="w-1/3 border-l bg-gray-50 flex flex-col">
+            <div className="bg-white border-b px-4 py-2 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-700">当前提示词</h2>
+              <span className="text-xs text-gray-400">第 {currentQuestion?.order || 1} 题</span>
             </div>
-            <div className="bg-white rounded-lg px-4 py-2.5 shadow-sm">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-              </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <pre className="text-xs whitespace-pre-wrap font-mono bg-gray-800 text-green-400 p-4 rounded-lg overflow-x-auto">
+                {currentPrompt || '提示词加载中...'}
+              </pre>
             </div>
           </div>
         )}
-        
-        <div ref={chatEndRef} />
-      </div>
-
-      {/* 底部输入 */}
-      <div className="bg-white border-t px-4 py-3">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="输入消息..."
-            disabled={isAiResponding}
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-200"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputMessage.trim() || isAiResponding || requestLock.current}
-            className="bg-purple-600 text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400"
-          >
-            发送
-          </button>
-        </div>
-        <div className="flex justify-between items-center mt-2">
-          <p className="text-xs text-gray-400">
-            追问 {questionRound}/{currentQuestion?.max_questions || 3}
-          </p>
-          <button
-            onClick={handleNextQuestion}
-            disabled={isAiResponding}
-            className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 disabled:opacity-50"
-          >
-            {currentIndex >= questions.length - 1 ? '完成' : '下一题'}
-          </button>
-        </div>
       </div>
     </div>
   );
