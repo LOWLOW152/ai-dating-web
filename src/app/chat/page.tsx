@@ -232,8 +232,9 @@ export default function ChatPage() {
       setQuestionRound(0);
       
       // 直接调用AI发送下一题，不需要等待用户
+      // 注意：传空数组作为历史，因为这是新题开始
       setTimeout(() => {
-        sendAiMessage(nextIndex, messages, true);
+        sendAiMessage(nextIndex, [], true);
       }, 100);
     } else {
       // 完成所有题目
