@@ -12,6 +12,7 @@ export default function AdminLayout({
     { href: '/admin/match', label: '匹配测试' },
     { href: '/admin/profiles', label: '档案' },
     { href: '/admin/evaluation', label: 'AI评价' },
+    { href: '/admin/beauty-score', label: '颜值打分' },
     { href: '/admin/token-stats', label: 'Token统计' },
     { href: '/admin/invite-codes', label: '邀请码' },
   ];
