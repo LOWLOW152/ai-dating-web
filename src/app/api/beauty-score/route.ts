@@ -176,14 +176,30 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
     
     console.log('[VisionAPI] Parsed result:', result);
     
-    // 计算总分（如果AI没算对，重新算）
-    const facial = Math.max(0, Math.min(2, parseFloat(result.facial_features) || 1));
-    const skin = Math.max(0, Math.min(1.5, parseFloat(result.skin_quality) || 0.8));
-    const temper = Math.max(0, Math.min(1.5, parseFloat(result.temperament) || 0.8));
-    const ps = Math.max(0, Math.min(2, parseFloat(result.photoshop_deduction) || 0.5));
-    const calculatedScore = 5 + facial + skin + temper - ps;
+    // 计算总分 - 严格版本
+    // AI手太松，我们手动大幅降分
+    let facial = Math.max(0, Math.min(2, parseFloat(result.facial_features) || 1));
+    let skin = Math.max(0, Math.min(1.5, parseFloat(result.skin_quality) || 0.8));
+    let temper = Math.max(0, Math.min(1.5, parseFloat(result.temperament) || 0.8));
+    let ps = Math.max(0, Math.min(2, parseFloat(result.photoshop_deduction) || 0.5));
+    
+    // 严厉惩罚：所有分项超过及格线的部分打5折
+    // 五官基准1.0，皮肤基准0.7，气质基准0.7
+    facial = Math.min(facial, 1.0 + Math.max(0, facial - 1.0) * 0.5);
+    skin = Math.min(skin, 0.7 + Math.max(0, skin - 0.7) * 0.5);
+    temper = Math.min(temper, 0.7 + Math.max(0, temper - 0.7) * 0.5);
+    
+    // 保留1位小数
+    facial = Math.round(facial * 10) / 10;
+    skin = Math.round(skin * 10) / 10;
+    temper = Math.round(temper * 10) / 10;
+    
+    // 降低基准分：从5降到4.5，让普通人就是4.5-5.5
+    const calculatedScore = 4.5 + facial + skin + temper - ps;
     const finalScore = Math.max(0, Math.min(10, Math.round(calculatedScore * 10) / 10));
-    console.log('[VisionAPI] Calculated score:', finalScore, '(5 +', facial, '+', skin, '+', temper, '-', ps, ')');
+    console.log('[VisionAPI] Original:', result.facial_features, result.skin_quality, result.temperament, result.photoshop_deduction);
+    console.log('[VisionAPI] Adjusted:', facial, skin, temper, ps);
+    console.log('[VisionAPI] Calculated score:', finalScore, '(4.5 +', facial, '+', skin, '+', temper, '-', ps, ')');
     
     return {
       beauty_type: result.beauty_type || '成熟型',
