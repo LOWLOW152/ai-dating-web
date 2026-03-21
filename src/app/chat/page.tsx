@@ -167,8 +167,18 @@ export default function ChatPage() {
     
     // 追问逻辑说明
     const maxQuestions = question.max_questions || 3;
+    // 注意：如果数据库没有 use_closing_message 字段，默认为 true（开启）
     const useClosing = question.use_closing_message !== false;
     const closingMsg = question.closing_message || '好的，我们换个话题。';
+    
+    // 调试日志（帮助排查问题）
+    console.log('Question config:', { 
+      id: question.id, 
+      use_closing_message: question.use_closing_message, 
+      useClosing,
+      max_questions: question.max_questions 
+    });
+    
     const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
     const maxFollowUps = Math.max(0, maxQuestions - 2);
     
