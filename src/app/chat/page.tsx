@@ -94,7 +94,8 @@ export default function ChatPage() {
           chatHistory,
           extractedData,
           isNewQuestion: isInitialLoad,
-          totalQuestions: questions.length
+          totalQuestions: questions.length,
+          currentRound: roundToCheck // 前端记录的当前轮数
         }),
       });
 

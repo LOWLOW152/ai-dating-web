@@ -126,7 +126,8 @@ function buildPrompt(
   extractedData: Record<string, unknown>,
   chatHistory: ChatMessage[],
   config: GlobalConfig | null,
-  isNewQuestion: boolean
+  isNewQuestion: boolean,
+  currentRound: number = 1
 ): string {
   const cfg = config || DEFAULT_CONFIG;
   
@@ -159,19 +160,19 @@ function buildPrompt(
     ? `【重要】这是第 ${question.order} 题的首次对话。请基于上面的历史记录自然过渡，引入新话题。不要重复问历史记录中已问过的问题。\n`
     : '';
   
-  // 追问逻辑说明
+  // 追问逻辑说明 - 使用前端传来的currentRound
   const maxQuestions = question.max_questions || 3;
   
-  const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
+  const currentRoundNum = Math.min(currentRound, maxQuestions);
   const isLastRound = currentRoundNum >= maxQuestions;
   const maxFollowUps = Math.max(0, maxQuestions - 2);
   
   console.log('Backend buildPrompt:', {
     questionId: question.id,
     maxQuestions,
-    questionPromptPreview: questionPrompt.slice(0, 200),
-    currentRoundNum,
-    isLastRound
+    currentRound: currentRoundNum,
+    isLastRound,
+    isNewQuestion
   });
   
   const endInstruction = isLastRound ? `
@@ -224,7 +225,8 @@ export async function POST(request: NextRequest) {
       chatHistory = [], 
       extractedData = {}, 
       isNewQuestion = false,
-      totalQuestions = 30
+      totalQuestions = 30,
+      currentRound = 1 // 前端传来的当前轮数
     } = body;
 
     if (!questionId) {
@@ -267,7 +269,8 @@ export async function POST(request: NextRequest) {
       extractedData,
       chatHistory,
       config,
-      isNewQuestion
+      isNewQuestion,
+      currentRound
     );
 
     const apiKey = process.env.DOUBAO_API_KEY;
