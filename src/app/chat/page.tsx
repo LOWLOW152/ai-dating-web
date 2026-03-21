@@ -130,48 +130,55 @@ export default function ChatPage() {
     // 提取数据
     const dataMatch = content.match(/---DATA---\s*([\s\S]*)$/);
     let parsedData = {};
+    let hasData = false;
     if (dataMatch) {
       try {
         const jsonStr = dataMatch[1].trim();
         parsedData = JSON.parse(jsonStr);
         setExtractedData(prev => ({ ...prev, ...parsedData }));
+        hasData = true;
       } catch {
         // 忽略解析失败
       }
     }
     
     const displayContent = content.split('---DATA---')[0].trim();
+    const isSilentEnd = hasData && !displayContent; // 只有DATA，没有对话内容
     
-    const newMessage: ChatMessage = {
-      role: 'ai',
-      content: displayContent || '（AI未返回有效回复）',
-      timestamp: Date.now(),
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
+    // 如果不是静默结束，显示AI回复
+    if (!isSilentEnd) {
+      const newMessage: ChatMessage = {
+        role: 'ai',
+        content: displayContent || '（AI未返回有效回复）',
+        timestamp: Date.now(),
+      };
+      
+      setMessages(prev => [...prev, newMessage]);
 
-    // 语音播报
-    if (mounted && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(displayContent);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 1;
-      window.speechSynthesis.speak(utterance);
+      // 语音播报
+      if (mounted && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(displayContent);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1;
+        window.speechSynthesis.speak(utterance);
+      }
     }
 
     // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
     if (!isInitialLoad) {
       // 条件1：AI明确使用了结束语
       // 条件2：达到追问次数上限
+      // 条件3：静默结束（只有DATA）
       const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题|跳过本题)/i.test(displayContent);
       const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
       
-      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
+      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, isSilentEnd, content: displayContent.slice(0, 50) });
       
-      if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
-        // 延迟一下让用户看到结束语，然后自动进入下一题并调用AI
+      if ((isEnding || isMaxRound || isSilentEnd) && qIndex < questions.length - 1) {
+        // 延迟后自动进入下一题并调用AI
         setTimeout(() => {
           handleNextQuestionWithAI();
-        }, 1500);
+        }, isSilentEnd ? 300 : 1500); // 静默结束更快切题
       }
     }
   }
@@ -197,18 +204,10 @@ export default function ChatPage() {
     
     // 检查用户是否输入"跳过"或"skip"
     if (userContent === '跳过' || userContent.toLowerCase() === 'skip') {
-      // 添加AI的跳过回复
-      const skipReply: ChatMessage = {
-        role: 'ai',
-        content: '好的，这道题我们跳过，继续下一题～',
-        timestamp: Date.now(),
-      };
-      setMessages(prev => [...prev, skipReply]);
-      
-      // 延迟后自动进入下一题
+      // 静默跳过：不显示AI回复，直接切题
       setTimeout(() => {
         handleNextQuestionWithAI();
-      }, 1000);
+      }, 300);
       
       requestLock.current = false;
       return;

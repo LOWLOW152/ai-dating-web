@@ -163,9 +163,10 @@ function buildPrompt(
   const maxQuestions = question.max_questions || 3;
   // 只有明确为 true 时才启用结束语，null/false/undefined 都视为关闭
   const useClosing = question.use_closing_message === true;
-  const closingMsg = question.closing_message || '好的，我们换个话题。';
   
   const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
+  const isLastRound = currentRoundNum >= maxQuestions;
+  const shouldEnd = isLastRound || useClosing;
   const maxFollowUps = Math.max(0, maxQuestions - 2);
   
   console.log('Backend buildPrompt:', {
@@ -173,17 +174,31 @@ function buildPrompt(
     use_closing_message: question.use_closing_message,
     useClosing,
     type: typeof question.use_closing_message,
-    questionPromptPreview: questionPrompt.slice(0, 200)
+    questionPromptPreview: questionPrompt.slice(0, 200),
+    currentRoundNum,
+    isLastRound,
+    shouldEnd
   });
+  
+  const endInstruction = shouldEnd ? `
+【重要规则 - 静默结束】
+当前是第 ${currentRoundNum} 轮（共 ${maxQuestions} 轮），这是本题最后一轮。
+本轮回复**只返回DATA，不返回任何对话内容**。
+第一部分留空，直接返回：
+
+---DATA---
+{当前题提取的数据}
+
+不需要说"好的""我们继续"等任何过渡语。
+` : '';
   
   const followUpLogic = `【追问逻辑】
 - 本题最多追问 ${maxQuestions} 轮（包括首次提问）
-- 当前已是第 ${currentRoundNum} 轮
-- 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '【✅结束语开启】使用结束语进入下一题' : '【❌结束语关闭】直接结束本题'}${useClosing ? `
-- 结束语：${closingMsg}` : ''}
+- 当前已是第 ${currentRoundNum} 轮${isLastRound ? '（最后一轮）' : ''}
+- 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → 静默结束进入下一题
 - 如果用户回答已经很完整，可以提前结束，不必追问满${maxQuestions}轮
-- 【重要】如果用户说"跳过"或不想回答，请用结束语结束本题
-
+- 【重要】如果用户说"跳过"或不想回答，静默结束本题
+${endInstruction}
 `;
 
   return `${cfg.system_prompt}
