@@ -64,7 +64,7 @@ export default async function QuestionsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  <a href={`/admin/questions/${q.id}`} className="text-blue-600 hover:underline">编辑</a>
+                  <Link href={`/admin/questions/${q.id}`} className="text-blue-600 hover:underline">编辑</Link>
                 </td>
               </tr>
             ))}

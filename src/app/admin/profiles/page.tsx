@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,9 +50,9 @@ export default async function ProfilesPage() {
                     {new Date(p.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <a href={`/admin/profiles/${p.id}`} className="text-blue-600 hover:underline">
+                    <Link href={`/admin/profiles/${p.id}`} className="text-blue-600 hover:underline">
                       查看
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               ))}

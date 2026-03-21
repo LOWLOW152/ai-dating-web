@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,18 +32,18 @@ export default async function ProfileTemplatesPage() {
             <p className="text-gray-600 text-sm mb-4">{t.description || '无描述'}</p>
             
             <div className="flex gap-4 text-sm">
-              <a
+              <Link
                 href={`/admin/profile-templates/${t.id}/prompt`}
                 className="text-purple-600 hover:underline"
               >
                 配置AI提示词 →
-              </a>
-              <a
+              </Link>
+              <Link
                 href={`/admin/profile-templates/${t.id}`}
                 className="text-blue-600 hover:underline"
               >
                 配置权重 →
-              </a>
+              </Link>
             </div>
           </div>
         ))}
