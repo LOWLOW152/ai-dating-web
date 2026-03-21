@@ -32,6 +32,7 @@ export async function PUT(
       hierarchy,
       is_active,
       is_required,
+      tone_config,
     } = body;
 
     // 检查必要字段
@@ -51,29 +52,63 @@ export async function PUT(
       const hasClosingMessageColumn = columnCheck.rows.length > 0;
       
       if (hasClosingMessageColumn) {
-        // 字段存在，正常更新
-        await sql.query(
-          `UPDATE questions 
-           SET category = $1, type = $2, "order" = $3, question_text = $4, 
-               field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, use_closing_message = $9, hierarchy = $10, is_active = $11, is_required = $12,
-               updated_at = NOW()
-           WHERE id = $13`,
-          [
-            category,
-            type,
-            order,
-            question_text,
-            field_type,
-            ai_prompt,
-            closing_message,
-            max_questions ?? 3,
-            use_closing_message !== false,
-            hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
-            is_active,
-            is_required,
-            id,
-          ]
-        );
+        // 检查 tone_config 字段是否存在
+        const toneConfigCheck = await sql.query(`
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'questions' AND column_name = 'tone_config'
+        `);
+        const hasToneConfigColumn = toneConfigCheck.rows.length > 0;
+        
+        if (hasToneConfigColumn) {
+          // 两个新字段都存在
+          await sql.query(
+            `UPDATE questions 
+             SET category = $1, type = $2, "order" = $3, question_text = $4, 
+                 field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, use_closing_message = $9, hierarchy = $10, is_active = $11, is_required = $12, tone_config = $13,
+                 updated_at = NOW()
+             WHERE id = $14`,
+            [
+              category,
+              type,
+              order,
+              question_text,
+              field_type,
+              ai_prompt,
+              closing_message,
+              max_questions ?? 3,
+              use_closing_message !== false,
+              hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
+              is_active,
+              is_required,
+              tone_config ? JSON.stringify(tone_config) : null,
+              id,
+            ]
+          );
+        } else {
+          // 只有 use_closing_message 字段存在
+          await sql.query(
+            `UPDATE questions 
+             SET category = $1, type = $2, "order" = $3, question_text = $4, 
+                 field_type = $5, ai_prompt = $6, closing_message = $7, max_questions = $8, use_closing_message = $9, hierarchy = $10, is_active = $11, is_required = $12,
+                 updated_at = NOW()
+             WHERE id = $13`,
+            [
+              category,
+              type,
+              order,
+              question_text,
+              field_type,
+              ai_prompt,
+              closing_message,
+              max_questions ?? 3,
+              use_closing_message !== false,
+              hierarchy ? (typeof hierarchy === 'string' ? hierarchy : JSON.stringify(hierarchy)) : null,
+              is_active,
+              is_required,
+              id,
+            ]
+          );
+        }
       } else {
         // 字段不存在，跳过该字段
         await sql.query(

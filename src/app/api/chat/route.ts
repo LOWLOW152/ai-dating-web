@@ -7,6 +7,13 @@ interface ChatMessage {
   timestamp: number;
 }
 
+interface ToneConfig {
+  style: 'gentle' | 'neutral' | 'playful' | 'professional';
+  depth: 'shallow' | 'moderate' | 'deep';
+  opening: 'direct' | 'empathy' | 'casual';
+  sensitivity: 'low' | 'medium' | 'high';
+}
+
 interface Question {
   id: string;
   order: number;
@@ -15,6 +22,7 @@ interface Question {
   closing_message: string | null;
   max_questions: number;
   use_closing_message: boolean;
+  tone_config: ToneConfig | null;
 }
 
 interface GlobalConfig {
@@ -24,7 +32,51 @@ interface GlobalConfig {
   context_limit: number;
 }
 
-// 默认配置 fallback
+// 根据 toneConfig 生成小提示词
+function generateAiPrompt(question: Question): string {
+  const tone = question.tone_config;
+  
+  if (!tone) {
+    return question.ai_prompt || '';
+  }
+
+  const styleMap: Record<string, string> = {
+    gentle: '【语气】温柔亲切，多用共情和鼓励',
+    neutral: '【语气】自然中性，像普通朋友聊天',
+    playful: '【语气】轻松活泼，带点幽默感',
+    professional: '【语气】专业理性，条理清晰',
+  };
+
+  const depthMap: Record<string, string> = {
+    shallow: '【深度】点到为止，不深究',
+    moderate: '【深度】适度追问，获取关键信息',
+    deep: '【深度】深入挖掘，了解本质动机',
+  };
+
+  const openingMap: Record<string, string> = {
+    direct: '【开场】直接提问，不绕弯子',
+    empathy: '【开场】先共情再提问',
+    casual: '【开场】闲聊式开场，自然引入',
+  };
+
+  const sensitivityMap: Record<string, string> = {
+    low: '【敏感度】对模糊回答宽容，不深究',
+    medium: '【敏感度】适度追问模糊回答',
+    high: '【敏感度】对任何模糊回答都要追问到底',
+  };
+
+  return `你正在帮用户完成一道相亲档案题目。
+
+【题号】${question.id}（第 ${question.order} 题）
+【题目】${question.question_text}
+
+${styleMap[tone.style] || styleMap.gentle}
+${depthMap[tone.depth] || depthMap.moderate}
+${openingMap[tone.opening] || openingMap.empathy}
+${sensitivityMap[tone.sensitivity] || sensitivityMap.medium}
+
+${question.ai_prompt || ''}`;
+}
 const DEFAULT_CONFIG: GlobalConfig = {
   system_prompt: `你是狗蛋，一个温暖、真诚的AI相亲助手。
 你的任务是帮用户完成30题的相亲档案，了解他们的性格、爱好、价值观和情感需求。
@@ -87,7 +139,7 @@ function buildPrompt(
     .replace(/{question_text}/g, question.question_text)
     .replace(/{cached_summary}/g, cachedSummary);
 
-  const questionPrompt = question.ai_prompt || '';
+  const questionPrompt = generateAiPrompt(question);
   
   // 构建完整的对话历史
   const fullHistory = chatHistory.length > 0

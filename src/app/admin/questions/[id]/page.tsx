@@ -364,6 +364,10 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
         setQuestion(data.data);
         setClosingMessage(data.data.closing_message || '');
         setMaxQuestions(data.data.max_questions || 3);
+        // 读取 tone_config，如果没有则使用默认值
+        if (data.data.tone_config) {
+          setToneConfig(data.data.tone_config);
+        }
       } else {
         setError(data.error || '题目不存在');
       }
@@ -384,7 +388,12 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     console.log('Sending save request to:', saveUrl);
 
     try {
-      const payload = { ...question, closing_message: closingMessage, max_questions: maxQuestions };
+      const payload = { 
+        ...question, 
+        closing_message: closingMessage, 
+        max_questions: maxQuestions,
+        tone_config: toneConfig
+      };
       console.log('Payload:', JSON.stringify(payload, null, 2));
       
       const res = await fetch(saveUrl, {
