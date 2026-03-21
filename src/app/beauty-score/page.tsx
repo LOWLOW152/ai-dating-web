@@ -22,6 +22,14 @@ interface BeautyResult {
   raw_score?: number;
 }
 
+interface ApiResponse {
+  success: boolean;
+  data?: BeautyResult;
+  source?: 'mock' | 'ai';
+  debug?: string[];
+  error?: string;
+}
+
 const BEAUTY_LEVELS = [
   { min: 9, max: 10, label: '明星级', color: 'text-yellow-600', bg: 'bg-yellow-50', desc: '极少数，扛得住镜头' },
   { min: 8, max: 8.9, label: '班草/班花', color: 'text-purple-600', bg: 'bg-purple-50', desc: '很出众，前3%' },
@@ -43,6 +51,8 @@ export default function BeautyScoreUserPage() {
   const [result, setResult] = useState<BeautyResult | null>(null);
   const [dataSource, setDataSource] = useState<'mock' | 'ai' | null>(null);
   const [error, setError] = useState('');
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     const code = localStorage.getItem('inviteCode');
@@ -95,12 +105,14 @@ export default function BeautyScoreUserPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteCode, photoBase64: base64 }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data: ApiResponse = await res.json();
+      if (data.success && data.data) {
         setResult(data.data);
         setDataSource(data.source || 'mock');
+        setDebugLogs(data.debug || []);
       } else {
         setError(data.error || '评分失败');
+        setDebugLogs(data.debug || []);
       }
       setLoading(false);
     };
@@ -263,6 +275,24 @@ export default function BeautyScoreUserPage() {
               {result.ai_comment && (
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
                   <p className="text-sm text-gray-600 italic text-center">&ldquo;{result.ai_comment}&rdquo;</p>
+                </div>
+              )}
+              
+              {/* 调试信息 */}
+              {debugLogs.length > 0 && (
+                <div className="mb-6">
+                  <button 
+                    onClick={() => setShowDebug(!showDebug)}
+                    className="w-full text-left text-xs text-gray-400 hover:text-gray-600 flex items-center justify-between"
+                  >
+                    <span>{showDebug ? '隐藏调试信息' : '查看调试信息'}</span>
+                    <span>{showDebug ? '▲' : '▼'}</span>
+                  </button>
+                  {showDebug && (
+                    <div className="mt-2 bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto">
+                      <pre className="whitespace-pre-wrap">{debugLogs.join('\n')}</pre>
+                    </div>
+                  )}
                 </div>
               )}
               

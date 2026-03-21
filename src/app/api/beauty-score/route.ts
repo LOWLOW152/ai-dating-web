@@ -5,11 +5,18 @@ import { sql } from '@/lib/db';
 const ARK_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 const ARK_MODEL = 'doubao-1-5-vision-pro-250328';
 
+// 调试日志（返回给前端）
+let debugLogs: string[] = [];
+function log(msg: string) {
+  const line = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+  debugLogs.push(line);
+  console.log(line);
+}
+
 // 获取环境变量（运行时）
 function getArkApiKey(): string | undefined {
-  const HARDCODED_KEY = '66fe12c6-1a14-4fdc-beda-960abb6b28ad';
   const key = process.env.ARK_API_KEY;
-  if (!key && HARDCODED_KEY) return HARDCODED_KEY;
+  log(`环境变量 ARK_API_KEY: ${key ? '已设置' : '未设置'}`);
   return key;
 }
 
@@ -33,7 +40,7 @@ function normalMapping(rawScore: number): number {
 }
 
 // 调用火山引擎视觉模型
-async function analyzeBeauty(imageBase64: string, apiKey: string) {
+async function analyzeBeauty(imageBase64: string, apiKey: string): Promise<any> {
   const prompt = `你是一位严格的形象分析师。请客观分析这张照片中的人物，给出9项具体分数。
 
 【必须分析的9项指标】
@@ -117,55 +124,87 @@ async function analyzeBeauty(imageBase64: string, apiKey: string) {
   "ai_comment": "评语"
 }`;
 
-  const response = await fetch(ARK_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': apiKey,
-    },
-    body: JSON.stringify({
-      model: ARK_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: imageBase64 } }
-          ]
-        }
-      ],
-      temperature: 0.2,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  log('开始调用火山引擎 API...');
   
-  if (!content) {
-    throw new Error('Empty response');
-  }
+  const requestBody = {
+    model: ARK_MODEL,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: imageBase64 } }
+        ]
+      }
+    ],
+    temperature: 0.2,
+  };
 
-  // 解析JSON
-  const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(jsonStr);
+  log(`请求模型: ${ARK_MODEL}`);
+  log(`图片大小: ${Math.round(imageBase64.length / 1024)}KB`);
+
+  try {
+    const response = await fetch(ARK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': apiKey,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    log(`API 响应状态: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log(`API 错误响应: ${errorText.slice(0, 500)}`);
+      throw new Error(`API error: ${response.status} - ${errorText.slice(0, 200)}`);
+    }
+
+    const data = await response.json();
+    log(`API 返回数据 keys: ${Object.keys(data).join(', ')}`);
+    
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      log('错误: AI 返回内容为空');
+      throw new Error('Empty response from AI');
+    }
+
+    log(`AI 原始返回: ${content.slice(0, 500)}...`);
+
+    // 解析JSON
+    const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
+    const result = JSON.parse(jsonStr);
+    log(`JSON 解析成功: ${JSON.stringify(result).slice(0, 300)}...`);
+    
+    return result;
+  } catch (error: any) {
+    log(`analyzeBeauty 错误: ${error.message}`);
+    throw error;
+  }
 }
 
 // POST /api/beauty-score
 export async function POST(request: NextRequest) {
+  // 重置调试日志
+  debugLogs = [];
+  log('开始处理颜值打分请求');
+  
   try {
     const body = await request.json();
     const { inviteCode, photoBase64 } = body;
 
     if (!inviteCode || !photoBase64) {
+      log('错误: 缺少参数');
       return NextResponse.json(
-        { success: false, error: '缺少参数' },
+        { success: false, error: '缺少参数', debug: debugLogs },
         { status: 400 }
       );
     }
+
+    log(`邀请码: ${inviteCode}`);
+    log(`照片数据长度: ${photoBase64?.length || 0}`);
 
     // 查找或创建档案
     const profileRes = await sql.query(
@@ -181,8 +220,10 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, $3, 'active', NOW())`,
         [profileId, inviteCode, JSON.stringify({})]
       );
+      log(`创建新档案: ${profileId}`);
     } else {
       profileId = profileRes.rows[0].id;
+      log(`使用现有档案: ${profileId}`);
     }
 
     const arkApiKey = getArkApiKey();
@@ -207,12 +248,12 @@ export async function POST(request: NextRequest) {
     };
 
     if (!arkApiKey) {
-      // 模拟数据
+      log('警告: 未配置 ARK_API_KEY，使用模拟数据');
       result = {
         photoshop_level: '0.5',
         beauty_type: '成熟型',
         beauty_score: '5.2',
-        ai_comment: '基于9项客观指标的综合评分',
+        ai_comment: '基于9项客观指标的综合评分（模拟数据）',
         details: {
           body_shape: 2.0,
           skin_quality: 1.5,
@@ -228,7 +269,9 @@ export async function POST(request: NextRequest) {
       };
     } else {
       try {
+        log('开始 AI 分析...');
         const aiResult = await analyzeBeauty(photoBase64, arkApiKey);
+        log('AI 分析完成');
         
         // 计算原始分（如果AI没算）
         const weights = {
@@ -277,14 +320,14 @@ export async function POST(request: NextRequest) {
           details,
           raw_score: Math.round(rawScore * 100) / 100,
         };
-      } catch (error) {
-        console.error('AI分析失败:', error);
+      } catch (error: any) {
+        log(`AI分析失败: ${error.message}`);
         // fallback 到模拟数据
         result = {
           photoshop_level: '0.5',
           beauty_type: '成熟型',
           beauty_score: '5.2',
-          ai_comment: 'AI服务暂时不可用',
+          ai_comment: `AI服务暂时不可用: ${error.message.slice(0, 100)}`,
           details: {
             body_shape: 2.0,
             skin_quality: 1.5,
@@ -312,8 +355,9 @@ export async function POST(request: NextRequest) {
          result.details.body_shape, result.details.skin_quality, result.details.symmetry, result.details.face_age,
          result.details.hairline, result.details.eye_bags, result.details.teeth, result.details.nose_bridge, result.details.photoshop_deduction]
       );
-    } catch (dbError) {
-      console.log('Insert with new fields failed, using basic insert:', dbError);
+      log('数据库保存成功');
+    } catch (dbError: any) {
+      log(`数据库插入失败: ${dbError.message}`);
       // 如果新字段不存在，只插入基本字段
       await sql.query(
         `INSERT INTO beauty_scores 
@@ -330,15 +374,18 @@ export async function POST(request: NextRequest) {
       [result.photoshop_level, result.beauty_type, result.beauty_score, profileId]
     );
 
+    log(`打分完成: ${result.beauty_score}分`);
+
     return NextResponse.json({
       success: true,
       data: result,
       source: !arkApiKey ? 'mock' : 'ai',
+      debug: debugLogs,
     });
-  } catch (error) {
-    console.error('Beauty score error:', error);
+  } catch (error: any) {
+    log(`服务器错误: ${error.message}`);
     return NextResponse.json(
-      { success: false, error: '服务器错误' },
+      { success: false, error: '服务器错误', debug: debugLogs },
       { status: 500 }
     );
   }
