@@ -42,6 +42,7 @@ const EVALUATION_PROMPT = `你是狗蛋，一个专业的相亲档案分析师�
 async function evaluateProfile(profile: Profile): Promise<{
   success: boolean;
   result?: Record<string, unknown>;
+  tokens?: { request: number; response: number; total: number };
   error?: string;
 }> {
   const apiKey = process.env.DOUBAO_API_KEY;
@@ -60,6 +61,8 @@ async function evaluateProfile(profile: Profile): Promise<{
   }, null, 2);
 
   try {
+    const requestTokens = Math.ceil(prompt.length / 4);
+    
     const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
@@ -83,6 +86,9 @@ async function evaluateProfile(profile: Profile): Promise<{
     const data = await res.json();
     const reply = data.choices?.[0]?.message?.content || '';
     
+    const responseTokens = Math.ceil(reply.length / 4);
+    const totalTokens = requestTokens + responseTokens;
+    
     // 提取JSON
     const jsonMatch = reply.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -91,7 +97,11 @@ async function evaluateProfile(profile: Profile): Promise<{
     
     const result = JSON.parse(jsonMatch[0]);
     
-    return { success: true, result };
+    return { 
+      success: true, 
+      result,
+      tokens: { request: requestTokens, response: responseTokens, total: totalTokens }
+    };
     
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : '未知错误';
@@ -131,7 +141,15 @@ export async function POST(request: NextRequest) {
       // 执行评价
       const evalResult = await evaluateProfile(profile);
       
-      if (evalResult.success && evalResult.result) {
+      if (evalResult.success && evalResult.result && evalResult.tokens) {
+        // 记录 token 使用 (豆包 Pro 32K: 0.008元/千token)
+        const costCny = (evalResult.tokens.total / 1000) * 0.008;
+        await sql.query(
+          `INSERT INTO token_usage (profile_id, api_endpoint, request_tokens, response_tokens, total_tokens, cost_cny)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [profileId, '/api/admin/evaluation/run', evalResult.tokens.request, evalResult.tokens.response, evalResult.tokens.total, costCny]
+        );
+        
         // 更新档案
         await sql.query(
           `UPDATE profiles 
@@ -151,7 +169,8 @@ export async function POST(request: NextRequest) {
         
         return NextResponse.json({ 
           success: true, 
-          data: evalResult.result 
+          data: evalResult.result,
+          tokens: evalResult.tokens
         });
       } else {
         // 更新失败状态
@@ -207,7 +226,15 @@ export async function POST(request: NextRequest) {
       
       const evalResult = await evaluateProfile(profile);
       
-      if (evalResult.success && evalResult.result) {
+      if (evalResult.success && evalResult.result && evalResult.tokens) {
+        // 记录 token 使用
+        const costCny = (evalResult.tokens.total / 1000) * 0.008;
+        await sql.query(
+          `INSERT INTO token_usage (profile_id, api_endpoint, request_tokens, response_tokens, total_tokens, cost_cny)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [profile.id, '/api/admin/evaluation/run', evalResult.tokens.request, evalResult.tokens.response, evalResult.tokens.total, costCny]
+        );
+        
         await sql.query(
           `UPDATE profiles 
            SET ai_evaluation = $1, 
@@ -223,7 +250,7 @@ export async function POST(request: NextRequest) {
           [profile.id, 'success', JSON.stringify(evalResult.result)]
         );
         
-        results.push({ id: profile.id, status: 'success' });
+        results.push({ id: profile.id, status: 'success', tokens: evalResult.tokens });
       } else {
         await sql.query(
           `UPDATE profiles 

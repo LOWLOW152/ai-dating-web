@@ -316,6 +316,11 @@ export async function POST(request: NextRequest) {
     
     if (apiKey) {
       try {
+        const startTime = Date.now();
+        
+        // 估算请求 tokens ( roughly 1 token ≈ 4 chars for Chinese)
+        const requestTokens = Math.ceil(prompt.length / 4);
+        
         const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
           method: 'POST',
           headers: {
@@ -335,6 +340,20 @@ export async function POST(request: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           const reply = data.choices?.[0]?.message?.content || '';
+          
+          // 估算响应 tokens
+          const responseTokens = Math.ceil(reply.length / 4);
+          const totalTokens = requestTokens + responseTokens;
+          
+          // 记录 token 使用 (豆包 Pro 32K: 输入 0.008元/千token, 输出 0.008元/千token)
+          const costCny = (totalTokens / 1000) * 0.008;
+          
+          await sql.query(
+            `INSERT INTO token_usage (api_endpoint, request_tokens, response_tokens, total_tokens, cost_cny)
+             VALUES ($1, $2, $3, $4, $5)`,
+            ['/api/chat', requestTokens, responseTokens, totalTokens, costCny]
+          );
+          
           return NextResponse.json({ success: true, reply, prompt });
         }
       } catch (err) {
