@@ -79,9 +79,30 @@ export default function GlobalPromptPage() {
   const [testStarted, setTestStarted] = useState(false);
   const [questionRound, setQuestionRound] = useState(0); // 当前题追问次数
 
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 监听修改，标记未保存
+  useEffect(() => {
+    if (!loading) {
+      setHasUnsavedChanges(true);
+    }
+  }, [systemPrompt, progressTemplate, dataFormatTemplate, contextLimit]);
+
+  // 离开页面前提示
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,6 +156,7 @@ export default function GlobalPromptPage() {
       });
       const data = await res.json();
       if (data.success) {
+        setHasUnsavedChanges(false);
         router.push('/admin/questions');
       }
     } catch (error) {
@@ -319,9 +341,16 @@ ${dataFormatTemplate}${roundInfo}${historySection}`;
     <div className="h-screen flex flex-col">
       {/* 顶部 */}
       <div className="bg-white border-b px-4 py-3 flex justify-between items-center">
-        <div>
-          <h1 className="text-lg font-bold">全局AI提示词配置</h1>
-          <p className="text-xs text-gray-500">设置整个题库的系统提示词和对话模板 · 共{questions.length}题</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-lg font-bold">全局AI提示词配置</h1>
+            <p className="text-xs text-gray-500">设置整个题库的系统提示词和对话模板 · 共{questions.length}题</p>
+          </div>
+          {hasUnsavedChanges && (
+            <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded">
+              未保存
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           <button
