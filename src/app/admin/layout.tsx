@@ -11,6 +11,7 @@ export default function AdminLayout({
     { href: '/admin/profile-templates', label: '资料库' },
     { href: '/admin/match', label: '匹配测试' },
     { href: '/admin/profiles', label: '档案' },
+    { href: '/admin/evaluation', label: 'AI评价' },
     { href: '/admin/invite-codes', label: '邀请码' },
   ];
 
