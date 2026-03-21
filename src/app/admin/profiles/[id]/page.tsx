@@ -1,5 +1,6 @@
 import { sql } from '@/lib/db';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,9 +21,9 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
       {/* 头部 */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">档案详情</h1>
-        <a href="/admin/profiles" className="text-blue-600 hover:underline">
+        <Link href="/admin/profiles" className="text-blue-600 hover:underline">
           ← 返回列表
-        </a>
+        </Link>
       </div>
 
       {/* 基本信息卡片 */}
