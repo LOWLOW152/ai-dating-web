@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest) {
     let body;
     try {
       body = await request.json();
-      console.log('Request body:', body);
+      console.log('Request body keys:', Object.keys(body));
     } catch (e) {
       console.error('Failed to parse request body:', e);
       return NextResponse.json(
@@ -44,14 +44,7 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    const { system_prompt, progress_template, data_format_template, context_limit } = body;
-
-    if (!system_prompt || !progress_template || !data_format_template) {
-      return NextResponse.json(
-        { success: false, error: '缺少必要字段' },
-        { status: 400 }
-      );
-    }
+    const { system_prompt, progress_template, data_format_template, context_limit, coordinator_prompt } = body;
 
     // 更新或插入配置
     console.log('Executing SQL...');
@@ -60,9 +53,10 @@ export async function PUT(request: NextRequest) {
        ('system_prompt', $1, NOW()),
        ('progress_template', $2, NOW()),
        ('data_format_template', $3, NOW()),
-       ('context_limit', $4, NOW())
+       ('context_limit', $4, NOW()),
+       ('coordinator_prompt', $5, NOW())
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [system_prompt, progress_template, data_format_template, String(context_limit)]
+      [system_prompt, progress_template, data_format_template, String(context_limit), coordinator_prompt || '']
     );
     console.log('SQL executed successfully');
 

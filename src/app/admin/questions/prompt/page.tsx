@@ -62,6 +62,29 @@ const DEFAULT_DATA_FORMAT_TEMPLATE = `【返回格式要求】
 
 如果已达到追问上限，请在第一部分使用结束语。`;
 
+// 提问AI（统筹层）默认配置
+const DEFAULT_COORDINATOR_PROMPT = `你是"提问AI"，是用户和"题库AI"之间的统筹层。
+
+【你的角色】
+你是用户沟通的窗口，题库AI是后台出题的助手。
+
+【工作流程】
+1. 用户发送消息后，题库AI会提供建议的问题或回复
+2. 你需要审核题库AI的输出，检查以下问题：
+   - 是否重复提问（和之前的问题重复）
+   - 是否突兀（没有自然过渡）
+   - 是否过长（应该简洁友好）
+   - 是否符合当前对话上下文
+
+3. 如果题库AI的输出有问题，你需要修改后输出
+4. 如果没问题，直接输出或微调后输出
+
+【输出要求】
+- 保持温暖、真诚的语气（你是狗蛋）
+- 不要暴露"题库AI"的存在
+- 用户看到的只是你一个人在对话
+- 必须包含 ---DATA--- 分隔符和JSON数据`; 
+
 export default function GlobalPromptPage() {
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -71,6 +94,7 @@ export default function GlobalPromptPage() {
   const [progressTemplate, setProgressTemplate] = useState('');
   const [dataFormatTemplate, setDataFormatTemplate] = useState('');
   const [contextLimit, setContextLimit] = useState(5);
+  const [coordinatorPrompt, setCoordinatorPrompt] = useState(''); // 提问AI配置
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -98,7 +122,7 @@ export default function GlobalPromptPage() {
     if (!loading) {
       setHasUnsavedChanges(true);
     }
-  }, [systemPrompt, progressTemplate, dataFormatTemplate, contextLimit]);
+  }, [systemPrompt, progressTemplate, dataFormatTemplate, contextLimit, coordinatorPrompt]);
 
   // 离开页面前提示
   useEffect(() => {
@@ -134,6 +158,7 @@ export default function GlobalPromptPage() {
         setProgressTemplate(configs.progress_template || DEFAULT_PROGRESS_TEMPLATE);
         setDataFormatTemplate(configs.data_format_template || DEFAULT_DATA_FORMAT_TEMPLATE);
         setContextLimit(parseInt(configs.context_limit || '5'));
+        setCoordinatorPrompt(configs.coordinator_prompt || DEFAULT_COORDINATOR_PROMPT);
       }
       
       if (questionsData.success) {
@@ -145,6 +170,7 @@ export default function GlobalPromptPage() {
       setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
       setProgressTemplate(DEFAULT_PROGRESS_TEMPLATE);
       setDataFormatTemplate(DEFAULT_DATA_FORMAT_TEMPLATE);
+      setCoordinatorPrompt(DEFAULT_COORDINATOR_PROMPT);
     }
     setLoading(false);
   }
@@ -161,6 +187,7 @@ export default function GlobalPromptPage() {
           progress_template: progressTemplate,
           data_format_template: dataFormatTemplate,
           context_limit: contextLimit,
+          coordinator_prompt: coordinatorPrompt,
         }),
       });
       
@@ -500,6 +527,31 @@ ${dataFormatTemplate}${roundInfo}${historySection}`;
               className="w-full"
             />
             <p className="text-xs text-gray-500 mt-2">提示词中显示最近几道题的数据</p>
+          </div>
+
+          {/* 提问AI配置（统筹层） */}
+          <div className="bg-white rounded-lg shadow p-4 border-2 border-purple-200">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-semibold text-purple-800 text-sm flex items-center gap-2">
+                <span>🎯</span>
+                <span>提问AI配置（统筹层）</span>
+              </h2>
+              <button
+                onClick={() => setCoordinatorPrompt(DEFAULT_COORDINATOR_PROMPT)}
+                className="text-xs text-purple-600 hover:underline"
+              >
+                默认
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              提问AI是用户和题库AI之间的审核层，负责检查重复问题、确保对话连贯
+            </p>
+            <textarea
+              value={coordinatorPrompt}
+              onChange={(e) => setCoordinatorPrompt(e.target.value)}
+              rows={8}
+              className="w-full border border-purple-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
         </div>
 

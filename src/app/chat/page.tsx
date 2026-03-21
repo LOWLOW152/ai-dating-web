@@ -23,6 +23,7 @@ interface GlobalConfig {
   progress_template: string;
   data_format_template: string;
   context_limit: number;
+  coordinator_prompt?: string; // 提问AI配置
 }
 
 // 默认配置 fallback
@@ -55,7 +56,28 @@ const DEFAULT_CONFIG: GlobalConfig = {
 ---DATA---
 
 第二部分：当前题提取的数据（JSON格式）`,
-  context_limit: 5
+  context_limit: 5,
+  coordinator_prompt: `你是"提问AI"，是用户和"题库AI"之间的统筹层。
+
+【你的角色】
+你是用户沟通的窗口，题库AI是后台出题的助手。
+
+【工作流程】
+1. 用户发送消息后，题库AI会提供建议的问题或回复
+2. 你需要审核题库AI的输出，检查以下问题：
+   - 是否重复提问（和之前的问题重复）
+   - 是否突兀（没有自然过渡）
+   - 是否过长（应该简洁友好）
+   - 是否符合当前对话上下文
+
+3. 如果题库AI的输出有问题，你需要修改后输出
+4. 如果没问题，直接输出或微调后输出
+
+【输出要求】
+- 保持温暖、真诚的语气（你是狗蛋）
+- 不要暴露"题库AI"的存在
+- 用户看到的只是你一个人在对话
+- 必须包含 ---DATA--- 分隔符和JSON数据`
 };
 
 export default function ChatPage() {
@@ -75,7 +97,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [currentPrompt, setCurrentPrompt] = useState<string>(''); // 当前传给AI的提示词
   const [showPrompt, setShowPrompt] = useState(false); // 是否显示右侧面板
-  const [rightPanelTab, setRightPanelTab] = useState<'prompt' | 'data'>('prompt'); // 右侧面板当前标签
+  const [rightPanelTab, setRightPanelTab] = useState<'prompt' | 'coordinator' | 'data'>('prompt'); // 右侧面板当前标签
   const requestLock = useRef(false); // 请求锁，防止重复发送
 
   useEffect(() => {
@@ -164,68 +186,70 @@ ${cfg.data_format_template}`;
     const roundToCheck = currentRound !== undefined ? currentRound : questionRound;
     
     try {
-      const prompt = buildPrompt(qIndex);
-      setCurrentPrompt(prompt); // 保存当前提示词用于显示
+      // ========== 第一步：调用题库AI获取建议 ==========
+      const bankPrompt = buildPrompt(qIndex);
+      setCurrentPrompt(bankPrompt); // 保存题库AI提示词用于显示
       
-      const res = await fetch('/api/chat', {
+      console.log('Step 1: Calling Bank AI...');
+      const bankRes = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt: bankPrompt }),
       });
-
-      const data = await res.json();
       
-      if (data.success) {
-        const content = data.reply || '';
-        
-        // 提取数据
-        const dataMatch = content.match(/---DATA---\s*([\s\S]*)$/);
-        let parsedData = {};
-        if (dataMatch) {
-          try {
-            const jsonStr = dataMatch[1].trim();
-            parsedData = JSON.parse(jsonStr);
-            setExtractedData(prev => ({ ...prev, ...parsedData }));
-          } catch {
-            // 忽略解析失败
-          }
-        }
-        
-        const displayContent = content.split('---DATA---')[0].trim();
-        
-        const newMessage: ChatMessage = {
-          role: 'ai',
-          content: displayContent || '（AI未返回有效回复）',
-          timestamp: Date.now(),
-        };
-        
-        setMessages(prev => [...prev, newMessage]);
-
-        // 语音播报
-        if (mounted && 'speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(displayContent);
-          utterance.lang = 'zh-CN';
-          utterance.rate = 1;
-          window.speechSynthesis.speak(utterance);
-        }
-
-        // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
-        if (!isInitialLoad) {
-          // 条件1：AI明确使用了结束语
-          // 条件2：达到追问次数上限
-          const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题)/i.test(displayContent);
-          const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
-          
-          console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
-          
-          if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
-            // 延迟一下让用户看到结束语，然后自动进入下一题
-            setTimeout(() => {
-              handleNextQuestion();
-            }, 3000);
-          }
-        }
+      const bankData = await bankRes.json();
+      
+      if (!bankData.success) {
+        throw new Error('题库AI调用失败: ' + bankData.error);
       }
+      
+      const bankReply = bankData.reply || '';
+      console.log('Bank AI reply:', bankReply.slice(0, 100));
+      
+      // ========== 第二步：调用提问AI审核 ==========
+      const cfg = config || DEFAULT_CONFIG;
+      const coordinatorPrompt = cfg.coordinator_prompt || DEFAULT_CONFIG.coordinator_prompt!;
+      
+      // 构建提问AI的提示词
+      const recentContext = messages.slice(-6).map(m => 
+        `${m.role === 'ai' ? '狗蛋' : '用户'}: ${m.content}`
+      ).join('\n');
+      
+      const coordinatorFullPrompt = `${coordinatorPrompt}
+
+【当前对话上下文】
+${recentContext || '（对话刚开始）'}
+
+【题库AI的建议回复】
+${bankReply}
+
+【你的任务】
+请审核题库AI的建议回复，检查是否有重复提问、突兀过渡等问题。
+如果有问题请修改后输出，如果没问题可以直接输出或微调。
+必须保持温暖友好的语气，不要暴露"题库AI"的存在。
+
+【输出格式】
+和题库AI一样，必须包含 ---DATA--- 分隔符和JSON数据。`;
+      
+      console.log('Step 2: Calling Coordinator AI...');
+      const coordRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: coordinatorFullPrompt }),
+      });
+      
+      const coordData = await coordRes.json();
+      
+      if (!coordData.success) {
+        // 提问AI失败，直接使用题库AI的结果
+        console.warn('Coordinator AI failed, using Bank AI result');
+        processAiResponse(bankReply, qIndex, roundToCheck, isInitialLoad);
+      } else {
+        const finalReply = coordData.reply || bankReply;
+        console.log('Coordinator AI reply:', finalReply.slice(0, 100));
+        processAiResponse(finalReply, qIndex, roundToCheck, isInitialLoad);
+      }
+      
     } catch (error) {
       console.error('AI error:', error);
       setMessages(prev => [...prev, {
@@ -236,6 +260,57 @@ ${cfg.data_format_template}`;
     }
 
     setIsAiResponding(false);
+  }
+  
+  // 处理AI返回的内容（提取数据、显示、判断下一题等）
+  function processAiResponse(content: string, qIndex: number, roundToCheck: number, isInitialLoad: boolean) {
+    // 提取数据
+    const dataMatch = content.match(/---DATA---\s*([\s\S]*)$/);
+    let parsedData = {};
+    if (dataMatch) {
+      try {
+        const jsonStr = dataMatch[1].trim();
+        parsedData = JSON.parse(jsonStr);
+        setExtractedData(prev => ({ ...prev, ...parsedData }));
+      } catch {
+        // 忽略解析失败
+      }
+    }
+    
+    const displayContent = content.split('---DATA---')[0].trim();
+    
+    const newMessage: ChatMessage = {
+      role: 'ai',
+      content: displayContent || '（AI未返回有效回复）',
+      timestamp: Date.now(),
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+
+    // 语音播报
+    if (mounted && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(displayContent);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
+    if (!isInitialLoad) {
+      // 条件1：AI明确使用了结束语
+      // 条件2：达到追问次数上限
+      const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题)/i.test(displayContent);
+      const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
+      
+      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
+      
+      if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
+        // 延迟一下让用户看到结束语，然后自动进入下一题
+        setTimeout(() => {
+          handleNextQuestion();
+        }, 3000);
+      }
+    }
   }
 
   async function handleSend() {
@@ -429,7 +504,17 @@ ${cfg.data_format_template}`;
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                提示词
+                题库AI
+              </button>
+              <button
+                onClick={() => setRightPanelTab('coordinator')}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  rightPanelTab === 'coordinator'
+                    ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                提问AI
               </button>
               <button
                 onClick={() => setRightPanelTab('data')}
@@ -445,11 +530,17 @@ ${cfg.data_format_template}`;
             
             {/* 面板内容 */}
             <div className="flex-1 overflow-y-auto p-4">
-              {rightPanelTab === 'prompt' ? (
+              {rightPanelTab === 'prompt' && (
                 <pre className="text-xs whitespace-pre-wrap font-mono bg-gray-800 text-green-400 p-4 rounded-lg overflow-x-auto">
                   {currentPrompt || '提示词加载中...'}
                 </pre>
-              ) : (
+              )}
+              {rightPanelTab === 'coordinator' && (
+                <pre className="text-xs whitespace-pre-wrap font-mono bg-pink-900 text-pink-200 p-4 rounded-lg overflow-x-auto">
+                  {(config || DEFAULT_CONFIG).coordinator_prompt || '提问AI配置加载中...'}
+                </pre>
+              )}
+              {rightPanelTab === 'data' && (
                 <div className="space-y-3">
                   {Object.keys(extractedData).length === 0 ? (
                     <div className="text-center text-gray-400 py-8 text-sm">
