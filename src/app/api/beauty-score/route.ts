@@ -14,20 +14,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 查找档案
-    const profileRes = await sql.query(
+    // 查找或创建档案
+    let profileRes = await sql.query(
       'SELECT id FROM profiles WHERE invite_code = $1',
       [inviteCode]
     );
 
-    if (profileRes.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '档案不存在' },
-        { status: 404 }
-      );
-    }
+    let profileId: string;
 
-    const profileId = profileRes.rows[0].id;
+    if (profileRes.rows.length === 0) {
+      // 档案不存在，自动创建
+      profileId = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${inviteCode}`;
+      
+      await sql.query(
+        `INSERT INTO profiles (id, invite_code, answers, status, created_at)
+         VALUES ($1, $2, $3, 'active', NOW())`,
+        [profileId, inviteCode, JSON.stringify({})]
+      );
+    } else {
+      profileId = profileRes.rows[0].id;
+    }
 
     const apiKey = process.env.DOUBAO_API_KEY;
 
@@ -80,7 +86,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 从profiles表获取最新评分
+    // 从profiles表获取最新评分（档案可能不存在，不报错）
     const profileRes = await sql.query(
       `SELECT 
         photoshop_level,
