@@ -157,10 +157,14 @@ export default function GlobalPromptPage() {
       const data = await res.json();
       if (data.success) {
         setHasUnsavedChanges(false);
+        alert('保存成功！');
         router.push('/admin/questions');
+      } else {
+        alert('保存失败：' + (data.error || '未知错误'));
       }
     } catch (error) {
       console.error('Save error:', error);
+      alert('保存失败，请检查网络连接');
     }
     setSaving(false);
   }
@@ -330,6 +334,14 @@ ${dataFormatTemplate}${roundInfo}${historySection}`;
     }
   }
 
+  function handleBack() {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('有未保存的修改，确定要返回吗？');
+      if (!confirmed) return;
+    }
+    router.push('/admin/questions');
+  }
+
   // 生成预览（使用第一题作为示例）
   const previewPrompt = questions.length > 0 
     ? buildFullPrompt([], 0)
@@ -354,7 +366,7 @@ ${dataFormatTemplate}${roundInfo}${historySection}`;
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => router.push('/admin/questions')}
+            onClick={handleBack}
             className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
           >
             返回
