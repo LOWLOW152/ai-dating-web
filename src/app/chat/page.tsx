@@ -77,6 +77,7 @@ export default function ChatPage() {
   const [showPrompt, setShowPrompt] = useState(false); // 是否显示右侧面板
   const [rightPanelTab, setRightPanelTab] = useState<'prompt' | 'data'>('prompt'); // 右侧面板当前标签
   const requestLock = useRef(false); // 请求锁，防止重复发送
+  const nextQuestionLock = useRef(false); // 进入下一题锁，防止重复触发
 
   useEffect(() => {
     setMounted(true);
@@ -210,7 +211,7 @@ ${cfg.data_format_template}`;
         }
 
         // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
-        if (!isInitialLoad) {
+        if (!isInitialLoad && !nextQuestionLock.current) {
           // 条件1：AI明确使用了结束语
           // 条件2：达到追问次数上限
           const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题)/i.test(displayContent);
@@ -219,6 +220,8 @@ ${cfg.data_format_template}`;
           console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
           
           if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
+            // 先加锁，防止重复触发
+            nextQuestionLock.current = true;
             // 延迟一下让用户看到结束语，然后自动进入下一题
             setTimeout(() => {
               handleNextQuestion();
@@ -269,17 +272,32 @@ ${cfg.data_format_template}`;
   }
 
   function handleNextQuestion() {
+    // 防止重复触发进入下一题
+    if (nextQuestionLock.current) {
+      console.log('Next question already in progress, skipping...');
+      return;
+    }
+    
+    nextQuestionLock.current = true;
+    
     if (currentIndex < questions.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setQuestionRound(0);
       // 不清空聊天记录，保持连贯性
       
+      // 增加延迟，确保状态更新完成后再发送请求
       setTimeout(() => {
-        sendAiMessage(nextIndex, [], true); // true = 新题目初始加载
-      }, 100);
+        sendAiMessage(nextIndex, [], true).finally(() => {
+          // 延迟解锁，给用户时间看到新题目的开场白
+          setTimeout(() => {
+            nextQuestionLock.current = false;
+          }, 2000);
+        });
+      }, 500);
     } else {
       // 完成所有题目
+      nextQuestionLock.current = false;
       localStorage.setItem('profileData', JSON.stringify(extractedData));
       router.push('/complete');
     }
