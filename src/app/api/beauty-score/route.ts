@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 查找或创建档案
-    let profileRes = await sql.query(
+    const profileRes = await sql.query(
       'SELECT id FROM profiles WHERE invite_code = $1',
       [inviteCode]
     );
