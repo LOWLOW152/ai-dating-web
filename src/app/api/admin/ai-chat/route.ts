@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           // 新格式：直接传入完整prompt
           chatMessages = [
             { role: 'system', content: prompt },
-            ...(message ? [{ role: 'user', content: message }] : []),
+            ...(message ? [{ role: 'user', content: message }] : [{ role: 'user', content: '开始' }]),
           ];
         } else if (messages && Array.isArray(messages)) {
           // 旧格式：messages数组
@@ -152,11 +152,20 @@ export async function POST(request: NextRequest) {
     await new Promise(resolve => setTimeout(resolve, 800));
     
     if (prompt) {
-      // 新格式的模拟回复
-      return NextResponse.json({ 
-        success: true, 
-        reply: `你好呀～我是狗蛋！很高兴认识你😊\n\n你刚才说喜欢运动，具体是什么类型的运动呢？比如羽毛球、跑步、还是健身？\n\n---DATA---\n{\n  "hobbies": {\n    "type": "运动"\n  }\n}` 
-      });
+      // 检测当前题目类型，返回不同的模拟回复
+      let mockReply = '';
+      
+      if (prompt.includes('昵称') || prompt.includes('名字')) {
+        mockReply = `你好呀～很高兴认识你！我是狗蛋😊\n\n可以先告诉我你的名字吗？怎么称呼你比较方便呢？\n\n---DATA---\n{}`;
+      } else if (prompt.includes('兴趣爱好') || prompt.includes('hobbies')) {
+        mockReply = `哈哈，那我们可以聊聊你的兴趣爱好～\n\n平时工作之余，你都喜欢做些什么来放松自己呢？\n\n---DATA---\n{\n  "hobbies": {\n    "type": "待补充"\n  }\n}`;
+      } else if (prompt.includes('异地')) {
+        mockReply = `好的，那我们聊一个比较实际的问题～\n\n对于感情中的距离，你是怎么看的呢？如果对方在外地，你能接受异地恋吗？\n\n---DATA---\n{}`;
+      } else {
+        mockReply = `嗯嗯，这个话题挺有意思的～\n\n可以多跟我聊聊你的想法吗？\n\n---DATA---\n{}`;
+      }
+      
+      return NextResponse.json({ success: true, reply: mockReply });
     }
     
     // 旧格式的模拟回复
