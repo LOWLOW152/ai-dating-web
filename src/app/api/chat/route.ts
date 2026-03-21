@@ -249,18 +249,18 @@ export async function POST(request: NextRequest) {
       isNewQuestion
     );
 
-    const apiKey = process.env.MOONSHOT_API_KEY;
+    const apiKey = process.env.DOUBAO_API_KEY;
     
     if (apiKey) {
       try {
-        const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+        const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'moonshot-v1-8k',
+            model: process.env.DOUBAO_MODEL || 'doubao-1-5-pro-32k-250115',
             messages: [
               { role: 'system', content: prompt },
             ],
@@ -275,14 +275,14 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, reply, prompt });
         }
       } catch (err) {
-        console.log('Kimi API failed:', err);
+        console.log('Doubao API failed:', err);
       }
     }
 
     // 模拟模式
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const mockReply = `[🤖 模拟模式] 这是后端构建的提示词测试回复\n\n---DATA---\n{}`;
+    const mockReply = `[🤖 模拟模式 - 豆包AI未配置] 这是后端构建的提示词测试回复\n\n---DATA---\n{}`;
     
     return NextResponse.json({ success: true, reply: mockReply, prompt });
     
