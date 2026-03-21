@@ -509,10 +509,10 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     return <div className="p-8">加载中...</div>;
   }
 
-  if (error || !question) {
+  if (!question) {
     return (
       <div className="p-8">
-        <div className="text-red-600 mb-4">{error || '题目不存在'}</div>
+        <div className="text-red-600 mb-4">题目不存在</div>
         <button onClick={fetchQuestion} className="px-4 py-2 bg-blue-600 text-white rounded">重试</button>
       </div>
     );
@@ -732,6 +732,14 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
             </div>
             <pre className="text-xs text-green-400 whitespace-pre-wrap font-mono overflow-x-auto">{aiPrompt}</pre>
           </div>
+
+          {/* 错误提示 */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+              <div className="font-semibold mb-1">保存失败</div>
+              <div>{error}</div>
+            </div>
+          )}
 
           {/* 保存按钮 */}
           <div className="flex gap-2">
