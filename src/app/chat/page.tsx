@@ -164,8 +164,11 @@ ${contextSection}
 ${cfg.data_format_template}`;
   }
 
-  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false) {
+  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number) {
     setIsAiResponding(true);
+    
+    // 使用传入的 currentRound 或 state 中的 questionRound
+    const roundToCheck = currentRound !== undefined ? currentRound : questionRound;
     
     try {
       const prompt = buildPrompt(qIndex);
@@ -217,9 +220,9 @@ ${cfg.data_format_template}`;
           // 条件1：AI明确使用了结束语
           // 条件2：达到追问次数上限
           const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题)/i.test(displayContent);
-          const isMaxRound = questionRound >= (questions[qIndex]?.max_questions || 3);
+          const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
           
-          console.log('Auto next check:', { questionRound, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
+          console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
           
           if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
             // 延迟一下让用户看到结束语，然后自动进入下一题
@@ -259,7 +262,7 @@ ${cfg.data_format_template}`;
     const newRound = questionRound + 1;
     setQuestionRound(newRound);
     
-    await sendAiMessage(currentIndex, newMessages, false); // false = 用户对话后，可以触发跳转
+    await sendAiMessage(currentIndex, newMessages, false, newRound);
   }
 
   function handleNextQuestion() {
