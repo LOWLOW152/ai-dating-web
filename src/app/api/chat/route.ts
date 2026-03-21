@@ -36,6 +36,12 @@ interface GlobalConfig {
 function generateAiPrompt(question: Question): string {
   const tone = question.tone_config;
   
+  console.log('generateAiPrompt called:', {
+    questionId: question.id,
+    hasToneConfig: !!tone,
+    toneConfig: tone
+  });
+  
   if (!tone) {
     return question.ai_prompt || '';
   }
@@ -163,7 +169,8 @@ function buildPrompt(
     questionId: question.id,
     use_closing_message: question.use_closing_message,
     useClosing,
-    type: typeof question.use_closing_message
+    type: typeof question.use_closing_message,
+    questionPromptPreview: questionPrompt.slice(0, 200) // 显示前200字符
   });
   const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
   const maxFollowUps = Math.max(0, maxQuestions - 2);
