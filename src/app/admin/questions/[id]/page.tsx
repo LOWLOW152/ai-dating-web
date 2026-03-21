@@ -394,7 +394,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       let data;
       try {
         data = await res.json();
-      } catch (parseErr) {
+      } catch {
         const text = await res.text();
         console.error('Parse error, raw response:', text);
         setError(`服务器返回格式错误: ${text.slice(0, 200)}`);
