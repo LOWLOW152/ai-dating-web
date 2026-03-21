@@ -7,6 +7,7 @@ interface ChatMessage {
   role: 'ai' | 'user';
   content: string;
   timestamp: number;
+  source?: 'bank' | 'coordinator'; // AI消息来源
 }
 
 interface Question {
@@ -250,11 +251,11 @@ ${bankReply}
       if (!coordData.success) {
         // 提问AI失败，直接使用题库AI的结果
         console.warn('Coordinator AI failed, using Bank AI result');
-        processAiResponse(bankReply, qIndex, roundToCheck, isInitialLoad);
+        processAiResponse(bankReply, qIndex, roundToCheck, isInitialLoad, 'bank');
       } else {
         const finalReply = coordData.reply || bankReply;
         console.log('Coordinator AI reply:', finalReply.slice(0, 100));
-        processAiResponse(finalReply, qIndex, roundToCheck, isInitialLoad);
+        processAiResponse(finalReply, qIndex, roundToCheck, isInitialLoad, 'coordinator');
       }
       
     } catch (error) {
@@ -270,7 +271,7 @@ ${bankReply}
   }
   
   // 处理AI返回的内容（提取数据、显示、判断下一题等）
-  function processAiResponse(content: string, qIndex: number, roundToCheck: number, isInitialLoad: boolean) {
+  function processAiResponse(content: string, qIndex: number, roundToCheck: number, isInitialLoad: boolean, source: 'bank' | 'coordinator' = 'coordinator') {
     // 提取数据
     const dataMatch = content.match(/---DATA---\s*([\s\S]*)$/);
     let parsedData = {};
@@ -290,6 +291,7 @@ ${bankReply}
       role: 'ai',
       content: displayContent || '（AI未返回有效回复）',
       timestamp: Date.now(),
+      source,
     };
     
     setMessages(prev => [...prev, newMessage]);
@@ -440,7 +442,16 @@ ${bankReply}
                       : 'bg-green-500 text-white'
                   }`}
                 >
-                  {msg.content}
+                  <div>{msg.content}</div>
+                  {msg.role === 'ai' && msg.source && (
+                    <div className={`text-[10px] mt-1.5 pt-1 border-t ${
+                      msg.source === 'bank' 
+                        ? 'text-orange-400 border-orange-100' 
+                        : 'text-purple-400 border-purple-100'
+                    }`}>
+                      {msg.source === 'bank' ? '📚 题库AI' : '🎯 提问AI'}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
