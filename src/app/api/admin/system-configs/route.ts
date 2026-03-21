@@ -1,8 +1,10 @@
 import { sql } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/admin/system-configs
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    console.log('GET /api/admin/system-configs called');
     const result = await sql.query('SELECT key, value FROM system_configs');
     
     const configs: Record<string, string> = {};
@@ -10,9 +12,11 @@ export async function GET() {
       configs[row.key] = row.value;
     });
     
-    return Response.json({ success: true, data: configs });
+    console.log('GET system_configs success, count:', Object.keys(configs).length);
+    return NextResponse.json({ success: true, data: configs });
   } catch (error) {
-    return Response.json(
+    console.error('GET system_configs error:', error);
+    return NextResponse.json(
       { success: false, error: String(error) },
       { status: 500 }
     );
@@ -20,11 +24,33 @@ export async function GET() {
 }
 
 // PUT /api/admin/system-configs
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const { system_prompt, progress_template, data_format_template, context_limit } = await request.json();
+    console.log('PUT /api/admin/system-configs called');
+    
+    let body;
+    try {
+      body = await request.json();
+      console.log('Request body:', body);
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return NextResponse.json(
+        { success: false, error: '请求体解析失败: ' + String(e) },
+        { status: 400 }
+      );
+    }
+    
+    const { system_prompt, progress_template, data_format_template, context_limit } = body;
+
+    if (!system_prompt || !progress_template || !data_format_template) {
+      return NextResponse.json(
+        { success: false, error: '缺少必要字段' },
+        { status: 400 }
+      );
+    }
 
     // 更新或插入配置
+    console.log('Executing SQL...');
     await sql.query(
       `INSERT INTO system_configs (key, value, updated_at) VALUES
        ('system_prompt', $1, NOW()),
@@ -34,11 +60,12 @@ export async function PUT(request: Request) {
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
       [system_prompt, progress_template, data_format_template, String(context_limit)]
     );
+    console.log('SQL executed successfully');
 
-    return Response.json({ success: true });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Update system configs error:', error);
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: String(error) },
       { status: 500 }
     );

@@ -80,6 +80,7 @@ export default function GlobalPromptPage() {
   const [questionRound, setQuestionRound] = useState(0); // 当前题追问次数
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState<string>('');
 
   useEffect(() => {
     fetchData();
@@ -143,6 +144,7 @@ export default function GlobalPromptPage() {
 
   async function handleSave() {
     setSaving(true);
+    setSaveError('');
     try {
       const res = await fetch('/api/admin/system-configs', {
         method: 'PUT',
@@ -154,17 +156,39 @@ export default function GlobalPromptPage() {
           context_limit: contextLimit,
         }),
       });
-      const data = await res.json();
+      
+      console.log('Save response status:', res.status);
+      
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('HTTP error:', res.status, text);
+        setSaveError(`服务器错误 ${res.status}: ${text.slice(0, 300)}`);
+        setSaving(false);
+        return;
+      }
+      
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        const text = await res.text();
+        console.error('Parse error:', text);
+        setSaveError(`返回格式错误: ${text.slice(0, 200)}`);
+        setSaving(false);
+        return;
+      }
+      
       if (data.success) {
         setHasUnsavedChanges(false);
+        setSaveError('');
         alert('保存成功！');
         router.push('/admin/questions');
       } else {
-        alert('保存失败：' + (data.error || '未知错误'));
+        setSaveError(data.error || '保存失败，无错误信息');
       }
     } catch (error) {
       console.error('Save error:', error);
-      alert('保存失败，请检查网络连接');
+      setSaveError(`网络错误: ${error instanceof Error ? error.message : String(error)}`);
     }
     setSaving(false);
   }
@@ -364,20 +388,28 @@ ${dataFormatTemplate}${roundInfo}${historySection}`;
             </span>
           )}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
-          >
-            返回
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
-          >
-            {saving ? '保存中...' : '保存配置'}
-          </button>
+        <div className="flex gap-2 flex-col items-end">
+          {saveError && (
+            <div className="bg-red-100 border-2 border-red-500 rounded-lg p-3 mb-2 max-w-md">
+              <div className="font-bold text-red-700 text-sm mb-1">❌ 保存失败</div>
+              <div className="text-red-600 text-xs break-all">{saveError}</div>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleBack}
+              className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
+            >
+              返回
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+            >
+              {saving ? '保存中...' : '保存配置'}
+            </button>
+          </div>
         </div>
       </div>
 
