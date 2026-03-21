@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // GET /api/admin/system-configs
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('GET /api/admin/system-configs called');
     const result = await sql.query('SELECT key, value FROM system_configs');

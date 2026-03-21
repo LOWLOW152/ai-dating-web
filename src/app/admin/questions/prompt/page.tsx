@@ -170,7 +170,7 @@ export default function GlobalPromptPage() {
       let data;
       try {
         data = await res.json();
-      } catch (e) {
+      } catch {
         const text = await res.text();
         console.error('Parse error:', text);
         setSaveError(`返回格式错误: ${text.slice(0, 200)}`);
