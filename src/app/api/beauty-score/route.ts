@@ -39,8 +39,25 @@ function normalMapping(rawScore: number): number {
   return Math.max(0, Math.min(10, Math.round(mapped * 10) / 10));
 }
 
+// AI 分析结果类型
+interface AiAnalysisResult {
+  body_shape?: string | number;
+  skin_quality?: string | number;
+  symmetry?: string | number;
+  face_age?: string | number;
+  hairline?: string | number;
+  eye_bags?: string | number;
+  teeth?: string | number;
+  nose_bridge?: string | number;
+  photoshop_deduction?: string | number;
+  raw_score?: string | number;
+  beauty_score?: string | number;
+  beauty_type?: string;
+  ai_comment?: string;
+}
+
 // 调用火山引擎视觉模型
-async function analyzeBeauty(imageBase64: string, apiKey: string): Promise<any> {
+async function analyzeBeauty(imageBase64: string, apiKey: string): Promise<AiAnalysisResult> {
   const prompt = `你是一位严格的形象分析师。请客观分析这张照片中的人物，给出9项具体分数。
 
 【必须分析的9项指标】
@@ -179,8 +196,9 @@ async function analyzeBeauty(imageBase64: string, apiKey: string): Promise<any> 
     log(`JSON 解析成功: ${JSON.stringify(result).slice(0, 300)}...`);
     
     return result;
-  } catch (error: any) {
-    log(`analyzeBeauty 错误: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log(`analyzeBeauty 错误: ${errorMsg}`);
     throw error;
   }
 }
@@ -320,14 +338,15 @@ export async function POST(request: NextRequest) {
           details,
           raw_score: Math.round(rawScore * 100) / 100,
         };
-      } catch (error: any) {
-        log(`AI分析失败: ${error.message}`);
+      } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        log(`AI分析失败: ${errorMsg}`);
         // fallback 到模拟数据
         result = {
           photoshop_level: '0.5',
           beauty_type: '成熟型',
           beauty_score: '5.2',
-          ai_comment: `AI服务暂时不可用: ${error.message.slice(0, 100)}`,
+          ai_comment: `AI服务暂时不可用: ${errorMsg.slice(0, 100)}`,
           details: {
             body_shape: 2.0,
             skin_quality: 1.5,
@@ -356,8 +375,9 @@ export async function POST(request: NextRequest) {
          result.details.hairline, result.details.eye_bags, result.details.teeth, result.details.nose_bridge, result.details.photoshop_deduction]
       );
       log('数据库保存成功');
-    } catch (dbError: any) {
-      log(`数据库插入失败: ${dbError.message}`);
+    } catch (dbError: unknown) {
+      const dbErrorMsg = dbError instanceof Error ? dbError.message : String(dbError);
+      log(`数据库插入失败: ${dbErrorMsg}`);
       // 如果新字段不存在，只插入基本字段
       await sql.query(
         `INSERT INTO beauty_scores 
@@ -382,8 +402,9 @@ export async function POST(request: NextRequest) {
       source: !arkApiKey ? 'mock' : 'ai',
       debug: debugLogs,
     });
-  } catch (error: any) {
-    log(`服务器错误: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log(`服务器错误: ${errorMsg}`);
     return NextResponse.json(
       { success: false, error: '服务器错误', debug: debugLogs },
       { status: 500 }
