@@ -115,16 +115,16 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
 - 必须根据实际照片分析，不要套用示例数据
 
 【输出格式】
-纯JSON格式，不要任何其他文字，不要复制示例中的数值，必须根据实际照片给出真实评分：
+纯JSON，直接输出最终分数（不要原始分数，直接输出最终得分）：
 
 {
   "beauty_type": "根据实际情况选择类型",
-  "facial_features": 0.0-2.0之间的实际分数,
-  "skin_quality": 0.0-1.5之间的实际分数,
-  "temperament": 0.0-1.5之间的实际分数,
-  "photoshop_deduction": 0.0-2.0之间的实际分数,
-  "beauty_score": 根据公式计算的实际总分,
-  "ai_comment": "根据实际照片特点给出的评语"
+  "facial_features": 显示原始五官分,
+  "skin_quality": 显示原始皮肤分,
+  "temperament": 显示原始气质分,
+  "photoshop_deduction": 显示P图扣分,
+  "beauty_score": AI直接给出的最终分数(0-10),
+  "ai_comment": "根据实际照片评语"
 }`;
 
   const response = await fetch(ARK_API_URL, {
@@ -176,30 +176,17 @@ async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
     
     console.log('[VisionAPI] Parsed result:', result);
     
-    // 计算总分 - 严格版本
-    // AI手太松，我们手动大幅降分
-    let facial = Math.max(0, Math.min(2, parseFloat(result.facial_features) || 1));
-    let skin = Math.max(0, Math.min(1.5, parseFloat(result.skin_quality) || 0.8));
-    let temper = Math.max(0, Math.min(1.5, parseFloat(result.temperament) || 0.8));
-    let ps = Math.max(0, Math.min(2, parseFloat(result.photoshop_deduction) || 0.5));
+    // 使用AI直接给出的分数，不再重新计算
+    const facial = Math.max(0, Math.min(4, parseFloat(result.facial_features) || 2));
+    const skin = Math.max(0, Math.min(3, parseFloat(result.skin_quality) || 1.5));
+    const temper = Math.max(0, Math.min(3, parseFloat(result.temperament) || 1.5));
+    const ps = Math.max(0, Math.min(3, parseFloat(result.photoshop_deduction) || 0));
     
-    // 严厉惩罚：所有分项超过及格线的部分打5折
-    // 五官基准1.0，皮肤基准0.7，气质基准0.7
-    facial = Math.min(facial, 1.0 + Math.max(0, facial - 1.0) * 0.5);
-    skin = Math.min(skin, 0.7 + Math.max(0, skin - 0.7) * 0.5);
-    temper = Math.min(temper, 0.7 + Math.max(0, temper - 0.7) * 0.5);
+    // AI直接给出最终分数
+    const finalScore = Math.max(0, Math.min(10, parseFloat(result.beauty_score) || 5));
     
-    // 保留1位小数
-    facial = Math.round(facial * 10) / 10;
-    skin = Math.round(skin * 10) / 10;
-    temper = Math.round(temper * 10) / 10;
-    
-    // 降低基准分：从5降到4.5，让普通人就是4.5-5.5
-    const calculatedScore = 4.5 + facial + skin + temper - ps;
-    const finalScore = Math.max(0, Math.min(10, Math.round(calculatedScore * 10) / 10));
-    console.log('[VisionAPI] Original:', result.facial_features, result.skin_quality, result.temperament, result.photoshop_deduction);
-    console.log('[VisionAPI] Adjusted:', facial, skin, temper, ps);
-    console.log('[VisionAPI] Calculated score:', finalScore, '(4.5 +', facial, '+', skin, '+', temper, '-', ps, ')');
+    console.log('[VisionAPI] AI gave score:', finalScore);
+    console.log('[VisionAPI] Details:', { facial, skin, temper, ps });
     
     return {
       beauty_type: result.beauty_type || '成熟型',
