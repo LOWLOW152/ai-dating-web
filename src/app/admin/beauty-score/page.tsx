@@ -282,7 +282,7 @@ export default function BeautyScorePage() {
                   
                   {s.ai_comment && (
                     <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                      "{s.ai_comment}"
+                      &ldquo;{s.ai_comment}&rdquo;
                     </p>
                   )}
                 </div>
