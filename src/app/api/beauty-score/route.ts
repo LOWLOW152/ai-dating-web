@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
 // 火山引擎 ARK API 配置
-const ARK_API_KEY = process.env.ARK_API_KEY;
 const ARK_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 const ARK_MODEL = 'doubao-1-5-vision-pro-250328'; // 豆包视觉模型
 
+// 获取环境变量（运行时）
+function getArkApiKey(): string | undefined {
+  const key = process.env.ARK_API_KEY;
+  console.log('[Env] ARK_API_KEY present:', !!key);
+  if (key) {
+    console.log('[Env] ARK_API_KEY length:', key.length);
+    console.log('[Env] ARK_API_KEY first 10 chars:', key.substring(0, 10) + '...');
+  }
+  return key;
+}
+
 // 调用火山引擎视觉模型
-async function callVisionModel(imageBase64: string): Promise<{
+async function callVisionModel(imageBase64: string, apiKey: string): Promise<{
   beauty_type: string;
   beauty_score: number;
   ai_comment: string;
@@ -18,13 +28,9 @@ async function callVisionModel(imageBase64: string): Promise<{
     photoshop_deduction: number;
   };
 }> {
-  if (!ARK_API_KEY) {
-    throw new Error('ARK_API_KEY not configured');
-  }
-  
   console.log('[VisionAPI] Starting call to', ARK_API_URL);
   console.log('[VisionAPI] Model:', ARK_MODEL);
-  console.log('[VisionAPI] Image size (first 100 chars):', imageBase64.substring(0, 100) + '...');
+  console.log('[VisionAPI] API Key length:', apiKey.length);
   
   const prompt = `你是一位严格的形象分析师，请客观分析这张照片中的人物。记住：大部分人都是5-6分，不要给友情分。
 
@@ -97,7 +103,7 @@ async function callVisionModel(imageBase64: string): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${ARK_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: ARK_MODEL,
@@ -227,12 +233,14 @@ export async function POST(request: NextRequest) {
       };
     };
 
-    console.log(`[BeautyScore] API Key configured: ${!!ARK_API_KEY}`);
+    // 运行时获取 API Key
+    const arkApiKey = getArkApiKey();
+    console.log(`[BeautyScore] API Key configured: ${!!arkApiKey}`);
     console.log(`[BeautyScore] Profile ID: ${profileId}`);
     console.time('[BeautyScore] Total time');
 
     // 检查是否配置了火山引擎API
-    if (!ARK_API_KEY) {
+    if (!arkApiKey) {
       console.log('[BeautyScore] Using MOCK data (no API key)');
       // 未配置API，使用模拟数据（也包含详细分数）
       const mockFacial = Number((0.8 + Math.random() * 0.8).toFixed(1));
@@ -260,7 +268,7 @@ export async function POST(request: NextRequest) {
       
       try {
         // 调用视觉模型分析颜值
-        const visionResult = await callVisionModel(photoBase64);
+        const visionResult = await callVisionModel(photoBase64, arkApiKey);
         
         console.timeEnd('[BeautyScore] Vision API call');
         console.log('[BeautyScore] Vision API result:', visionResult);
@@ -309,7 +317,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: result,
-      source: !ARK_API_KEY ? 'mock' : 'ai'
+      source: !arkApiKey ? 'mock' : 'ai'
     });
 
   } catch (error) {
