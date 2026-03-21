@@ -181,6 +181,7 @@ function buildPrompt(
 - 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '【✅结束语开启】使用结束语进入下一题' : '【❌结束语关闭】直接结束本题'}${useClosing ? `
 - 结束语：${closingMsg}` : ''}
 - 如果用户回答已经很完整，可以提前结束，不必追问满${maxQuestions}轮
+- 【重要】如果用户说"跳过"或不想回答，请用结束语结束本题，不要说"好的，这道题我们跳过，继续下一题～"
 
 `;
 
@@ -203,8 +204,7 @@ export async function POST(request: NextRequest) {
       chatHistory = [], 
       extractedData = {}, 
       isNewQuestion = false,
-      totalQuestions = 30,
-      isSkip = false
+      totalQuestions = 30
     } = body;
 
     if (!questionId) {
@@ -239,25 +239,6 @@ export async function POST(request: NextRequest) {
       if (row.key === 'data_format_template') config.data_format_template = row.value;
       if (row.key === 'context_limit') config.context_limit = parseInt(row.value) || 5;
     });
-
-    // 如果是跳过请求，直接返回跳过提示
-    if (isSkip) {
-      const skipPrompt = buildPrompt(
-        question,
-        totalQuestions,
-        extractedData,
-        chatHistory,
-        config,
-        isNewQuestion
-      );
-      
-      const skipReply = `好的，这道题我们跳过，继续下一题吧～
-
----DATA---
-{}`;
-      
-      return NextResponse.json({ success: true, reply: skipReply, prompt: skipPrompt });
-    }
 
     // 构建提示词（后端构建）
     const prompt = buildPrompt(

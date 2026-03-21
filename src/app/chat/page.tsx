@@ -76,7 +76,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number, isSkip = false) {
+  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number) {
     setIsAiResponding(true);
     
     // 使用传入的 currentRound 或 state 中的 questionRound
@@ -94,8 +94,7 @@ export default function ChatPage() {
           chatHistory,
           extractedData,
           isNewQuestion: isInitialLoad,
-          totalQuestions: questions.length,
-          isSkip // 标记是否为跳过请求
+          totalQuestions: questions.length
         }),
       });
 
@@ -170,37 +169,11 @@ export default function ChatPage() {
       console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
       
       if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
-        // 延迟一下让用户看到结束语，然后自动进入下一题
+        // 延迟一下让用户看到结束语，然后自动进入下一题并调用AI
         setTimeout(() => {
-          handleNextQuestion();
-        }, 2000);
+          handleNextQuestionWithAI();
+        }, 1500);
       }
-    }
-  }
-
-  async function handleSkip() {
-    // 防止重复点击
-    if (isAiResponding || requestLock.current) return;
-    
-    // 加锁
-    requestLock.current = true;
-    
-    // 添加用户跳过标记消息
-    const skipMessage: ChatMessage = {
-      role: 'user',
-      content: '[跳过本题]',
-      timestamp: Date.now(),
-    };
-    
-    const newMessages = [...messages, skipMessage];
-    setMessages(newMessages);
-    
-    try {
-      // 发送跳过请求
-      await sendAiMessage(currentIndex, newMessages, false, questionRound, true);
-    } finally {
-      // 解锁
-      requestLock.current = false;
     }
   }
 
@@ -223,6 +196,25 @@ export default function ChatPage() {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     
+    // 检查用户是否输入"跳过"或"skip"
+    if (userContent === '跳过' || userContent.toLowerCase() === 'skip') {
+      // 添加AI的跳过回复
+      const skipReply: ChatMessage = {
+        role: 'ai',
+        content: '好的，这道题我们跳过，继续下一题～',
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, skipReply]);
+      
+      // 延迟后自动进入下一题
+      setTimeout(() => {
+        handleNextQuestionWithAI();
+      }, 1000);
+      
+      requestLock.current = false;
+      return;
+    }
+    
     const newRound = questionRound + 1;
     setQuestionRound(newRound);
     
@@ -234,15 +226,15 @@ export default function ChatPage() {
     }
   }
 
-  function handleNextQuestion() {
+  // 进入下一题并自动调用AI
+  function handleNextQuestionWithAI() {
     if (currentIndex < questions.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setQuestionRound(0);
-      // 保留完整历史记录，让新题目能看到之前所有对话
       
+      // 直接调用AI发送下一题，不需要等待用户
       setTimeout(() => {
-        // 传递 messages（完整历史），isInitialLoad=true 表示新题目首次对话
         sendAiMessage(nextIndex, messages, true);
       }, 100);
     } else {
@@ -250,6 +242,11 @@ export default function ChatPage() {
       localStorage.setItem('profileData', JSON.stringify(extractedData));
       router.push('/complete');
     }
+  }
+
+  function handleNextQuestion() {
+    // 手动下一题按钮也走同样的逻辑
+    handleNextQuestionWithAI();
   }
 
   const currentQuestion = questions[currentIndex];
@@ -374,7 +371,10 @@ export default function ChatPage() {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={handleSkip}
+                  onClick={() => {
+                    setInputMessage('跳过');
+                    setTimeout(() => handleSend(), 10);
+                  }}
                   disabled={isAiResponding}
                   className="text-xs px-3 py-1 bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 disabled:opacity-50"
                 >
