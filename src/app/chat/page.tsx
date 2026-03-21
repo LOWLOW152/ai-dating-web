@@ -25,6 +25,39 @@ interface GlobalConfig {
   context_limit: number;
 }
 
+// 默认配置 fallback
+const DEFAULT_CONFIG: GlobalConfig = {
+  system_prompt: `你是狗蛋，一个温暖、真诚的AI相亲助手。
+你的任务是帮用户完成30题的相亲档案，了解他们的性格、爱好、价值观和情感需求。
+
+【核心原则】
+1. 像朋友一样聊天，不要像面试
+2. 每次对话聚焦当前题目，不发散
+3. 把用户的回答整理成结构化数据
+4. 追问要温柔，不逼问
+5. **保持对话连贯性**：这是同一个持续进行的对话，只是话题在切换，不要重复打招呼或显得突兀
+
+【话题切换规则】
+- 如果是第一题的开场，可以自然打招呼
+- 如果是切换到新话题，用自然过渡的方式引入新问题，不要重新自我介绍
+- 参考之前的对话风格，保持一致的语气`,
+  progress_template: `【当前进度】
+第 {order} 题（共30题），还剩 {remaining} 题
+当前题目：{question_text}
+
+【已收集数据】
+{cached_summary}`,
+  data_format_template: `【返回格式要求】
+你的回复必须包含两部分，用 ---DATA--- 分隔：
+
+第一部分：对用户的自然语言回复（追问或结束语）
+
+---DATA---
+
+第二部分：当前题提取的数据（JSON格式）`,
+  context_limit: 5
+};
+
 export default function ChatPage() {
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -83,24 +116,32 @@ export default function ChatPage() {
 
   // 开始第一题
   useEffect(() => {
-    if (questions.length > 0 && config && messages.length === 0 && !loading) {
+    if (questions.length > 0 && messages.length === 0 && !loading) {
       sendAiMessage(0, []);
     }
-  }, [questions, config, loading]);
+  }, [questions, loading]);
 
-  function buildPrompt(questionIndex: number, chatHistory: ChatMessage[]) {
-    if (!config || questions.length === 0) return '';
+  function buildPrompt(questionIndex: number, _chatHistory: ChatMessage[]) {
+    // 使用配置或默认配置
+    const cfg = config || DEFAULT_CONFIG;
+    if (questions.length === 0) return '';
     
     const question = questions[questionIndex];
     const dataEntries = Object.entries(extractedData);
-    const limitedData = dataEntries.slice(-config.context_limit);
+    const limitedData = dataEntries.slice(-cfg.context_limit);
     const cachedSummary = limitedData.length > 0
       ? limitedData.map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`).join('\n')
       : '暂无';
     
     const remaining = questions.length - questionIndex - 1;
     
-    const progressSection = config.progress_template
+    // 获取最近的全局聊天记录（最多10条）作为上下文
+    const recentMessages = messages.slice(-10);
+    const chatContext = recentMessages.length > 0
+      ? recentMessages.map(m => `${m.role === 'ai' ? '狗蛋' : '用户'}: ${m.content}`).join('\n')
+      : '';
+    
+    const progressSection = cfg.progress_template
       .replace(/{order}/g, String(question.order))
       .replace(/{remaining}/g, String(remaining))
       .replace(/{question_id}/g, question.id)
@@ -109,13 +150,18 @@ export default function ChatPage() {
 
     const questionPrompt = question.ai_prompt || '';
     
-    const historySection = chatHistory.length > 0 
-      ? '\n【本轮对话历史】\n' + chatHistory.map(m => `${m.role === 'ai' ? 'AI' : '用户'}: ${m.content}`).join('\n')
+    const contextSection = chatContext
+      ? `\n【对话上下文】这是你们之前的聊天（最近几轮）：\n${chatContext}\n`
       : '';
 
-    const roundInfo = `\n【追问状态】当前第 ${questionRound + 1}/${question.max_questions || 3} 轮\n`;
+    return `${cfg.system_prompt}
 
-    return `${config.system_prompt}\n\n${progressSection}\n\n${questionPrompt}\n\n${config.data_format_template}${roundInfo}${historySection}`;
+${progressSection}
+
+${questionPrompt}
+${contextSection}
+
+${cfg.data_format_template}`;
   }
 
   async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[]) {
@@ -218,7 +264,7 @@ export default function ChatPage() {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setQuestionRound(0);
-      setMessages([]); // 清空对话历史，新题目重新开始
+      // 不清空聊天记录，保持连贯性
       
       setTimeout(() => {
         sendAiMessage(nextIndex, []);
