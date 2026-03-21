@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           const reply = data.choices?.[0]?.message?.content || '';
-          return NextResponse.json({ success: true, reply });
+          return NextResponse.json({ success: true, reply, prompt }); // 返回实际使用的提示词
         }
       } catch (err) {
         console.log('Kimi API failed:', err);
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       mockReply = `[🤖 模拟模式] 嗯嗯，这个话题挺有意思的～\n\n可以多跟我聊聊你的想法吗？\n\n---DATA---\n{}`;
     }
     
-    return NextResponse.json({ success: true, reply: mockReply });
+    return NextResponse.json({ success: true, reply: mockReply, prompt }); // 返回实际使用的提示词
     
   } catch (error) {
     console.error('Chat error:', error);

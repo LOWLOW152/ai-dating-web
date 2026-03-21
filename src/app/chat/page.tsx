@@ -221,6 +221,10 @@ ${cfg.data_format_template}`;
       const data = await res.json();
       
       if (data.success) {
+        // 使用后端返回的实际提示词（确保前后端显示一致）
+        if (data.prompt) {
+          setCurrentPrompt(data.prompt);
+        }
         const content = data.reply || '';
         processAiResponse(content, qIndex, roundToCheck, isInitialLoad);
       }
