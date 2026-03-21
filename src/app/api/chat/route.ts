@@ -194,10 +194,18 @@ function buildPrompt(
 当前是第 ${currentRoundNum} 轮（共 ${maxQuestions} 轮），不是最后一轮。
 
 **判断逻辑：**
-1. 如果用户回答已经完整，可以提取有效数据 → **静默结束**（只返回DATA，不说话），直接进入下一题
+1. 如果用户回答已经完整，可以提取有效数据 → **静默结束**（第一部分留空，只返回DATA），直接进入下一题
 2. 如果用户回答不完整，需要追问 → **正常追问**（返回对话内容）
 
 **优先级：** 数据完整 > 继续追问。一旦收集到足够信息，立即停止追问，静默切题。
+
+【静默结束格式】
+如果决定静默结束（数据完整），第一部分留空：
+
+（第一部分留空，不要写任何内容）
+
+---DATA---
+{当前题提取的数据}
 `;
   
   const followUpLogic = `【追问逻辑】
@@ -209,7 +217,9 @@ function buildPrompt(
 ${endInstruction}
 `;
 
-  // 根据是否是最后一轮，使用不同的格式说明
+  // 根据是否是最后一轮或数据是否完整，使用不同的格式说明
+  // 注意：这里简化处理，只区分最后一轮（强制静默）和非最后一轮
+  // 数据完整时的静默判断由AI根据endInstruction自行决定
   const formatTemplate = isLastRound ? `
 【返回格式要求 - 静默模式】
 由于是最后一轮追问，本次回复**只返回DATA，不返回对话内容**。
@@ -244,7 +254,7 @@ export async function POST(request: NextRequest) {
       extractedData = {}, 
       isNewQuestion = false,
       totalQuestions = 30,
-      currentRound = 1 // 前端传来的当前轮数
+      currentRound = 0 // 前端传来的当前轮数（0表示还没开始）
     } = body;
 
     if (!questionId) {
