@@ -164,7 +164,7 @@ export default function ChatPage() {
       }
     }
 
-    // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
+    // 判断是否要进入下一题或完成（只有用户对话后，不是初始加载时才判断）
     if (!isInitialLoad) {
       // 条件1：AI明确使用了结束语
       // 条件2：达到追问次数上限
@@ -172,13 +172,24 @@ export default function ChatPage() {
       const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题|跳过本题)/i.test(displayContent);
       const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
       
-      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, isSilentEnd, content: displayContent.slice(0, 50) });
+      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, isSilentEnd, qIndex, total: questions.length, content: displayContent.slice(0, 50) });
       
-      if ((isEnding || isMaxRound || isSilentEnd) && qIndex < questions.length - 1) {
-        // 延迟后自动进入下一题并调用AI
-        setTimeout(() => {
-          handleNextQuestionWithAI();
-        }, isSilentEnd ? 300 : 1500); // 静默结束更快切题
+      const shouldProgress = isEnding || isMaxRound || isSilentEnd;
+      
+      if (shouldProgress) {
+        if (qIndex < questions.length - 1) {
+          // 还有下一题，延迟后自动进入
+          setTimeout(() => {
+            handleNextQuestionWithAI();
+          }, isSilentEnd ? 300 : 1500);
+        } else {
+          // 最后一题已完成，跳转完成页面
+          console.log('Last question completed, redirecting to complete page');
+          setTimeout(() => {
+            localStorage.setItem('profileData', JSON.stringify(extractedData));
+            router.push('/complete');
+          }, isSilentEnd ? 300 : 1500);
+        }
       }
     }
   }
@@ -249,8 +260,9 @@ export default function ChatPage() {
   }
 
   const currentQuestion = questions[currentIndex];
+  // 进度计算：当前题号 / 总题数，但不超过100
   const progress = questions.length > 0 
-    ? Math.round((currentIndex / questions.length) * 100) 
+    ? Math.min(Math.round(((currentIndex + 1) / questions.length) * 100), 100)
     : 0;
 
   if (loading) {
