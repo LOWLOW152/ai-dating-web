@@ -137,11 +137,12 @@ export default function ChatPage() {
         
         // 提取数据
         const dataMatch = content.match(/---DATA---\s*([\s\S]*)$/);
+        let parsedData = {};
         if (dataMatch) {
           try {
             const jsonStr = dataMatch[1].trim();
-            const parsed = JSON.parse(jsonStr);
-            setExtractedData(prev => ({ ...prev, ...parsed }));
+            parsedData = JSON.parse(jsonStr);
+            setExtractedData(prev => ({ ...prev, ...parsedData }));
           } catch {
             // 忽略解析失败
           }
@@ -163,6 +164,20 @@ export default function ChatPage() {
           utterance.lang = 'zh-CN';
           utterance.rate = 1;
           window.speechSynthesis.speak(utterance);
+        }
+
+        // 判断是否要进入下一题
+        // 条件1：AI使用了结束语（包含"下一个问题"、"聊聊"、"下一题"等关键词）
+        // 条件2：达到追问次数上限（通过chatHistory中AI消息数量判断）
+        const aiMessageCount = chatHistory.filter(m => m.role === 'ai').length + 1; // +1 包含当前这条
+        const isEnding = /(?:下一个问题|聊聊.*下一个|下一题|结束.*话题|这个话题|我们聊)/i.test(displayContent);
+        const isMaxRound = aiMessageCount >= (questions[qIndex]?.max_questions || 3);
+        
+        if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
+          // 延迟一下让用户看到结束语，然后自动进入下一题
+          setTimeout(() => {
+            handleNextQuestion();
+          }, 2000);
         }
       }
     } catch (error) {
@@ -203,6 +218,7 @@ export default function ChatPage() {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setQuestionRound(0);
+      setMessages([]); // 清空对话历史，新题目重新开始
       
       setTimeout(() => {
         sendAiMessage(nextIndex, []);
