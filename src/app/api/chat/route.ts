@@ -203,7 +203,8 @@ export async function POST(request: NextRequest) {
       chatHistory = [], 
       extractedData = {}, 
       isNewQuestion = false,
-      totalQuestions = 30
+      totalQuestions = 30,
+      isSkip = false
     } = body;
 
     if (!questionId) {
@@ -238,6 +239,25 @@ export async function POST(request: NextRequest) {
       if (row.key === 'data_format_template') config.data_format_template = row.value;
       if (row.key === 'context_limit') config.context_limit = parseInt(row.value) || 5;
     });
+
+    // 如果是跳过请求，直接返回跳过提示
+    if (isSkip) {
+      const skipPrompt = buildPrompt(
+        question,
+        totalQuestions,
+        extractedData,
+        chatHistory,
+        config,
+        isNewQuestion
+      );
+      
+      const skipReply = `好的，这道题我们跳过，继续下一题吧～
+
+---DATA---
+{}`;
+      
+      return NextResponse.json({ success: true, reply: skipReply, prompt: skipPrompt });
+    }
 
     // 构建提示词（后端构建）
     const prompt = buildPrompt(

@@ -76,7 +76,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number) {
+  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number, isSkip = false) {
     setIsAiResponding(true);
     
     // 使用传入的 currentRound 或 state 中的 questionRound
@@ -94,7 +94,8 @@ export default function ChatPage() {
           chatHistory,
           extractedData,
           isNewQuestion: isInitialLoad,
-          totalQuestions: questions.length
+          totalQuestions: questions.length,
+          isSkip // 标记是否为跳过请求
         }),
       });
 
@@ -162,7 +163,8 @@ export default function ChatPage() {
     if (!isInitialLoad) {
       // 条件1：AI明确使用了结束语
       // 条件2：达到追问次数上限
-      const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题)/i.test(displayContent);
+      // 条件3：用户点击了跳过
+      const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题|跳过本题)/i.test(displayContent);
       const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
       
       console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
@@ -171,8 +173,34 @@ export default function ChatPage() {
         // 延迟一下让用户看到结束语，然后自动进入下一题
         setTimeout(() => {
           handleNextQuestion();
-        }, 3000);
+        }, 2000);
       }
+    }
+  }
+
+  async function handleSkip() {
+    // 防止重复点击
+    if (isAiResponding || requestLock.current) return;
+    
+    // 加锁
+    requestLock.current = true;
+    
+    // 添加用户跳过标记消息
+    const skipMessage: ChatMessage = {
+      role: 'user',
+      content: '[跳过本题]',
+      timestamp: Date.now(),
+    };
+    
+    const newMessages = [...messages, skipMessage];
+    setMessages(newMessages);
+    
+    try {
+      // 发送跳过请求
+      await sendAiMessage(currentIndex, newMessages, false, questionRound, true);
+    } finally {
+      // 解锁
+      requestLock.current = false;
     }
   }
 
@@ -344,13 +372,22 @@ export default function ChatPage() {
               <p className="text-xs text-gray-400">
                 追问 {questionRound}/{currentQuestion?.max_questions || 3}
               </p>
-              <button
-                onClick={handleNextQuestion}
-                disabled={isAiResponding}
-                className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 disabled:opacity-50"
-              >
-                {currentIndex >= questions.length - 1 ? '完成' : '下一题'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSkip}
+                  disabled={isAiResponding}
+                  className="text-xs px-3 py-1 bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 disabled:opacity-50"
+                >
+                  跳过
+                </button>
+                <button
+                  onClick={handleNextQuestion}
+                  disabled={isAiResponding}
+                  className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 disabled:opacity-50"
+                >
+                  {currentIndex >= questions.length - 1 ? '完成' : '下一题'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
