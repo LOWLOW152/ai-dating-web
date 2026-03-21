@@ -149,17 +149,12 @@ export default function ChatPage() {
       .replace(/{cached_summary}/g, cachedSummary);
 
     const questionPrompt = question.ai_prompt || '';
-    
-    const contextSection = chatContext
-      ? `\n【对话上下文】这是你们之前的聊天（最近几轮）：\n${chatContext}\n`
-      : '';
 
     return `${cfg.system_prompt}
 
 ${progressSection}
 
 ${questionPrompt}
-${contextSection}
 
 ${cfg.data_format_template}`;
   }
