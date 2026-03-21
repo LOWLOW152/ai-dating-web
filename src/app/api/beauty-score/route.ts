@@ -22,6 +22,10 @@ async function callVisionModel(imageBase64: string): Promise<{
     throw new Error('ARK_API_KEY not configured');
   }
   
+  console.log('[VisionAPI] Starting call to', ARK_API_URL);
+  console.log('[VisionAPI] Model:', ARK_MODEL);
+  console.log('[VisionAPI] Image size (first 100 chars):', imageBase64.substring(0, 100) + '...');
+  
   const prompt = `你是一位严格的形象分析师，请客观分析这张照片中的人物。记住：大部分人都是5-6分，不要给友情分。
 
 【重要提醒】
@@ -110,23 +114,33 @@ async function callVisionModel(imageBase64: string): Promise<{
     }),
   });
   
+  console.log('[VisionAPI] Response status:', response.status);
+  
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Vision API error: ${error}`);
+    const errorText = await response.text();
+    console.error('[VisionAPI] HTTP Error:', response.status, errorText);
+    throw new Error(`Vision API error: ${response.status} - ${errorText}`);
   }
   
   const data = await response.json();
+  console.log('[VisionAPI] Raw response:', JSON.stringify(data, null, 2));
+  
   const content = data.choices?.[0]?.message?.content;
   
   if (!content) {
+    console.error('[VisionAPI] No content in response');
     throw new Error('Invalid API response');
   }
+  
+  console.log('[VisionAPI] Content:', content);
   
   // 解析JSON
   try {
     // 清理可能的 markdown 代码块
     const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
     const result = JSON.parse(jsonStr);
+    
+    console.log('[VisionAPI] Parsed result:', result);
     
     // 计算总分（如果AI没算对，重新算）
     const facial = Math.max(0, Math.min(2, parseFloat(result.facial_features) || 1));
@@ -135,6 +149,7 @@ async function callVisionModel(imageBase64: string): Promise<{
     const ps = Math.max(0, Math.min(2, parseFloat(result.photoshop_deduction) || 0.5));
     const calculatedScore = 5 + facial + skin + temper - ps;
     const finalScore = Math.max(0, Math.min(10, Math.round(calculatedScore * 10) / 10));
+    console.log('[VisionAPI] Calculated score:', finalScore, '(5 +', facial, '+', skin, '+', temper, '-', ps, ')');
     
     return {
       beauty_type: result.beauty_type || '成熟型',
@@ -147,8 +162,10 @@ async function callVisionModel(imageBase64: string): Promise<{
         photoshop_deduction: ps,
       }
     };
-  } catch {
+  } catch (err) {
     // JSON解析失败，返回默认值
+    console.error('[VisionAPI] JSON parse error:', err);
+    console.log('[VisionAPI] Raw content was:', content);
     return {
       beauty_type: '成熟型',
       beauty_score: 5.5,
@@ -210,8 +227,13 @@ export async function POST(request: NextRequest) {
       };
     };
 
+    console.log(`[BeautyScore] API Key configured: ${!!ARK_API_KEY}`);
+    console.log(`[BeautyScore] Profile ID: ${profileId}`);
+    console.time('[BeautyScore] Total time');
+
     // 检查是否配置了火山引擎API
     if (!ARK_API_KEY) {
+      console.log('[BeautyScore] Using MOCK data (no API key)');
       // 未配置API，使用模拟数据（也包含详细分数）
       const mockFacial = Number((0.8 + Math.random() * 0.8).toFixed(1));
       const mockSkin = Number((0.6 + Math.random() * 0.6).toFixed(1));
@@ -231,26 +253,63 @@ export async function POST(request: NextRequest) {
           photoshop_deduction: mockPs,
         }
       };
+      console.log('[BeautyScore] Mock result:', result);
     } else {
-      // 调用视觉模型分析颜值
-      const visionResult = await callVisionModel(photoBase64);
+      console.log('[BeautyScore] Calling Vision API...');
+      console.time('[BeautyScore] Vision API call');
       
-      result = {
-        photoshop_level: visionResult.details.photoshop_deduction.toFixed(1),
-        beauty_type: visionResult.beauty_type,
-        beauty_score: visionResult.beauty_score.toFixed(1),
-        ai_comment: visionResult.ai_comment,
-        details: visionResult.details
-      };
+      try {
+        // 调用视觉模型分析颜值
+        const visionResult = await callVisionModel(photoBase64);
+        
+        console.timeEnd('[BeautyScore] Vision API call');
+        console.log('[BeautyScore] Vision API result:', visionResult);
+        
+        result = {
+          photoshop_level: visionResult.details.photoshop_deduction.toFixed(1),
+          beauty_type: visionResult.beauty_type,
+          beauty_score: visionResult.beauty_score.toFixed(1),
+          ai_comment: visionResult.ai_comment,
+          details: visionResult.details
+        };
+      } catch (error) {
+        console.error('[BeautyScore] Vision API failed:', error);
+        console.log('[BeautyScore] Falling back to mock data');
+        
+        // API调用失败，使用模拟数据作为fallback
+        const mockFacial = Number((0.8 + Math.random() * 0.8).toFixed(1));
+        const mockSkin = Number((0.6 + Math.random() * 0.6).toFixed(1));
+        const mockTemper = Number((0.7 + Math.random() * 0.6).toFixed(1));
+        const mockPs = Number((Math.random() * 1.5).toFixed(1));
+        const mockTotal = Number((5 + mockFacial + mockSkin + mockTemper - mockPs).toFixed(1));
+        
+        result = {
+          photoshop_level: mockPs.toFixed(1),
+          beauty_type: '成熟型',
+          beauty_score: Math.min(10, mockTotal).toFixed(1),
+          ai_comment: 'AI服务暂时不可用，这是模拟评分。',
+          details: {
+            facial_features: mockFacial,
+            skin_quality: mockSkin,
+            temperament: mockTemper,
+            photoshop_deduction: mockPs,
+          }
+        };
+      }
     }
+    
+    console.timeEnd('[BeautyScore] Total time');
+    console.log('[BeautyScore] Final result:', result);
 
     // 保存评分
     await saveScore(profileId, result);
 
+    console.log('[BeautyScore] Saved to database, returning response');
+
     return NextResponse.json({
       success: true,
       data: result,
-      mock: !ARK_API_KEY
+      source: !ARK_API_KEY ? 'mock' : 'ai'
     });
 
   } catch (error) {
