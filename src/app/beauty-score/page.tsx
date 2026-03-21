@@ -85,7 +85,7 @@ export default function BeautyScoreUserPage() {
         setLoading(false);
       };
       reader.readAsDataURL(photo);
-    } catch (_) {
+    } catch {
       setError('上传出错，请重试');
       setLoading(false);
     }
