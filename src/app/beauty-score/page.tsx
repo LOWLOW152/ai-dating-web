@@ -16,13 +16,6 @@ interface BeautyResult {
   };
 }
 
-interface ApiResponse {
-  success: boolean;
-  data: BeautyResult;
-  source?: 'mock' | 'ai';
-  error?: string;
-}
-
 const BEAUTY_LEVELS = [
   { min: 9, max: 10, label: '明星级', color: 'text-yellow-600', bg: 'bg-yellow-50', desc: '素颜能打，镜头扛得住' },
   { min: 8, max: 8.9, label: '小网红', color: 'text-purple-600', bg: 'bg-purple-50', desc: '好看，微调/轻P就能出片' },
