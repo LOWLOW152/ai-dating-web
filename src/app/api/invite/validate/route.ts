@@ -12,25 +12,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // 检查邀请码是否有效
-    // 这里简单实现：检查数据库中是否存在该邀请码，且未被使用
-    // 实际项目中可能需要更复杂的验证逻辑
-    
-    // 先检查是否已存在该档案
+    // 检查邀请码格式（8位字母数字）
+    const codePattern = /^[A-Z0-9]{8}$/;
+    if (!codePattern.test(code.toUpperCase())) {
+      return Response.json(
+        { success: false, error: '邀请码格式不正确（8位字母数字）' },
+        { status: 400 }
+      );
+    }
+
+    // 检查是否已存在该档案
     const existing = await sql.query(
       'SELECT id FROM profiles WHERE invite_code = $1',
       [code.toUpperCase()]
     );
 
-    if (existing.rows.length > 0) {
-      return Response.json(
-        { success: false, error: '该邀请码已被使用' },
-        { status: 400 }
-      );
-    }
-
-    // 邀请码有效
-    return Response.json({ success: true });
+    // 如果档案已存在，也允许通过（用于颜值打分或继续答题）
+    // 如果档案不存在，首次使用，也允许
+    return Response.json({ success: true, exists: existing.rows.length > 0 });
     
   } catch (error) {
     console.error('Validate invite error:', error);
