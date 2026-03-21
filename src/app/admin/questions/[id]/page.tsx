@@ -372,8 +372,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     setLoading(false);
   }, [params.id]);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSave(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!question) return;
 
     setSaving(true);
