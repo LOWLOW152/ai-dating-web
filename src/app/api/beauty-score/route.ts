@@ -1,31 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
-// AI颜值评分提示词
-const BEAUTY_SCORE_PROMPT = `你是一个专业的形象分析师，擅长客观评价照片。
-
-【任务】
-分析用户上传的照片，给出三个维度的评分。
-
-【评分维度】
-1. photoshop_level: P图程度 0-10（0=完全没P，10=P得认不出来）
-2. beauty_type: 颜值类型（从以下选一个最符合的：清纯型、御姐型、知性型、甜美型、冷艳型、阳光型、成熟型、可爱型、优雅型、时尚型）
-3. beauty_score: 颜值评分 0-10（综合打分）
-
-【输出要求】
-必须用JSON格式返回，不要有任何其他文字：
-
-{
-  "photoshop_level": 5.5,
-  "beauty_type": "清纯型",
-  "beauty_score": 7.5,
-  "ai_comment": "50字以内的评语，既要真诚又要给人信心"
-}
-
-注意：
-- 评分要客观但友善
-- ai_comment要温暖，同时可以提一点建议`;
-
 // POST /api/beauty-score - 用户提交照片获取评分
 export async function POST(request: NextRequest) {
   try {
@@ -147,7 +122,14 @@ export async function GET(request: NextRequest) {
 }
 
 // 保存评分到数据库
-async function saveScore(profileId: string, score: any) {
+interface BeautyScore {
+  photoshop_level: string;
+  beauty_type: string;
+  beauty_score: string;
+  ai_comment: string;
+}
+
+async function saveScore(profileId: string, score: BeautyScore) {
   // 保存到beauty_scores历史表
   await sql.query(
     `INSERT INTO beauty_scores 
