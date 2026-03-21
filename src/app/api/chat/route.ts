@@ -126,7 +126,8 @@ function buildPrompt(
   extractedData: Record<string, unknown>,
   chatHistory: ChatMessage[],
   config: GlobalConfig | null,
-  isNewQuestion: boolean
+  isNewQuestion: boolean,
+  nextQuestion: Question | null = null
 ): string {
   const cfg = config || DEFAULT_CONFIG;
   
@@ -165,15 +166,41 @@ function buildPrompt(
   const useClosing = question.use_closing_message === true;
   const closingMsg = question.closing_message || '好的，我们换个话题。';
   
+  // 判断是否即将进入下一题（最后一轮或结束语开启）
+  const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
+  const isLastRound = currentRoundNum >= maxQuestions;
+  const shouldTransition = isLastRound || useClosing;
+  
   console.log('Backend buildPrompt:', {
     questionId: question.id,
     use_closing_message: question.use_closing_message,
     useClosing,
     type: typeof question.use_closing_message,
-    questionPromptPreview: questionPrompt.slice(0, 200) // 显示前200字符
+    questionPromptPreview: questionPrompt.slice(0, 200),
+    isLastRound,
+    shouldTransition,
+    hasNextQuestion: !!nextQuestion
   });
-  const currentRoundNum = Math.min(chatHistory.filter(m => m.role === 'user').length + 1, maxQuestions);
+  
   const maxFollowUps = Math.max(0, maxQuestions - 2);
+  
+  // 构建下一题信息（如果需要）
+  const nextQuestionSection = (shouldTransition && nextQuestion) ? `
+【下一题信息】
+- 题号：第 ${nextQuestion.order} 题
+- 题目：${nextQuestion.question_text}
+- 小提示词：${generateAiPrompt(nextQuestion)}
+` : '';
+  
+  const transitionInstruction = (shouldTransition && nextQuestion) ? `
+【重要规则 - 合并回复】
+由于当前是第 ${currentRoundNum} 轮（共 ${maxQuestions} 轮），本次回复需要同时完成：
+1. 结束当前题目：用结束语总结刚才的对话
+2. 直接进入下一题：自然过渡，提出下一题的问题
+3. 把两道题的数据都整理到 JSON 中（当前题数据 + 下一题占位）
+
+结束语示例："${closingMsg} 那我们继续聊聊下一题：${nextQuestion.question_text}"
+` : '';
   
   const followUpLogic = `【追问逻辑】
 - 本题最多追问 ${maxQuestions} 轮（包括首次提问）
@@ -181,8 +208,8 @@ function buildPrompt(
 - 追问策略：首次提问 → 根据回答追问细节（最多${maxFollowUps}次） → ${useClosing ? '【✅结束语开启】使用结束语进入下一题' : '【❌结束语关闭】直接结束本题'}${useClosing ? `
 - 结束语：${closingMsg}` : ''}
 - 如果用户回答已经很完整，可以提前结束，不必追问满${maxQuestions}轮
-- 【重要】如果用户说"跳过"或不想回答，请用结束语结束本题，不要说"好的，这道题我们跳过，继续下一题～"
-
+- 【重要】如果用户说"跳过"或不想回答，请用结束语结束本题
+${transitionInstruction}
 `;
 
   return `${cfg.system_prompt}
@@ -192,7 +219,7 @@ ${progressSection}
 ${fullHistory}${newQuestionMarker}${followUpLogic}【当前题目策略】
 ${questionPrompt}
 
-${cfg.data_format_template}`;
+${nextQuestionSection}${cfg.data_format_template}`;
 }
 
 // POST /api/chat
@@ -204,7 +231,8 @@ export async function POST(request: NextRequest) {
       chatHistory = [], 
       extractedData = {}, 
       isNewQuestion = false,
-      totalQuestions = 30
+      totalQuestions = 30,
+      nextQuestion = null // 下一题信息（如果需要直接进入下一题）
     } = body;
 
     if (!questionId) {
@@ -247,7 +275,8 @@ export async function POST(request: NextRequest) {
       extractedData,
       chatHistory,
       config,
-      isNewQuestion
+      isNewQuestion,
+      nextQuestion
     );
 
     const apiKey = process.env.DOUBAO_API_KEY;

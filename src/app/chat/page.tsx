@@ -76,7 +76,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number) {
+  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number, nextQ?: Question) {
     setIsAiResponding(true);
     
     // 使用传入的 currentRound 或 state 中的 questionRound
@@ -94,7 +94,8 @@ export default function ChatPage() {
           chatHistory,
           extractedData,
           isNewQuestion: isInitialLoad,
-          totalQuestions: questions.length
+          totalQuestions: questions.length,
+          nextQuestion: nextQ || null // 下一题信息（如果需要合并）
         }),
       });
 
@@ -160,16 +161,24 @@ export default function ChatPage() {
 
     // 判断是否要进入下一题（只有用户对话后，不是初始加载时才判断）
     if (!isInitialLoad) {
-      // 条件1：AI明确使用了结束语
-      // 条件2：达到追问次数上限
-      // 条件3：用户点击了跳过
+      // 条件1：AI明确使用了结束语并提到了下一题（合并回复模式）
+      // 条件2：AI明确使用了结束语（传统模式）
+      const hasCombinedNext = /(?:下一题|下一个问题).*[:：]/.test(displayContent) && /(?:第\s*\d+\s*题)/.test(displayContent);
       const isEnding = /(?:下一个问题|下一题|这个话题结束|完成.*下一题|进入下一题|跳过本题)/i.test(displayContent);
       const isMaxRound = roundToCheck >= (questions[qIndex]?.max_questions || 3);
       
-      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
+      console.log('Auto next check:', { roundToCheck, max: questions[qIndex]?.max_questions, hasCombinedNext, isEnding, isMaxRound, content: displayContent.slice(0, 50) });
       
-      if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
-        // 延迟一下让用户看到结束语，然后自动进入下一题并调用AI
+      // 如果是合并回复模式（AI已经问了下一题），只需更新题目索引，不再调用API
+      if (hasCombinedNext && qIndex < questions.length - 1) {
+        // 延迟更新题目索引，让用户看到完整的合并回复
+        setTimeout(() => {
+          const nextIndex = qIndex + 1;
+          setCurrentIndex(nextIndex);
+          setQuestionRound(1); // 已经问过了，算作第1轮
+        }, 500);
+      } else if ((isEnding || isMaxRound) && qIndex < questions.length - 1) {
+        // 传统模式：AI只用了结束语，没问下一题，需要自动进入下一题
         setTimeout(() => {
           handleNextQuestionWithAI();
         }, 1500);
@@ -218,8 +227,19 @@ export default function ChatPage() {
     const newRound = questionRound + 1;
     setQuestionRound(newRound);
     
+    // 判断是否是最后一轮，如果是，则传入下一题信息
+    const maxQuestions = questions[currentIndex]?.max_questions || 3;
+    const isLastRound = newRound >= maxQuestions;
+    const useClosing = questions[currentIndex]?.use_closing_message === true;
+    const shouldTransition = isLastRound || useClosing;
+    
+    // 获取下一题（如果需要）
+    const nextQ = (shouldTransition && currentIndex < questions.length - 1) 
+      ? questions[currentIndex + 1] 
+      : undefined;
+    
     try {
-      await sendAiMessage(currentIndex, newMessages, false, newRound);
+      await sendAiMessage(currentIndex, newMessages, false, newRound, nextQ);
     } finally {
       // 解锁（在 finally 中确保一定会解锁）
       requestLock.current = false;
