@@ -121,7 +121,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  function buildPrompt(questionIndex: number, _chatHistory: ChatMessage[]) {
+  function buildPrompt(questionIndex: number) {
     // 使用配置或默认配置
     const cfg = config || DEFAULT_CONFIG;
     if (questions.length === 0) return '';
@@ -168,7 +168,7 @@ ${cfg.data_format_template}`;
     setIsAiResponding(true);
     
     try {
-      const prompt = buildPrompt(qIndex, chatHistory);
+      const prompt = buildPrompt(qIndex);
       
       const res = await fetch('/api/chat', {
         method: 'POST',
