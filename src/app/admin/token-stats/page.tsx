@@ -68,14 +68,18 @@ export default function TokenStatsPage() {
     fetchStats();
   }, [days]);
 
-  function formatNumber(num: number | null | undefined) {
+  function formatNumber(num: number | string | null | undefined) {
     if (!num) return '0';
-    return num.toLocaleString();
+    const n = typeof num === 'string' ? parseInt(num, 10) : num;
+    if (isNaN(n)) return '0';
+    return n.toLocaleString();
   }
 
-  function formatCost(cost: number | null | undefined) {
+  function formatCost(cost: number | string | null | undefined) {
     if (!cost) return '¥0.0000';
-    return `¥${cost.toFixed(4)}`;
+    const num = typeof cost === 'string' ? parseFloat(cost) : cost;
+    if (isNaN(num)) return '¥0.0000';
+    return `¥${num.toFixed(4)}`;
   }
 
   return (
