@@ -1,0 +1,15 @@
+-- 颜值打分详细分数表
+
+-- 添加详细分数字段到 beauty_scores 表
+ALTER TABLE beauty_scores 
+ADD COLUMN IF NOT EXISTS facial_features DECIMAL(3, 1) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS skin_quality DECIMAL(3, 1) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS temperament DECIMAL(3, 1) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS photoshop_deduction DECIMAL(3, 1) DEFAULT NULL;
+
+-- 添加详细分数字段到 profiles 表
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS facial_features DECIMAL(3, 1) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS skin_quality DECIMAL(3, 1) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS temperament DECIMAL(3, 1) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS photoshop_deduction DECIMAL(3, 1) DEFAULT NULL;
