@@ -224,7 +224,7 @@ export default function CheckScorePage() {
 
                   {result.beautyScore.ai_comment && (
                     <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm text-gray-600 italic text-center">"{result.beautyScore.ai_comment}"</p>
+                      <p className="text-sm text-gray-600 italic text-center">&ldquo;{result.beautyScore.ai_comment}&rdquo;</p>
                     </div>
                   )}
                 </div>
