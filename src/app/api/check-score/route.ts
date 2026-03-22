@@ -32,20 +32,59 @@ export async function GET(request: NextRequest) {
 
     const profile = profileRes.rows[0];
 
-    // 查询颜值打分
-    const beautyRes = await sql.query(
-      `SELECT beauty_score, beauty_type, photoshop_level, ai_comment,
-        body_shape, skin_quality, symmetry, face_age, hairline, eye_bags, teeth, nose_bridge, photoshop_deduction,
-        created_at as evaluated_at
-       FROM beauty_scores WHERE profile_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [profile.id]
-    );
+    // 查询颜值打分（兼容可能没有评分的情况）
+    let beautyScore = null;
+    try {
+      const beautyRes = await sql.query(
+        `SELECT beauty_score, beauty_type, photoshop_level, ai_comment,
+          body_shape, skin_quality, symmetry, face_age, hairline, eye_bags, teeth, nose_bridge, photoshop_deduction,
+          created_at as evaluated_at
+         FROM beauty_scores WHERE profile_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [profile.id]
+      );
 
-    // 查询AI评价标签
-    const tagsRes = await sql.query(
-      `SELECT tags FROM profile_ai_tags WHERE profile_id = $1`,
-      [profile.id]
-    );
+      if (beautyRes.rows.length > 0) {
+        const row = beautyRes.rows[0];
+        beautyScore = {
+          beauty_score: parseFloat(row.beauty_score) || 0,
+          beauty_type: row.beauty_type || '未知',
+          photoshop_level: parseFloat(row.photoshop_level) || 0,
+          ai_comment: row.ai_comment || '',
+          details: row.body_shape ? {
+            body_shape: parseFloat(row.body_shape) || 0,
+            skin_quality: parseFloat(row.skin_quality) || 0,
+            symmetry: parseFloat(row.symmetry) || 0,
+            face_age: parseFloat(row.face_age) || 0,
+            hairline: parseFloat(row.hairline) || 0,
+            eye_bags: parseFloat(row.eye_bags) || 0,
+            teeth: parseFloat(row.teeth) || 0,
+            nose_bridge: parseFloat(row.nose_bridge) || 0,
+            photoshop_deduction: parseFloat(row.photoshop_deduction) || 0,
+          } : undefined,
+          evaluated_at: row.evaluated_at,
+        };
+      }
+    } catch (e) {
+      console.error('Beauty score query error:', e);
+      // 颜值打分查询失败不影响整体返回
+    }
+
+    // 查询AI评价标签（兼容可能没有的情况）
+    let aiEvaluation = null;
+    try {
+      const tagsRes = await sql.query(
+        `SELECT tags FROM profile_ai_tags WHERE profile_id = $1`,
+        [profile.id]
+      );
+      
+      aiEvaluation = profile.ai_evaluation_status ? {
+        status: profile.ai_evaluation_status,
+        tags: tagsRes.rows[0]?.tags || null,
+      } : null;
+    } catch (e) {
+      console.error('Tags query error:', e);
+      // 标签查询失败不影响整体返回
+    }
 
     // 构建结果
     const result = {
@@ -56,32 +95,12 @@ export async function GET(request: NextRequest) {
         created_at: profile.created_at,
         completed_at: profile.completed_at,
       },
-      beautyScore: beautyRes.rows.length > 0 ? {
-        beauty_score: parseFloat(beautyRes.rows[0].beauty_score),
-        beauty_type: beautyRes.rows[0].beauty_type,
-        photoshop_level: parseFloat(beautyRes.rows[0].photoshop_level),
-        ai_comment: beautyRes.rows[0].ai_comment,
-        details: beautyRes.rows[0].body_shape ? {
-          body_shape: parseFloat(beautyRes.rows[0].body_shape),
-          skin_quality: parseFloat(beautyRes.rows[0].skin_quality),
-          symmetry: parseFloat(beautyRes.rows[0].symmetry),
-          face_age: parseFloat(beautyRes.rows[0].face_age),
-          hairline: parseFloat(beautyRes.rows[0].hairline),
-          eye_bags: parseFloat(beautyRes.rows[0].eye_bags),
-          teeth: parseFloat(beautyRes.rows[0].teeth),
-          nose_bridge: parseFloat(beautyRes.rows[0].nose_bridge),
-          photoshop_deduction: parseFloat(beautyRes.rows[0].photoshop_deduction),
-        } : undefined,
-        evaluated_at: beautyRes.rows[0].evaluated_at,
-      } : null,
+      beautyScore,
       questionnaire: profile.answers ? {
         answers_count: Object.keys(profile.answers).length,
         completed_at: profile.completed_at,
       } : null,
-      aiEvaluation: profile.ai_evaluation_status ? {
-        status: profile.ai_evaluation_status,
-        tags: tagsRes.rows[0]?.tags || null,
-      } : null,
+      aiEvaluation,
     };
 
     return NextResponse.json({
@@ -89,10 +108,10 @@ export async function GET(request: NextRequest) {
       data: result,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Check score error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器错误' },
+      { success: false, error: '服务器错误: ' + (error.message || '未知错误') },
       { status: 500 }
     );
   }
