@@ -108,10 +108,11 @@ export async function GET(request: NextRequest) {
       data: result,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Check score error:', error);
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json(
-      { success: false, error: '服务器错误: ' + (error.message || '未知错误') },
+      { success: false, error: '服务器错误: ' + errorMsg },
       { status: 500 }
     );
   }
