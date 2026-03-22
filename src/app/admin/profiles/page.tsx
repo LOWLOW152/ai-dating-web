@@ -23,6 +23,7 @@ export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [tagFilter, setTagFilter] = useState<string>('all');
+  const [searchCode, setSearchCode] = useState<string>('');
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -46,11 +47,21 @@ export default function ProfilesPage() {
     loadProfiles();
   }, []);
 
-  // 筛选档案
+  // 筛选档案（支持标签和邀请码搜索）
   const filteredProfiles = profiles.filter(p => {
-    if (tagFilter === 'all') return true;
-    if (tagFilter === 'no-tags') return !p.tags || p.tags.length === 0;
-    return p.tags?.includes(tagFilter);
+    // 标签筛选
+    if (tagFilter !== 'all') {
+      if (tagFilter === 'no-tags') {
+        if (p.tags && p.tags.length > 0) return false;
+      } else if (!p.tags?.includes(tagFilter)) {
+        return false;
+      }
+    }
+    // 邀请码搜索
+    if (searchCode.trim()) {
+      return p.invite_code.toLowerCase().includes(searchCode.toLowerCase());
+    }
+    return true;
   });
 
   // 开始编辑标签
@@ -103,13 +114,33 @@ export default function ProfilesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">档案管理</h1>
           <p className="text-sm text-gray-500 mt-1">
-            共 {profiles.length} 条档案，显示 {filteredProfiles.length} 条
-            {tagFilter !== 'all' && '（已筛选）'}
+            共 {profiles.length} 条档案
+            {searchCode.trim() && `，搜索 "${searchCode}" 找到 ${filteredProfiles.length} 条`}
+            {!searchCode.trim() && tagFilter !== 'all' && '（已筛选）'}
           </p>
         </div>
         
         {/* 标签筛选 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* 邀请码搜索 */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              placeholder="搜索邀请码..."
+              className="px-3 py-2 border rounded-md text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchCode && (
+              <button
+                onClick={() => setSearchCode('')}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          
           <span className="text-sm text-gray-600">筛选:</span>
           <select
             value={tagFilter}
