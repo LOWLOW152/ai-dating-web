@@ -41,7 +41,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
     if (!groupedTags[category]) {
       groupedTags[category] = {};
     }
-    groupedTags[category][name] = value;
+    groupedTags[category][name] = value as string | string[];
   });
 
   return (
