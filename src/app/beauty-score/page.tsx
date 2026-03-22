@@ -75,23 +75,39 @@ export default function BeautyScoreUserPage() {
   useEffect(() => {
     if (!taskId || result) return;
 
-    const poll = async () => {
+    const poll = () => {
       try {
-        const res = await fetch(`/api/beauty-score?taskId=${taskId}`);
-        const data = await res.json();
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', `/api/beauty-score?taskId=${taskId}&_t=${Date.now()}`, true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.timeout = 10000;
         
-        if (data.success && data.task) {
-          setTaskStatus(data.task);
-          setPollingCount(prev => prev + 1);
-          
-          if (data.task.status === 'completed' && data.task.result) {
-            // 评分完成，跳转到查分页面
-            router.push('/check-score');
-          } else if (data.task.status === 'failed') {
-            setError(data.task.error || '评分失败，请重试');
-            setLoading(false);
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.success && data.task) {
+                setTaskStatus(data.task);
+                setPollingCount(prev => prev + 1);
+                
+                if (data.task.status === 'completed' && data.task.result) {
+                  router.push('/check-score');
+                } else if (data.task.status === 'failed') {
+                  setError(data.task.error || '评分失败，请重试');
+                  setLoading(false);
+                }
+              }
+            } catch {
+              // ignore parse error
+            }
           }
-        }
+        };
+        
+        xhr.onerror = () => {
+          // 轮询失败继续
+        };
+        
+        xhr.send();
       } catch {
         // 轮询失败继续
       }
@@ -164,26 +180,45 @@ export default function BeautyScoreUserPage() {
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       
-      try {
-        const res = await fetch('/api/beauty-score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inviteCode, photoBase64: base64 }),
-        });
-        
-        const data = await res.json();
-        
-        if (data.success && data.taskId) {
-          setTaskId(data.taskId);
-          // 进入轮询状态，不关闭loading
+      // 使用 XMLHttpRequest 提高安卓兼容性
+      const xhr = new XMLHttpRequest();
+      const url = `/api/beauty-score?_t=${Date.now()}`;
+      
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.timeout = 30000; // 30秒超时
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success && data.taskId) {
+              setTaskId(data.taskId);
+            } else {
+              setError(data.error || '创建评分任务失败');
+              setLoading(false);
+            }
+          } catch {
+            setError('解析响应失败');
+            setLoading(false);
+          }
         } else {
-          setError(data.error || '创建评分任务失败');
+          setError(`服务器错误: ${xhr.status}`);
           setLoading(false);
         }
-      } catch {
-        setError('网络错误，请重试');
+      };
+      
+      xhr.onerror = () => {
+        setError('网络请求失败，请检查网络或换浏览器试试');
         setLoading(false);
-      }
+      };
+      
+      xhr.ontimeout = () => {
+        setError('请求超时，请重试');
+        setLoading(false);
+      };
+      
+      xhr.send(JSON.stringify({ inviteCode, photoBase64: base64 }));
     };
     reader.readAsDataURL(photo);
   }

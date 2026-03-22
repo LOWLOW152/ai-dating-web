@@ -67,8 +67,8 @@ export default function CheckScorePage() {
     return new Promise((resolve, reject) => {
       try {
         const xhr = new XMLHttpRequest();
-        // 使用相对路径，避免跨域问题
-        const url = '/api/check-score?code=' + encodeURIComponent(code);
+        // 使用时间戳防止缓存
+        const url = '/api/check-score?code=' + encodeURIComponent(code) + '&_t=' + Date.now();
         
         xhr.open('GET', url, true);
         xhr.setRequestHeader('Accept', 'application/json');
