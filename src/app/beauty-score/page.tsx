@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface BeautyResult {
@@ -22,12 +22,11 @@ interface BeautyResult {
   raw_score?: number;
 }
 
-interface ApiResponse {
-  success: boolean;
-  data?: BeautyResult;
-  source?: 'mock' | 'ai';
-  debug?: string[];
-  error?: string;
+interface TaskStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result: BeautyResult | null;
+  error: string | null;
 }
 
 const BEAUTY_LEVELS = [
@@ -48,12 +47,12 @@ export default function BeautyScoreUserPage() {
   const router = useRouter();
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null);
   const [result, setResult] = useState<BeautyResult | null>(null);
-  const [dataSource, setDataSource] = useState<'mock' | 'ai' | null>(null);
   const [error, setError] = useState('');
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const [showDebug, setShowDebug] = useState(false);
-  const [alreadyUsed, setAlreadyUsed] = useState(false); // 标记是否已使用过
+  const [alreadyUsed, setAlreadyUsed] = useState(false);
+  const [pollingCount, setPollingCount] = useState(0);
 
   useEffect(() => {
     const code = localStorage.getItem('inviteCode');
@@ -63,15 +62,61 @@ export default function BeautyScoreUserPage() {
     }
     setInviteCode(code);
     
-    // 先检查邀请码是否已使用过颜值打分
+    // 检查是否已使用过
     checkInviteUsed(code).then(used => {
       if (used) {
         setAlreadyUsed(true);
-        // 尝试获取已有分数
         checkExistingScore(code);
       }
     });
   }, [router]);
+
+  // 轮询查询任务状态
+  useEffect(() => {
+    if (!taskId || result) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/beauty-score?taskId=${taskId}`);
+        const data = await res.json();
+        
+        if (data.success && data.task) {
+          setTaskStatus(data.task);
+          setPollingCount(prev => prev + 1);
+          
+          if (data.task.status === 'completed' && data.task.result) {
+            setResult(data.task.result);
+            setLoading(false);
+          } else if (data.task.status === 'failed') {
+            setError(data.task.error || '评分失败，请重试');
+            setLoading(false);
+          }
+        }
+      } catch {
+        // 轮询失败继续
+      }
+    };
+
+    // 立即查一次
+    poll();
+    
+    // 每3秒轮询
+    const interval = setInterval(poll, 3000);
+    
+    // 60秒后停止轮询（防止无限等待）
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      if (!result) {
+        setError('评分超时，请刷新页面查看结果');
+        setLoading(false);
+      }
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [taskId, result]);
 
   async function checkInviteUsed(code: string): Promise<boolean> {
     try {
@@ -85,13 +130,10 @@ export default function BeautyScoreUserPage() {
 
   async function checkExistingScore(code: string) {
     try {
-      const res = await fetch(`/api/beauty-score/check?code=${code}`);
+      const res = await fetch(`/api/beauty-score?code=${code}`);
       const data = await res.json();
       if (data.success && data.data) {
-        // 已经评分过，直接显示结果（不能重新评分）
         setResult(data.data);
-        setDataSource('ai');
-        setLoading(false);
       }
     } catch {
       // ignore
@@ -121,21 +163,27 @@ export default function BeautyScoreUserPage() {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result as string;
-      const res = await fetch('/api/beauty-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode, photoBase64: base64 }),
-      });
-      const data: ApiResponse = await res.json();
-      if (data.success && data.data) {
-        setResult(data.data);
-        setDataSource(data.source || 'mock');
-        setDebugLogs(data.debug || []);
-      } else {
-        setError(data.error || '评分失败');
-        setDebugLogs(data.debug || []);
+      
+      try {
+        const res = await fetch('/api/beauty-score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inviteCode, photoBase64: base64 }),
+        });
+        
+        const data = await res.json();
+        
+        if (data.success && data.taskId) {
+          setTaskId(data.taskId);
+          // 进入轮询状态，不关闭loading
+        } else {
+          setError(data.error || '创建评分任务失败');
+          setLoading(false);
+        }
+      } catch {
+        setError('网络错误，请重试');
+        setLoading(false);
       }
-      setLoading(false);
     };
     reader.readAsDataURL(photo);
   }
@@ -150,6 +198,68 @@ export default function BeautyScoreUserPage() {
 
   const level = result ? getBeautyLevel(result.beauty_score) : null;
 
+  // 评分中状态
+  if (loading && taskId && !result) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        <div className="bg-white px-4 py-4 flex items-center justify-between border-b">
+          <h1 className="text-lg font-semibold">颜值打分</h1>
+          <span className="text-sm text-gray-500">邀请码: {inviteCode}</span>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="text-center">
+            {/* 动画图标 */}
+            <div className="relative w-24 h-24 mx-auto mb-6">
+              <div className="absolute inset-0 bg-pink-200 rounded-full animate-ping opacity-20"></div>
+              <div className="absolute inset-2 bg-pink-300 rounded-full animate-pulse opacity-40"></div>
+              <div className="absolute inset-4 bg-pink-500 rounded-full flex items-center justify-center">
+                <span className="text-3xl">🤖</span>
+              </div>
+            </div>
+            
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              {taskStatus?.status === 'processing' ? 'AI分析中...' : '排队中...'}
+            </h2>
+            
+            <p className="text-gray-500 mb-4">
+              {taskStatus?.status === 'processing' 
+                ? '正在分析9项客观指标，约需10-30秒' 
+                : '任务已提交，等待AI处理'}
+            </p>
+            
+            {/* 进度条动画 */}
+            <div className="w-64 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden mb-4">
+              <div 
+                className="h-full bg-pink-500 rounded-full transition-all duration-1000"
+                style={{ 
+                  width: taskStatus?.status === 'processing' ? '60%' : '30%',
+                  animation: 'pulse 2s infinite'
+                }}
+              ></div>
+            </div>
+            
+            <p className="text-xs text-gray-400">
+              已等待 {pollingCount * 3} 秒 · 请勿关闭页面
+            </p>
+            
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                {error}
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="block mt-2 text-pink-600 hover:underline"
+                >
+                  刷新页面查看结果
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <div className="bg-white px-4 py-4 flex items-center justify-between border-b">
@@ -160,7 +270,6 @@ export default function BeautyScoreUserPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
         <div className="w-full max-w-md">
           {alreadyUsed && !result ? (
-            // 已使用过但没有查到分数（可能数据丢失）
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
               <div className="w-16 h-16 bg-yellow-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                 <span className="text-3xl">⚠️</span>
@@ -195,93 +304,35 @@ export default function BeautyScoreUserPage() {
               <div className="text-center mb-6">
                 <div className="text-5xl font-bold text-pink-600 mb-1">{result.beauty_score}</div>
                 <p className="text-sm text-gray-400">满分10分</p>
-                {dataSource && (
-                  <span className={`inline-block mt-2 px-2 py-1 rounded text-xs ${
-                    dataSource === 'ai' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {dataSource === 'ai' ? '🤖 AI真实评分' : '⚠️ 模拟数据'}
-                  </span>
-                )}
+                <span className="inline-block mt-2 px-2 py-1 rounded text-xs bg-green-100 text-green-700">
+                  🤖 AI真实评分
+                </span>
               </div>
               
               {result.details && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">客观指标评分</h3>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">体型肥胖</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-red-500 rounded-full" style={{ width: `${(result.details.body_shape / 4) * 100}%` }} />
+                    {[
+                      { label: '体型肥胖', value: result.details.body_shape, max: 4, color: 'bg-red-500' },
+                      { label: '皮肤状况', value: result.details.skin_quality, max: 3, color: 'bg-orange-500' },
+                      { label: '五官对称', value: result.details.symmetry, max: 3, color: 'bg-yellow-500' },
+                      { label: '脸部年龄', value: result.details.face_age, max: 3, color: 'bg-green-500' },
+                      { label: '发际线', value: result.details.hairline, max: 2, color: 'bg-teal-500' },
+                      { label: '黑眼圈', value: result.details.eye_bags, max: 2, color: 'bg-blue-500' },
+                      { label: '牙齿嘴型', value: result.details.teeth, max: 2, color: 'bg-indigo-500' },
+                      { label: '鼻梁高度', value: result.details.nose_bridge, max: 2, color: 'bg-purple-500' },
+                    ].map(item => (
+                      <div key={item.label} className="flex justify-between items-center">
+                        <span className="text-gray-600">{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div className={`h-full ${item.color} rounded-full`} style={{ width: `${(item.value / item.max) * 100}%` }} />
+                          </div>
+                          <span className="font-medium w-8 text-right">{item.value}</span>
                         </div>
-                        <span className="font-medium w-8 text-right">{result.details.body_shape}</span>
                       </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">皮肤状况</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(result.details.skin_quality / 3) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.skin_quality}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">五官对称</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${(result.details.symmetry / 3) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.symmetry}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">脸部年龄</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: `${(result.details.face_age / 3) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.face_age}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">发际线</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-teal-500 rounded-full" style={{ width: `${(result.details.hairline / 2) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.hairline}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">黑眼圈</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(result.details.eye_bags / 2) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.eye_bags}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">牙齿嘴型</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(result.details.teeth / 2) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.teeth}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">鼻梁高度</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(result.details.nose_bridge / 2) * 100}%` }} />
-                        </div>
-                        <span className="font-medium w-8 text-right">{result.details.nose_bridge}</span>
-                      </div>
-                    </div>
+                    ))}
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-gray-600">P图扣分</span>
                       <span className="font-medium text-red-600">-{result.details.photoshop_deduction}</span>
@@ -317,24 +368,6 @@ export default function BeautyScoreUserPage() {
                 </div>
               )}
               
-              {/* 调试信息 */}
-              {debugLogs.length > 0 && (
-                <div className="mb-6">
-                  <button 
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="w-full text-left text-xs text-gray-400 hover:text-gray-600 flex items-center justify-between"
-                  >
-                    <span>{showDebug ? '隐藏调试信息' : '查看调试信息'}</span>
-                    <span>{showDebug ? '▲' : '▼'}</span>
-                  </button>
-                  {showDebug && (
-                    <div className="mt-2 bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto">
-                      <pre className="whitespace-pre-wrap">{debugLogs.join('\n')}</pre>
-                    </div>
-                  )}
-                </div>
-              )}
-              
               <button 
                 onClick={() => {
                   localStorage.removeItem('inviteCode');
@@ -352,7 +385,7 @@ export default function BeautyScoreUserPage() {
                   <span className="text-3xl">🤳</span>
                 </div>
                 <h2 className="text-xl font-semibold text-gray-800 mb-2">上传照片</h2>
-                <p className="text-sm text-gray-500">AI分析9项客观指标</p>
+                <p className="text-sm text-gray-500">AI分析9项客观指标 · 约需10-30秒</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -364,7 +397,7 @@ export default function BeautyScoreUserPage() {
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
                 <button type="submit" disabled={loading} className="w-full bg-pink-500 text-white py-4 rounded-lg font-medium hover:bg-pink-600 disabled:bg-gray-400">
-                  {loading ? 'AI分析中...' : '开始颜值打分'}
+                  开始颜值打分
                 </button>
 
                 <p className="text-xs text-gray-400 text-center">基于9项客观指标 · 正态分布评分</p>
