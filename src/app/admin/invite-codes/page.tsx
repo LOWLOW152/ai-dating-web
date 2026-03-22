@@ -22,6 +22,9 @@ export default function InviteCodesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState<string>('');
+  const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
   // 加载邀请码列表
   async function loadCodes() {
@@ -87,6 +90,61 @@ export default function InviteCodesPage() {
     const text = newCodes.join('\n');
     navigator.clipboard.writeText(text);
     alert('已复制所有新邀请码');
+  }
+
+  // 删除邀请码
+  async function deleteCode(code: string) {
+    if (!confirm(`确定要删除邀请码 ${code} 吗？此操作不可恢复。`)) {
+      return;
+    }
+    setDeletingCode(code);
+    try {
+      const res = await fetch(`/api/admin/invite-codes/${code}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCodes(codes.filter(c => c.code !== code));
+        alert('删除成功');
+      } else {
+        alert('删除失败: ' + data.error);
+      }
+    } catch {
+      alert('删除失败');
+    } finally {
+      setDeletingCode(null);
+    }
+  }
+
+  // 开始编辑过期时间
+  function startEditDate(code: string, currentExpiresAt: string | null) {
+    setEditingCode(code);
+    setEditDate(currentExpiresAt ? new Date(currentExpiresAt).toISOString().slice(0, 16) : '');
+  }
+
+  // 保存过期时间
+  async function saveDate(code: string) {
+    try {
+      const res = await fetch(`/api/admin/invite-codes/${code}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiresAt: editDate || null })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCodes(codes.map(c => 
+          c.code === code 
+            ? { ...c, expires_at: editDate || null }
+            : c
+        ));
+        setEditingCode(null);
+        alert('过期时间已更新');
+      } else {
+        alert('更新失败: ' + data.error);
+      }
+    } catch {
+      alert('更新失败');
+    }
   }
 
   // 状态标签
@@ -175,7 +233,7 @@ export default function InviteCodesPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">AI问卷</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">使用次数</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">过期时间</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">操作</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-48">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -226,12 +284,55 @@ export default function InviteCodesPage() {
                       }
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => copyCode(invite.code)}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        {copiedCode === invite.code ? '已复制!' : '复制'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => copyCode(invite.code)}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          {copiedCode === invite.code ? '已复制!' : '复制'}
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        
+                        {editingCode === invite.code ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="datetime-local"
+                              value={editDate}
+                              onChange={(e) => setEditDate(e.target.value)}
+                              className="text-xs border rounded px-1 py-0.5 w-32"
+                            />
+                            <button
+                              onClick={() => saveDate(invite.code)}
+                              className="text-xs text-green-600 hover:text-green-800"
+                            >
+                              保存
+                            </button>
+                            <button
+                              onClick={() => setEditingCode(null)}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startEditDate(invite.code, invite.expires_at)}
+                            className="text-sm text-orange-600 hover:text-orange-800"
+                          >
+                            改期
+                          </button>
+                        )}
+                        
+                        <span className="text-gray-300">|</span>
+                        
+                        <button
+                          onClick={() => deleteCode(invite.code)}
+                          disabled={deletingCode === invite.code}
+                          className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+                        >
+                          {deletingCode === invite.code ? '删除中...' : '删除'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
