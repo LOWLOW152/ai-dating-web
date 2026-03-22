@@ -61,16 +61,36 @@ export default function BeautyScoreUserPage() {
       return;
     }
     setInviteCode(code);
-    checkExistingScore(code);
+    
+    // 先检查邀请码是否已使用过颜值打分
+    checkInviteUsed(code).then(used => {
+      if (used) {
+        // 已使用过，显示已有结果
+        checkExistingScore(code);
+      }
+      // 没使用过，正常显示上传界面
+    });
   }, [router]);
+
+  async function checkInviteUsed(code: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/invite/check-used?code=${code}&project=beauty-score`);
+      const data = await res.json();
+      return data.success && data.used;
+    } catch {
+      return false;
+    }
+  }
 
   async function checkExistingScore(code: string) {
     try {
       const res = await fetch(`/api/beauty-score/check?code=${code}`);
       const data = await res.json();
       if (data.success && data.data) {
+        // 已经评分过，直接显示结果（不能重新评分）
         setResult(data.data);
         setDataSource('ai');
+        setLoading(false);
       }
     } catch {
       // ignore
@@ -296,7 +316,15 @@ export default function BeautyScoreUserPage() {
                 </div>
               )}
               
-              <button onClick={() => router.push('/')} className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200">
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('inviteCode');
+                  router.push('/');
+                }} 
+                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200"
+              >
+                使用新邀请码
+              </button>
                 返回首页
               </button>
             </div>
