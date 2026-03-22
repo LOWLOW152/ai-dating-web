@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     };
 
     // 计算总使用次数
-    const useCount = Object.values(projectUsages).filter((u: { used?: boolean }) => u.used).length;
+    const useCount = Object.values(projectUsages).filter((u) => u && (u as { used?: boolean }).used).length;
     const status = useCount >= invite.max_uses ? 'used' : 'partial';
 
     // 更新数据库
