@@ -53,6 +53,7 @@ export default function BeautyScoreUserPage() {
   const [error, setError] = useState('');
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
+  const [alreadyUsed, setAlreadyUsed] = useState(false); // 标记是否已使用过
 
   useEffect(() => {
     const code = localStorage.getItem('inviteCode');
@@ -65,10 +66,10 @@ export default function BeautyScoreUserPage() {
     // 先检查邀请码是否已使用过颜值打分
     checkInviteUsed(code).then(used => {
       if (used) {
-        // 已使用过，显示已有结果
+        setAlreadyUsed(true);
+        // 尝试获取已有分数
         checkExistingScore(code);
       }
-      // 没使用过，正常显示上传界面
     });
   }, [router]);
 
@@ -158,7 +159,25 @@ export default function BeautyScoreUserPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
         <div className="w-full max-w-md">
-          {result ? (
+          {alreadyUsed && !result ? (
+            // 已使用过但没有查到分数（可能数据丢失）
+            <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">该邀请码已使用</h2>
+              <p className="text-gray-500 mb-6">此邀请码已经完成过颜值打分，不能重复评分。</p>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('inviteCode');
+                  router.push('/');
+                }} 
+                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200"
+              >
+                使用新邀请码
+              </button>
+            </div>
+          ) : result ? (
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-pink-100 rounded-full mx-auto mb-4 flex items-center justify-center">
