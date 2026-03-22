@@ -1,26 +1,139 @@
-import { sql } from '@/lib/db';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export const dynamic = 'force-dynamic';
-
-async function getProfiles() {
-  const result = await sql.query('SELECT * FROM profiles ORDER BY created_at DESC LIMIT 50');
-  return result.rows;
+interface Profile {
+  id: string;
+  invite_code: string;
+  status: string;
+  tags: string[];
+  created_at: string;
 }
 
-export default async function ProfilesPage() {
-  const profiles = await getProfiles();
+const PREDEFINED_TAGS = [
+  { value: 'deleted', label: '🗑️ 已删除', color: 'bg-red-100 text-red-700' },
+  { value: 'vip', label: '⭐ VIP', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'suspicious', label: '⚠️ 可疑', color: 'bg-orange-100 text-orange-700' },
+  { value: 'completed', label: '✅ 已完成', color: 'bg-green-100 text-green-700' },
+  { value: 'pending', label: '⏳ 待处理', color: 'bg-blue-100 text-blue-700' },
+];
+
+export default function ProfilesPage() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tagFilter, setTagFilter] = useState<string>('all');
+  const [editingTags, setEditingTags] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // 加载档案列表
+  async function loadProfiles() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/profiles');
+      const data = await res.json();
+      if (data.success) {
+        setProfiles(data.profiles);
+      }
+    } catch (error) {
+      console.error('加载失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  // 筛选档案
+  const filteredProfiles = profiles.filter(p => {
+    if (tagFilter === 'all') return true;
+    if (tagFilter === 'no-tags') return !p.tags || p.tags.length === 0;
+    return p.tags?.includes(tagFilter);
+  });
+
+  // 开始编辑标签
+  function startEditTags(profile: Profile) {
+    setEditingTags(profile.id);
+    setSelectedTags(profile.tags || []);
+  }
+
+  // 保存标签
+  async function saveTags(profileId: string) {
+    try {
+      const res = await fetch(`/api/admin/profiles/${profileId}/tags`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: selectedTags })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProfiles(profiles.map(p => 
+          p.id === profileId ? { ...p, tags: selectedTags } : p
+        ));
+        setEditingTags(null);
+      } else {
+        alert('保存失败: ' + data.error);
+      }
+    } catch {
+      alert('保存失败');
+    }
+  }
+
+  // 切换标签选择
+  function toggleTag(tagValue: string) {
+    setSelectedTags(prev => 
+      prev.includes(tagValue) 
+        ? prev.filter(t => t !== tagValue)
+        : [...prev, tagValue]
+    );
+  }
+
+  // 获取标签显示
+  function getTagDisplay(tagValue: string) {
+    const tag = PREDEFINED_TAGS.find(t => t.value === tagValue);
+    return tag || { label: tagValue, color: 'bg-gray-100 text-gray-600' };
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">档案管理</h1>
-        <span className="text-gray-500">共 {profiles.length} 条</span>
+      {/* 头部 */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">档案管理</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            共 {profiles.length} 条档案，显示 {filteredProfiles.length} 条
+            {tagFilter !== 'all' && '（已筛选）'}
+          </p>
+        </div>
+        
+        {/* 标签筛选 */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">筛选:</span>
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className="px-3 py-2 border rounded-md text-sm"
+          >
+            <option value="all">全部档案</option>
+            <option value="no-tags">无标签</option>
+            <option value="deleted">🗑️ 已删除</option>
+            <option value="vip">⭐ VIP</option>
+            <option value="suspicious">⚠️ 可疑</option>
+            <option value="completed">✅ 已完成</option>
+            <option value="pending">⏳ 待处理</option>
+          </select>
+        </div>
       </div>
 
-      {profiles.length === 0 ? (
+      {loading ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-500">暂无档案数据</p>
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      ) : filteredProfiles.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <p className="text-gray-500">暂无符合条件的档案</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -30,12 +143,13 @@ export default async function ProfilesPage() {
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">ID</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">邀请码</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">标签</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">创建时间</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {profiles.map((p) => (
+              {filteredProfiles.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-mono">{p.id}</td>
                   <td className="px-4 py-3 text-sm">{p.invite_code}</td>
@@ -46,13 +160,72 @@ export default async function ProfilesPage() {
                       {p.status}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-sm">
+                    {editingTags === p.id ? (
+                      <div className="flex flex-wrap gap-1">
+                        {PREDEFINED_TAGS.map(tag => (
+                          <button
+                            key={tag.value}
+                            onClick={() => toggleTag(tag.value)}
+                            className={`px-2 py-1 rounded text-xs border ${
+                              selectedTags.includes(tag.value)
+                                ? tag.color + ' border-transparent'
+                                : 'bg-white text-gray-600 border-gray-200'
+                            }`}
+                          >
+                            {selectedTags.includes(tag.value) ? '✓ ' : ''}{tag.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {p.tags?.length > 0 ? (
+                          p.tags.map(tag => {
+                            const display = getTagDisplay(tag);
+                            return (
+                              <span key={tag} className={`px-2 py-1 rounded text-xs ${display.color}`}>
+                                {display.label}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="text-gray-400 text-xs">无标签</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {new Date(p.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <Link href={`/admin/profiles/${p.id}`} className="text-blue-600 hover:underline">
-                      查看
-                    </Link>
+                    {editingTags === p.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveTags(p.id)}
+                          className="text-green-600 hover:text-green-800 text-xs"
+                        >
+                          保存
+                        </button>
+                        <button
+                          onClick={() => setEditingTags(null)}
+                          className="text-gray-500 hover:text-gray-700 text-xs"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <Link href={`/admin/profiles/${p.id}`} className="text-blue-600 hover:underline">
+                          查看
+                        </Link>
+                        <button
+                          onClick={() => startEditTags(p)}
+                          className="text-orange-600 hover:text-orange-800"
+                        >
+                          标签
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -60,6 +233,18 @@ export default async function ProfilesPage() {
           </table>
         </div>
       )}
+
+      {/* 说明 */}
+      <div className="mt-6 bg-blue-50 rounded-lg p-4 text-sm text-gray-600">
+        <p className="font-medium mb-2">标签说明:</p>
+        <ul className="space-y-1 list-disc list-inside">
+          <li><span className="text-red-600">🗑️ 已删除</span> - 软删除标识，匹配时会自动排除</li>
+          <li><span className="text-yellow-600">⭐ VIP</span> - 重要客户标识</li>
+          <li><span className="text-orange-600">⚠️ 可疑</span> - 需要重点审核</li>
+          <li><span className="text-green-600">✅ 已完成</span> - 档案完整，可以匹配</li>
+          <li><span className="text-blue-600">⏳ 待处理</span> - 等待审核或补充信息</li>
+        </ul>
+      </div>
     </div>
   );
 }

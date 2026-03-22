@@ -195,11 +195,12 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 批量模式：获取未评价的档案
+    // 批量模式：获取未评价的档案（排除已删除标签的档案）
     const pendingRes = await sql.query(
       `SELECT * FROM profiles 
-       WHERE ai_evaluation_status IN ('pending', 'failed')
-          OR ai_evaluation IS NULL
+       WHERE (ai_evaluation_status IN ('pending', 'failed')
+          OR ai_evaluation IS NULL)
+       AND (tags IS NULL OR NOT (tags @> '["deleted"]'::jsonb))
        ORDER BY created_at ASC
        LIMIT $1`,
       [batchSize]
