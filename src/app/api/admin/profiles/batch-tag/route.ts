@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       
       await sql.query(
         'UPDATE profiles SET tags = $1::jsonb, updated_at = NOW() WHERE id = $2',
-        [newTags, profile.id]
+        [JSON.stringify(newTags), profile.id]
       );
       
       updatedCount++;
