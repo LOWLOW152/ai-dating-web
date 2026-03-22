@@ -9,10 +9,24 @@ export async function GET() {
 
     return Response.json({
       success: true,
-      profiles: result.rows.map(row => ({
-        ...row,
-        tags: row.tags || []
-      }))
+      profiles: result.rows.map(row => {
+        // 确保 tags 是数组（处理数据库可能返回字符串的情况）
+        let tags = row.tags;
+        if (typeof tags === 'string') {
+          try {
+            tags = JSON.parse(tags);
+          } catch {
+            tags = [];
+          }
+        }
+        if (!Array.isArray(tags)) {
+          tags = [];
+        }
+        return {
+          ...row,
+          tags: tags
+        };
+      })
     });
 
   } catch (error) {

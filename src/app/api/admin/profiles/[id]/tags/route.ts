@@ -25,10 +25,10 @@ export async function PATCH(
       );
     }
 
-    // 更新标签
+    // 更新标签 - 直接传入数组，pg 会自动转换为 JSONB
     await sql.query(
-      'UPDATE profiles SET tags = $1, updated_at = NOW() WHERE id = $2',
-      [JSON.stringify(tags), id]
+      'UPDATE profiles SET tags = $1::jsonb, updated_at = NOW() WHERE id = $2',
+      [tags, id]
     );
 
     return Response.json({
