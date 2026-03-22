@@ -402,7 +402,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({ code: inviteCode, project: 'beauty-score', profileId })
       });
       log('邀请码使用状态已更新');
-    } catch (e) {
+    } catch {
       log('邀请码状态更新失败（非关键错误）');
     }
 

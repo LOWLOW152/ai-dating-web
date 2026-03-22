@@ -56,7 +56,7 @@ export default function InviteCodesPage() {
         setNewCodes(data.codes);
         loadCodes(); // 刷新列表
       }
-    } catch (error) {
+    } catch {
       alert('生成失败');
     } finally {
       setGenerating(false);

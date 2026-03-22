@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     
     // 构建查询条件
     let whereClause = '';
-    const params: any[] = [];
+    const params: string[] = [];
     
     if (status === 'unused') {
       whereClause = "WHERE status = 'unused' AND (expires_at IS NULL OR expires_at > NOW())";
