@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 // 简单的 Basic Auth 验证
 function checkAuth(): boolean {
