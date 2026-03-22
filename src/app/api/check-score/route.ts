@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
+// CORS 头
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+// OPTIONS 处理预检请求
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 // GET /api/check-score?code=XXX
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (!code) {
       return NextResponse.json(
         { success: false, error: '缺少邀请码' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -26,7 +38,7 @@ export async function GET(request: NextRequest) {
     if (profileRes.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: '未找到该邀请码的档案' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -106,14 +118,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: result,
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Check score error:', error);
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json(
       { success: false, error: '服务器错误: ' + errorMsg },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

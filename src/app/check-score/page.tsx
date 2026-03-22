@@ -76,17 +76,39 @@ export default function CheckScorePage() {
     }
 
     try {
-      const res = await fetch(`/api/check-score?code=${inviteCode.trim().toUpperCase()}`);
+      console.log('开始查询，邀请码:', inviteCode.trim().toUpperCase());
+      
+      const res = await fetch(`/api/check-score?code=${inviteCode.trim().toUpperCase()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('响应状态:', res.status, res.statusText);
+      console.log('响应头:', JSON.stringify(Object.fromEntries(res.headers.entries())));
       
       if (!res.ok) {
         const errorText = await res.text();
+        console.error('HTTP错误:', res.status, errorText);
         setError(`服务器错误 (${res.status})`);
-        setErrorDetail(errorText.slice(0, 200));
+        setErrorDetail(errorText.slice(0, 500));
         setLoading(false);
         return;
       }
       
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+        console.log('响应数据:', JSON.stringify(data, null, 2));
+      } catch (parseErr) {
+        console.error('JSON解析错误:', parseErr);
+        const rawText = await res.text();
+        setError('数据解析错误');
+        setErrorDetail(`无法解析JSON:\n${rawText.slice(0, 200)}`);
+        setLoading(false);
+        return;
+      }
 
       if (data.success) {
         setResult(data.data);
