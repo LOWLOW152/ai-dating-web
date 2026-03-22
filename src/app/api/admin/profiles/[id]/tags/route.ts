@@ -39,8 +39,9 @@ export async function PATCH(
 
   } catch (error) {
     console.error('Update tags error:', error);
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
     return Response.json(
-      { success: false, error: '更新失败' },
+      { success: false, error: '更新失败: ' + errorMessage },
       { status: 500 }
     );
   }
