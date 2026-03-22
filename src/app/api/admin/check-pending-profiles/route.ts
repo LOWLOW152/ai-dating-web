@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
 // GET /api/admin/check-pending-profiles
