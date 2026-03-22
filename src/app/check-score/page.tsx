@@ -65,30 +65,40 @@ export default function CheckScorePage() {
   // 使用 XMLHttpRequest (安卓兼容性更好)
   const makeRequest = (code: string): Promise<unknown> => {
     return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      const url = `${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`;
-      
-      xhr.open('GET', url, true);
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.timeout = 15000;
-      
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            resolve(data);
-          } catch {
-            reject(new Error('JSON解析失败'));
+      try {
+        const xhr = new XMLHttpRequest();
+        // 使用相对路径，避免跨域问题
+        const url = '/api/check-score?code=' + encodeURIComponent(code);
+        
+        xhr.open('GET', url, true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.timeout = 10000; // 10秒超时
+        
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                resolve(data);
+              } catch (parseErr) {
+                reject(new Error('JSON解析失败: ' + String(parseErr)));
+              }
+            } else if (xhr.status === 0) {
+              reject(new Error('无法连接到服务器 (状态0)'));
+            } else {
+              reject(new Error('HTTP错误: ' + xhr.status));
+            }
           }
-        } else {
-          reject(new Error(`HTTP ${xhr.status}`));
-        }
-      };
-      
-      xhr.onerror = () => reject(new Error('网络请求失败'));
-      xhr.ontimeout = () => reject(new Error('请求超时'));
-      
-      xhr.send();
+        };
+        
+        xhr.onerror = () => reject(new Error('网络请求失败(onerror)'));
+        xhr.ontimeout = () => reject(new Error('请求超时'));
+        xhr.onabort = () => reject(new Error('请求被取消'));
+        
+        xhr.send();
+      } catch (setupErr) {
+        reject(new Error('XHR初始化失败: ' + String(setupErr)));
+      }
     });
   };
 
