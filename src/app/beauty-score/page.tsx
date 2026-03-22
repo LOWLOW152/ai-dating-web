@@ -85,8 +85,8 @@ export default function BeautyScoreUserPage() {
           setPollingCount(prev => prev + 1);
           
           if (data.task.status === 'completed' && data.task.result) {
-            setResult(data.task.result);
-            setLoading(false);
+            // 评分完成，跳转到查分页面
+            router.push('/check-score');
           } else if (data.task.status === 'failed') {
             setError(data.task.error || '评分失败，请重试');
             setLoading(false);
@@ -107,8 +107,8 @@ export default function BeautyScoreUserPage() {
     const timeout = setTimeout(() => {
       clearInterval(interval);
       if (!result) {
-        setError('评分超时，请刷新页面查看结果');
-        setLoading(false);
+        // 超时也跳转到查分页面
+        router.push('/check-score');
       }
     }, 60000);
 
@@ -242,6 +242,19 @@ export default function BeautyScoreUserPage() {
             <p className="text-xs text-gray-400">
               已等待 {pollingCount * 3} 秒 · 请勿关闭页面
             </p>
+            
+            {/* 查分提示 */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800 mb-2">
+                💡 评分完成后可前往查分系统查看
+              </p>
+              <button
+                onClick={() => router.push('/check-score')}
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                立即去查分 →
+              </button>
+            </div>
             
             {error && (
               <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">

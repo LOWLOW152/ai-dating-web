@@ -119,6 +119,17 @@ export default function InvitePage() {
                 </div>
               </div>
             </div>
+
+            {/* 查分入口 */}
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => router.push('/check-score')}
+                className="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center gap-1 mx-auto"
+              >
+                <span>🔍</span>
+                <span>已有邀请码？查询我的分数</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

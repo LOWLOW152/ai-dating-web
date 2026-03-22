@@ -21,7 +21,7 @@ export default function CompletePage() {
     
     setInviteCode(code);
     setProfileData(JSON.parse(data));
-  }, []);
+  }, [router]);
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -40,16 +40,16 @@ export default function CompletePage() {
       
       if (result.success) {
         setSubmitted(true);
-        localStorage.removeItem('inviteCode');
         localStorage.removeItem('profileData');
+        // 保留 inviteCode 用于查分
       } else {
         alert('提交失败：' + (result.error || '未知错误'));
+        setSubmitting(false);
       }
     } catch {
       alert('网络错误，请重试');
+      setSubmitting(false);
     }
-    
-    setSubmitting(false);
   }
 
   if (!profileData) {
@@ -63,16 +63,63 @@ export default function CompletePage() {
     );
   }
 
+  // 提交成功后的等待页面
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center px-6">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-green-500 rounded-full mx-auto mb-6 flex items-center justify-center">
-            <span className="text-4xl">✓</span>
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* 顶部 */}
+        <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
+          <h1 className="text-lg font-semibold">档案提交成功</h1>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="text-center max-w-sm">
+            {/* 动画图标 */}
+            <div className="relative w-24 h-24 mx-auto mb-6">
+              <div className="absolute inset-0 bg-purple-200 rounded-full animate-ping opacity-20"></div>
+              <div className="absolute inset-2 bg-purple-300 rounded-full animate-pulse opacity-40"></div>
+              <div className="absolute inset-4 bg-purple-500 rounded-full flex items-center justify-center">
+                <span className="text-3xl">🤖</span>
+              </div>
+            </div>
+            
+            <h2 className="text-xl font-bold text-gray-800 mb-2">等待AI评价中...</h2>            
+            <p className="text-gray-500 mb-6">
+              你的档案已提交，AI正在分析你的性格、需求和匹配标签
+            </p>
+
+            {/* 邀请码卡片 */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+              <p className="text-sm text-gray-500 mb-2">你的邀请码（查分凭证）</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl font-mono font-bold text-purple-600">{inviteCode}</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteCode);
+                    alert('已复制邀请码');
+                  }}
+                  className="text-sm text-purple-600 hover:text-purple-800"
+                >
+                  复制
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                请截图保存此页面，或记住邀请码
+              </p>
+            </div>
+
+            {/* 查分按钮 */}
+            <button
+              onClick={() => router.push('/check-score')}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 mb-3"
+            >
+              去查分系统查看
+            </button>
+
+            <p className="text-xs text-gray-400">
+              颜值打分和问卷结果都在查分系统中
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">档案已提交</h1>
-          <p className="text-gray-600 mb-8">感谢你的配合！我们会尽快为你匹配合适的对象。</p>
-          <p className="text-sm text-gray-400">档案ID: {inviteCode}</p>
         </div>
       </div>
     );
