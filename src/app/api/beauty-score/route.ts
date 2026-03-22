@@ -394,6 +394,18 @@ export async function POST(request: NextRequest) {
       [result.photoshop_level, result.beauty_type, result.beauty_score, profileId]
     );
 
+    // 标记邀请码在颜值打分项目中已使用
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://ai-dating.top'}/api/invite/mark-used`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: inviteCode, project: 'beauty-score', profileId })
+      });
+      log('邀请码使用状态已更新');
+    } catch (e) {
+      log('邀请码状态更新失败（非关键错误）');
+    }
+
     log(`打分完成: ${result.beauty_score}分`);
 
     return NextResponse.json({

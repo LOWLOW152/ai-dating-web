@@ -136,8 +136,9 @@ CREATE TABLE IF NOT EXISTS invite_codes (
   used_by TEXT REFERENCES profiles(id) ON DELETE SET NULL,
   used_at TIMESTAMP,
   expires_at TIMESTAMP,
-  max_uses INTEGER DEFAULT 1,
+  max_uses INTEGER DEFAULT 2,
   use_count INTEGER DEFAULT 0,
+  project_usages JSONB DEFAULT '{}',
   created_at TIMESTAMP DEFAULT NOW()
 );
 
