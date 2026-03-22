@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
       const beautyRes = await sql.query(
         `SELECT beauty_score, beauty_type, photoshop_level, ai_comment,
           body_shape, skin_quality, symmetry, face_age, hairline, eye_bags, teeth, nose_bridge, photoshop_deduction,
-          created_at as evaluated_at
-         FROM beauty_scores WHERE profile_id = $1 ORDER BY created_at DESC LIMIT 1`,
+          scored_at as evaluated_at
+         FROM beauty_scores WHERE profile_id = $1 ORDER BY scored_at DESC LIMIT 1`,
         [profile.id]
       );
 
