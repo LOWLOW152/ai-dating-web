@@ -60,10 +60,12 @@ export default function CheckScorePage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState('');
+  const [errorDetail, setErrorDetail] = useState('');
 
   async function handleQuery(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setErrorDetail('');
     setLoading(true);
     setResult(null);
 
@@ -75,15 +77,26 @@ export default function CheckScorePage() {
 
     try {
       const res = await fetch(`/api/check-score?code=${inviteCode.trim().toUpperCase()}`);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        setError(`服务器错误 (${res.status})`);
+        setErrorDetail(errorText.slice(0, 200));
+        setLoading(false);
+        return;
+      }
+      
       const data = await res.json();
 
       if (data.success) {
         setResult(data.data);
       } else {
         setError(data.error || '查询失败');
+        setErrorDetail(JSON.stringify(data, null, 2).slice(0, 300));
       }
-    } catch {
+    } catch (err: any) {
       setError('网络错误，请重试');
+      setErrorDetail(err?.message || '无法连接到服务器');
     } finally {
       setLoading(false);
     }
@@ -121,7 +134,16 @@ export default function CheckScorePage() {
                   />
                 </div>
 
-                {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-red-600 text-sm text-center font-medium">{error}</p>
+                    {errorDetail && (
+                      <pre className="mt-2 text-xs text-red-500 overflow-x-auto whitespace-pre-wrap break-all">
+                        {errorDetail}
+                      </pre>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"
