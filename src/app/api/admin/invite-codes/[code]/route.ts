@@ -33,7 +33,7 @@ export async function DELETE(
 }
 
 // PATCH /api/admin/invite-codes/[code]
-// Body: { expiresAt: string | null }
+// Body: { expiresAt?: string | null, notes?: string }
 export async function PATCH(
   request: Request,
   { params }: { params: { code: string } }
@@ -41,7 +41,7 @@ export async function PATCH(
   try {
     const { code } = params;
     const body = await request.json();
-    const { expiresAt } = body;
+    const { expiresAt, notes } = body;
     
     if (!code) {
       return Response.json(
@@ -50,16 +50,40 @@ export async function PATCH(
       );
     }
 
-    // 更新过期时间
+    const upperCode = code.toUpperCase();
+    const updates: string[] = [];
+    const values: (string | null)[] = [];
+    let paramIndex = 1;
+
+    if (expiresAt !== undefined) {
+      updates.push(`expires_at = $${paramIndex}`);
+      values.push(expiresAt || null);
+      paramIndex++;
+    }
+
+    if (notes !== undefined) {
+      updates.push(`notes = $${paramIndex}`);
+      values.push(notes);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return Response.json(
+        { success: false, error: '没有要更新的字段' },
+        { status: 400 }
+      );
+    }
+
+    values.push(upperCode);
+
     await sql.query(
-      'UPDATE invite_codes SET expires_at = $1 WHERE code = $2',
-      [expiresAt || null, code.toUpperCase()]
+      `UPDATE invite_codes SET ${updates.join(', ')} WHERE code = $${paramIndex}`,
+      values
     );
 
     return Response.json({
       success: true,
-      message: '过期时间已更新',
-      expiresAt: expiresAt || null
+      message: '已更新'
     });
 
   } catch (error) {

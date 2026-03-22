@@ -43,6 +43,7 @@ export async function GET(request: Request) {
           used_by,
           used_at,
           expires_at,
+          notes,
           created_at
         FROM invite_codes 
         ${whereClause}
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
           used_by,
           used_at,
           expires_at,
+          notes,
           created_at
         FROM invite_codes 
         ${whereClause}

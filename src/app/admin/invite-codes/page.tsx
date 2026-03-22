@@ -12,6 +12,7 @@ interface InviteCode {
     'questionnaire'?: { used: boolean; used_at: string; profile_id?: string };
   };
   expires_at: string | null;
+  notes: string | null;
   created_at: string;
 }
 
@@ -25,6 +26,8 @@ export default function InviteCodesPage() {
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [editDate, setEditDate] = useState<string>('');
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [editNotesValue, setEditNotesValue] = useState<string>('');
 
   // 加载邀请码列表
   async function loadCodes() {
@@ -132,13 +135,44 @@ export default function InviteCodesPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setCodes(codes.map(c => 
-          c.code === code 
+        setCodes(codes.map(c =>
+          c.code === code
             ? { ...c, expires_at: editDate || null }
             : c
         ));
         setEditingCode(null);
         alert('过期时间已更新');
+      } else {
+        alert('更新失败: ' + data.error);
+      }
+    } catch {
+      alert('更新失败');
+    }
+  }
+
+  // 开始编辑备注
+  function startEditNotes(code: string, currentNotes: string | null) {
+    setEditingNotes(code);
+    setEditNotesValue(currentNotes || '');
+  }
+
+  // 保存备注
+  async function saveNotes(code: string) {
+    try {
+      const res = await fetch(`/api/admin/invite-codes/${code}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: editNotesValue || null })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCodes(codes.map(c =>
+          c.code === code
+            ? { ...c, notes: editNotesValue || null }
+            : c
+        ));
+        setEditingNotes(null);
+        alert('备注已更新');
       } else {
         alert('更新失败: ' + data.error);
       }
@@ -233,19 +267,20 @@ export default function InviteCodesPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">AI问卷</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">使用次数</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">过期时间</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-48">操作</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">备注</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-56">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     加载中...
                   </td>
                 </tr>
               ) : codes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     暂无邀请码，点击上方按钮生成
                   </td>
                 </tr>
@@ -256,32 +291,71 @@ export default function InviteCodesPage() {
                       {invite.code}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge 
-                        status={invite.status} 
-                        useCount={invite.use_count} 
-                        maxUses={invite.max_uses} 
+                      <StatusBadge
+                        status={invite.status}
+                        useCount={invite.use_count}
+                        maxUses={invite.max_uses}
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <ProjectStatus 
-                        used={invite.project_usages?.['beauty-score']?.used} 
-                        label="颜值打分" 
+                      <ProjectStatus
+                        used={invite.project_usages?.['beauty-score']?.used}
+                        label="颜值打分"
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <ProjectStatus 
-                        used={invite.project_usages?.['questionnaire']?.used} 
-                        label="AI问卷" 
+                      <ProjectStatus
+                        used={invite.project_usages?.['questionnaire']?.used}
+                        label="AI问卷"
                       />
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {invite.use_count} / {invite.max_uses}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {invite.expires_at 
+                      {invite.expires_at
                         ? new Date(invite.expires_at).toLocaleDateString('zh-CN')
                         : '永不过期'
                       }
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
+                      {editingNotes === invite.code ? (
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="text"
+                            value={editNotesValue}
+                            onChange={(e) => setEditNotesValue(e.target.value)}
+                            placeholder="输入客户信息..."
+                            className="text-xs border rounded px-2 py-1 w-full"
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => saveNotes(invite.code)}
+                              className="text-xs text-green-600 hover:text-green-800"
+                            >
+                              保存
+                            </button>
+                            <button
+                              onClick={() => setEditingNotes(null)}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="truncate max-w-[120px]" title={invite.notes || ''}>
+                            {invite.notes || '-'}
+                          </span>
+                          <button
+                            onClick={() => startEditNotes(invite.code, invite.notes)}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            编辑
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -292,7 +366,7 @@ export default function InviteCodesPage() {
                           {copiedCode === invite.code ? '已复制!' : '复制'}
                         </button>
                         <span className="text-gray-300">|</span>
-                        
+
                         {editingCode === invite.code ? (
                           <div className="flex items-center gap-1">
                             <input
@@ -322,9 +396,9 @@ export default function InviteCodesPage() {
                             改期
                           </button>
                         )}
-                        
+
                         <span className="text-gray-300">|</span>
-                        
+
                         <button
                           onClick={() => deleteCode(invite.code)}
                           disabled={deletingCode === invite.code}
