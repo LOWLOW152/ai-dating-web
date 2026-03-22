@@ -78,7 +78,7 @@ export default function BeautyScoreUserPage() {
     const poll = () => {
       try {
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', `/api/beauty-score?taskId=${taskId}&_t=${Date.now()}`, true);
+        xhr.open('GET', `https://www.ai-dating.top/api/beauty-score?taskId=${taskId}&_t=${Date.now()}`, true);
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.timeout = 10000;
         
@@ -182,7 +182,7 @@ export default function BeautyScoreUserPage() {
       
       // 使用 XMLHttpRequest 提高安卓兼容性
       const xhr = new XMLHttpRequest();
-      const url = `/api/beauty-score?_t=${Date.now()}`;
+      const url = `https://www.ai-dating.top/api/beauty-score?_t=${Date.now()}`;
       
       xhr.open('POST', url, true);
       xhr.setRequestHeader('Content-Type', 'application/json');

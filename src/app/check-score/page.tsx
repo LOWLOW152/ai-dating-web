@@ -67,8 +67,8 @@ export default function CheckScorePage() {
     return new Promise((resolve, reject) => {
       try {
         const xhr = new XMLHttpRequest();
-        // 使用时间戳防止缓存
-        const url = '/api/check-score?code=' + encodeURIComponent(code) + '&_t=' + Date.now();
+        // 使用完整URL避免308重定向问题
+        const url = 'https://www.ai-dating.top/api/check-score?code=' + encodeURIComponent(code) + '&_t=' + Date.now();
         
         xhr.open('GET', url, true);
         xhr.setRequestHeader('Accept', 'application/json');
