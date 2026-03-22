@@ -17,6 +17,7 @@ const PREDEFINED_TAGS = [
   { value: 'suspicious', label: '⚠️ 可疑', color: 'bg-orange-100 text-orange-700' },
   { value: 'completed', label: '✅ 已完成', color: 'bg-green-100 text-green-700' },
   { value: 'pending', label: '⏳ 待处理', color: 'bg-blue-100 text-blue-700' },
+  { value: '测试', label: '🧪 测试', color: 'bg-purple-100 text-purple-700' },
 ];
 
 export default function ProfilesPage() {
@@ -154,6 +155,7 @@ export default function ProfilesPage() {
             <option value="suspicious">⚠️ 可疑</option>
             <option value="completed">✅ 已完成</option>
             <option value="pending">⏳ 待处理</option>
+            <option value="测试">🧪 测试</option>
           </select>
         </div>
       </div>
@@ -274,6 +276,7 @@ export default function ProfilesPage() {
           <li><span className="text-orange-600">⚠️ 可疑</span> - 需要重点审核</li>
           <li><span className="text-green-600">✅ 已完成</span> - 档案完整，可以匹配</li>
           <li><span className="text-blue-600">⏳ 待处理</span> - 等待审核或补充信息</li>
+          <li><span className="text-purple-600">🧪 测试</span> - 测试数据标识</li>
         </ul>
       </div>
     </div>
