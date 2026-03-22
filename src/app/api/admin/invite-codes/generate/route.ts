@@ -35,15 +35,25 @@ export async function POST(request: Request) {
       }
       
       if (isUnique) {
-        // 插入数据库
+        // 插入数据库 - 兼容旧表结构
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + expiresInDays);
         
-        await sql.query(
-          `INSERT INTO invite_codes (code, max_uses, expires_at, project_usages) 
-           VALUES ($1, $2, $3, $4)`,
-          [code, maxUses, expiresAt.toISOString(), JSON.stringify({})]
-        );
+        try {
+          // 先尝试带 project_usages 的插入
+          await sql.query(
+            `INSERT INTO invite_codes (code, max_uses, expires_at, project_usages) 
+             VALUES ($1, $2, $3, $4)`,
+            [code, maxUses, expiresAt.toISOString(), JSON.stringify({})]
+          );
+        } catch {
+          // 如果失败，使用旧表结构插入
+          await sql.query(
+            `INSERT INTO invite_codes (code, max_uses, expires_at) 
+             VALUES ($1, $2, $3)`,
+            [code, maxUses, expiresAt.toISOString()]
+          );
+        }
         
         codes.push(code);
       }
