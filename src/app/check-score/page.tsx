@@ -77,100 +77,48 @@ export default function CheckScorePage() {
 
     const code = inviteCode.trim().toUpperCase();
     
-    // 方法1: 使用 XMLHttpRequest (兼容性更好)
-    const useXHR = (): Promise<any> => {
+    // 使用 XMLHttpRequest (安卓兼容性更好)
+    const useXHR = (): Promise<unknown> => {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const url = `${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`;
         
         xhr.open('GET', url, true);
         xhr.setRequestHeader('Accept', 'application/json');
-        xhr.timeout = 15000; // 15秒超时
+        xhr.timeout = 15000;
         
         xhr.onload = () => {
-          console.log('XHR 状态:', xhr.status);
-          console.log('XHR 响应:', xhr.responseText.slice(0, 200));
-          
           if (xhr.status === 200) {
             try {
               const data = JSON.parse(xhr.responseText);
               resolve(data);
             } catch (e) {
-              reject(new Error('JSON解析失败: ' + xhr.responseText.slice(0, 100)));
+              reject(new Error('JSON解析失败'));
             }
           } else {
-            reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+            reject(new Error(`HTTP ${xhr.status}`));
           }
         };
         
-        xhr.onerror = () => reject(new Error('XHR 网络请求失败'));
+        xhr.onerror = () => reject(new Error('网络请求失败'));
         xhr.ontimeout = () => reject(new Error('请求超时'));
-        xhr.onabort = () => reject(new Error('请求被取消'));
         
         xhr.send();
       });
     };
 
-    // 方法2: 使用 fetch
-    const useFetch = async (): Promise<any> => {
-      const res = await fetch(`${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-      
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-      
-      return res.json();
-    };
-
     try {
-      let data;
-      
-      // 优先尝试 fetch，如果失败再用 XHR
-      try {
-        console.log('尝试使用 fetch...');
-        data = await useFetch();
-        console.log('fetch 成功');
-      } catch (fetchErr) {
-        const fetchError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
-        console.log('fetch 失败，尝试 XHR:', fetchError.message);
-        setErrorDetail(`fetch失败: ${fetchError.message}，尝试备用方式...`);
-        data = await useXHR();
-        console.log('XHR 成功');
-      }
+      const data = await useXHR() as { success: boolean; data?: QueryResult; error?: string };
 
-      if (data.success) {
+      if (data.success && data.data) {
         setResult(data.data);
       } else {
         setError(data.error || '查询失败');
-        setErrorDetail(JSON.stringify(data, null, 2).slice(0, 300));
       }
     } catch (err) {
-      const errorObj = err instanceof Error ? err : new Error(String(err));
-      console.error('所有请求方式都失败:', errorObj);
+      const msg = err instanceof Error ? err.message : '未知错误';
       setError('网络错误，请重试');
-      setErrorDetail(`错误类型: ${errorObj.name}\n错误消息: ${errorObj.message}\n堆栈: ${(errorObj.stack || '').slice(0, 200)}`);
-    } finally {
-      setLoading(false);
-    }
-  }
-      console.error('Fetch error:', err);
-      setError('网络错误，请重试');
-      let detail = '未知错误';
-      if (err instanceof Error) {
-        detail = `类型: ${err.name}\n消息: ${err.message}`;
-      } else if (typeof err === 'string') {
-        detail = err;
-      } else {
-        try {
-          detail = JSON.stringify(err);
-        } catch {
-          detail = String(err);
-        }
-      }
-      setErrorDetail(detail);
+      setErrorDetail(msg);
     } finally {
       setLoading(false);
     }
@@ -178,7 +126,6 @@ export default function CheckScorePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* 顶部 */}
       <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
         <h1 className="text-lg font-semibold">查分系统</h1>
       </div>
@@ -212,9 +159,7 @@ export default function CheckScorePage() {
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <p className="text-red-600 text-sm text-center font-medium">{error}</p>
                     {errorDetail && (
-                      <pre className="mt-2 text-xs text-red-500 overflow-x-auto whitespace-pre-wrap break-all">
-                        {errorDetail}
-                      </pre>
+                      <p className="mt-2 text-xs text-red-500 text-center">{errorDetail}</p>
                     )}
                   </div>
                 )}
@@ -239,7 +184,6 @@ export default function CheckScorePage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* 返回按钮 */}
               <button
                 onClick={() => setResult(null)}
                 className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
@@ -247,7 +191,6 @@ export default function CheckScorePage() {
                 ← 重新查询
               </button>
 
-              {/* 档案ID */}
               <div className="bg-white rounded-xl shadow p-4">
                 <div className="flex justify-between items-center">
                   <div>
@@ -261,33 +204,6 @@ export default function CheckScorePage() {
                 </div>
               </div>
 
-              {/* AI评价状态 */}
-              {result.aiEvaluation && result.aiEvaluation.status !== 'not_started' && (
-                <div className="bg-white rounded-xl shadow p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">AI评价状态</h3>
-                  <div className="flex items-center gap-3">
-                    {result.aiEvaluation.status === 'completed' ? (
-                      <>
-                        <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                        <span className="text-green-600 font-medium">已完成</span>
-                        <span className="text-xs text-gray-500">管理员可查看详细评价</span>
-                      </>
-                    ) : result.aiEvaluation.status === 'processing' ? (
-                      <>
-                        <span className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></span>
-                        <span className="text-yellow-600 font-medium">评价中...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="w-3 h-3 bg-gray-400 rounded-full"></span>
-                        <span className="text-gray-600">等待评价</span>
-                      </>
-                    )}
-                  </div>                
-                </div>
-              )}
-
-              {/* 颜值打分结果 */}
               {result.beautyScore ? (
                 <div className="bg-white rounded-xl shadow p-6">
                   <div className="text-center mb-4">
@@ -334,7 +250,6 @@ export default function CheckScorePage() {
                 </div>
               )}
 
-              {/* 问卷档案 */}
               {result.questionnaire ? (
                 <div className="bg-white rounded-xl shadow p-6">
                   <div className="text-center mb-4">
@@ -359,18 +274,6 @@ export default function CheckScorePage() {
                       </div>
                     )}
                   </div>
-
-                  {!result.questionnaire.completed_at && (
-                    <button
-                      onClick={() => {
-                        localStorage.setItem('inviteCode', result.profile.invite_code);
-                        router.push('/chat');
-                      }}
-                      className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700"
-                    >
-                      继续答题
-                    </button>
-                  )}
                 </div>
               ) : (
                 <div className="bg-white rounded-xl shadow p-6 text-center">
@@ -379,19 +282,9 @@ export default function CheckScorePage() {
                   </div>
                   <h3 className="text-gray-800 font-medium mb-1">问卷档案</h3>
                   <p className="text-sm text-gray-500">暂无答题记录</p>
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('inviteCode', result.profile.invite_code);
-                      router.push('/chat');
-                    }}
-                    className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700"
-                  >
-                    开始答题
-                  </button>
                 </div>
               )}
 
-              {/* 提示信息 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
                   💡 请截图保存此页面，或记住您的邀请码 <span className="font-mono font-bold">{result.profile.invite_code}</span>
