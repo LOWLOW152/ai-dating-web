@@ -81,19 +81,37 @@ export default function CheckScorePage() {
                 const data = JSON.parse(xhr.responseText);
                 resolve(data);
               } catch (parseErr) {
-                reject(new Error('JSON解析失败: ' + String(parseErr)));
+                reject(new Error('JSON解析失败: ' + String(parseErr) + '\n原始响应: ' + xhr.responseText.slice(0, 100)));
               }
             } else if (xhr.status === 0) {
-              reject(new Error('无法连接到服务器 (状态0)'));
+              reject(new Error('无法连接到服务器 (状态0)\n可能原因:\n1. 网络断开\n2. 浏览器拦截了请求\n3. HTTPS证书问题\n4. 跨域被阻止'));
+            } else if (xhr.status === 404) {
+              reject(new Error('接口不存在 (404)\n可能原因: API路径错误或部署问题'));
+            } else if (xhr.status === 500) {
+              reject(new Error('服务器内部错误 (500)\n请稍后重试'));
+            } else if (xhr.status === 502) {
+              reject(new Error('网关错误 (502)\n服务器暂时不可用，请稍后重试'));
+            } else if (xhr.status === 503) {
+              reject(new Error('服务不可用 (503)\n服务器过载或维护中'));
             } else {
-              reject(new Error('HTTP错误: ' + xhr.status));
+              reject(new Error('HTTP错误: ' + xhr.status + ' ' + xhr.statusText));
             }
           }
         };
         
-        xhr.onerror = () => reject(new Error('网络请求失败(onerror)'));
-        xhr.ontimeout = () => reject(new Error('请求超时'));
-        xhr.onabort = () => reject(new Error('请求被取消'));
+        xhr.onerror = () => {
+          const errorInfo = {
+            readyState: xhr.readyState,
+            status: xhr.status,
+            statusText: xhr.statusText,
+            url: url,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+          };
+          reject(new Error('网络请求失败\n调试信息: ' + JSON.stringify(errorInfo, null, 2) + 
+            '\n常见原因:\n1. CORS跨域被阻止\n2. HTTPS证书不受信任\n3. 企业网络/防火墙拦截\n4. 微信内置浏览器限制'));
+        };
+        xhr.ontimeout = () => reject(new Error('请求超时 (10秒)\n网络连接较慢或服务器响应慢'));
+        xhr.onabort = () => reject(new Error('请求被用户取消'));
         
         xhr.send();
       } catch (setupErr) {

@@ -195,26 +195,47 @@ export default function BeautyScoreUserPage() {
             if (data.success && data.taskId) {
               setTaskId(data.taskId);
             } else {
-              setError(data.error || '创建评分任务失败');
+              setError(data.error || '创建评分任务失败\n可能原因: 邀请码无效或已使用');
               setLoading(false);
             }
-          } catch {
-            setError('解析响应失败');
+          } catch (parseErr) {
+            setError('解析响应失败\n调试信息: ' + String(parseErr) + '\n原始响应: ' + xhr.responseText.slice(0, 100));
             setLoading(false);
           }
+        } else if (xhr.status === 0) {
+          setError('无法连接到服务器 (状态0)\n可能原因:\n1. 网络断开\n2. 浏览器拦截了请求\n3. HTTPS证书问题\n4. 微信内置浏览器限制\n\n建议:\n- 换Chrome浏览器试试\n- 切换到4G/5G网络\n- 关闭夸克的"智能省流"');
+          setLoading(false);
+        } else if (xhr.status === 413) {
+          setError('图片太大 (413)\n请压缩图片后再试');
+          setLoading(false);
+        } else if (xhr.status === 429) {
+          setError('请求太频繁 (429)\n请稍后再试');
+          setLoading(false);
+        } else if (xhr.status === 500) {
+          setError('服务器内部错误 (500)\nAI服务暂时不可用，请稍后重试');
+          setLoading(false);
         } else {
-          setError(`服务器错误: ${xhr.status}`);
+          setError(`服务器错误: ${xhr.status} ${xhr.statusText}\n请稍后重试或联系管理员`);
           setLoading(false);
         }
       };
       
       xhr.onerror = () => {
-        setError('网络请求失败，请检查网络或换浏览器试试');
+        const errorInfo = {
+          readyState: xhr.readyState,
+          status: xhr.status,
+          statusText: xhr.statusText,
+          url: url,
+          photoSize: photo.size,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+        };
+        setError('网络请求失败\n调试信息: ' + JSON.stringify(errorInfo, null, 2) + 
+          '\n\n常见原因:\n1. 微信内置浏览器限制POST请求\n2. CORS跨域被阻止\n3. HTTPS证书不受信任\n4. 企业网络/防火墙拦截\n\n建议:\n- 用Chrome浏览器打开\n- 关闭WiFi用4G试试\n- 复制链接到浏览器打开');
         setLoading(false);
       };
       
       xhr.ontimeout = () => {
-        setError('请求超时，请重试');
+        setError('请求超时 (30秒)\n网络连接较慢，请检查网络后重试');
         setLoading(false);
       };
       
