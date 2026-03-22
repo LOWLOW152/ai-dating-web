@@ -132,6 +132,14 @@ export async function POST(request: NextRequest) {
       
       const profile = profileRes.rows[0];
       
+      // 检查是否有答题数据
+      if (!profile.answers || typeof profile.answers !== 'object' || Object.keys(profile.answers).length === 0) {
+        return NextResponse.json(
+          { success: false, error: '该档案未完成答题，无法评价' },
+          { status: 400 }
+        );
+      }
+      
       // 更新为处理中
       await sql.query(
         'UPDATE profiles SET ai_evaluation_status = $1 WHERE id = $2',
@@ -195,12 +203,13 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 批量模式：获取未评价的档案（排除已删除标签的档案）
+    // 批量模式：获取未评价的档案（排除已删除标签，且必须有答题数据）
     const pendingRes = await sql.query(
       `SELECT * FROM profiles 
        WHERE (ai_evaluation_status IN ('pending', 'failed')
           OR ai_evaluation IS NULL)
        AND (tags IS NULL OR NOT (tags @> '["deleted"]'::jsonb))
+       AND (answers IS NOT NULL AND jsonb_typeof(answers) = 'object' AND answers != '{}'::jsonb)
        ORDER BY created_at ASC
        LIMIT $1`,
       [batchSize]
