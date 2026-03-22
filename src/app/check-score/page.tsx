@@ -75,54 +75,70 @@ export default function CheckScorePage() {
       return;
     }
 
-    try {
-      console.log('开始查询，邀请码:', inviteCode.trim().toUpperCase());
-      
-      // 使用完整的URL避免路径问题
-      const apiUrl = `${window.location.origin}/api/check-score?code=${encodeURIComponent(inviteCode.trim().toUpperCase())}`;
-      console.log('API URL:', apiUrl);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-      
-      const res = await fetch(apiUrl, {
+    const code = inviteCode.trim().toUpperCase();
+    
+    // 方法1: 使用 XMLHttpRequest (兼容性更好)
+    const useXHR = (): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const url = `${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`;
+        
+        xhr.open('GET', url, true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.timeout = 15000; // 15秒超时
+        
+        xhr.onload = () => {
+          console.log('XHR 状态:', xhr.status);
+          console.log('XHR 响应:', xhr.responseText.slice(0, 200));
+          
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch (e) {
+              reject(new Error('JSON解析失败: ' + xhr.responseText.slice(0, 100)));
+            }
+          } else {
+            reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('XHR 网络请求失败'));
+        xhr.ontimeout = () => reject(new Error('请求超时'));
+        xhr.onabort = () => reject(new Error('请求被取消'));
+        
+        xhr.send();
+      });
+    };
+
+    // 方法2: 使用 fetch
+    const useFetch = async (): Promise<any> => {
+      const res = await fetch(`${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-        // 确保发送cookie（如果有的话）
-        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
       });
       
-      clearTimeout(timeoutId);
-      
-      console.log('响应状态:', res.status, res.statusText);
-      console.log('响应类型:', res.type);
-      
-      // 先读取文本再解析JSON，避免某些浏览器的兼容问题
-      const responseText = await res.text();
-      console.log('原始响应:', responseText.slice(0, 500));
-      
       if (!res.ok) {
-        console.error('HTTP错误:', res.status, responseText);
-        setError(`服务器错误 (${res.status})`);
-        setErrorDetail(responseText.slice(0, 500));
-        setLoading(false);
-        return;
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
       
+      return res.json();
+    };
+
+    try {
       let data;
+      
+      // 优先尝试 fetch，如果失败再用 XHR
       try {
-        data = JSON.parse(responseText);
-        console.log('解析后的数据:', JSON.stringify(data, null, 2));
-      } catch (parseErr) {
-        console.error('JSON解析错误:', parseErr);
-        setError('数据解析错误');
-        setErrorDetail(`无法解析JSON:\n${responseText.slice(0, 200)}`);
-        setLoading(false);
-        return;
+        console.log('尝试使用 fetch...');
+        data = await useFetch();
+        console.log('fetch 成功');
+      } catch (fetchErr) {
+        const fetchError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
+        console.log('fetch 失败，尝试 XHR:', fetchError.message);
+        setErrorDetail(`fetch失败: ${fetchError.message}，尝试备用方式...`);
+        data = await useXHR();
+        console.log('XHR 成功');
       }
 
       if (data.success) {
@@ -132,6 +148,14 @@ export default function CheckScorePage() {
         setErrorDetail(JSON.stringify(data, null, 2).slice(0, 300));
       }
     } catch (err) {
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      console.error('所有请求方式都失败:', errorObj);
+      setError('网络错误，请重试');
+      setErrorDetail(`错误类型: ${errorObj.name}\n错误消息: ${errorObj.message}\n堆栈: ${(errorObj.stack || '').slice(0, 200)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
       console.error('Fetch error:', err);
       setError('网络错误，请重试');
       let detail = '未知错误';
