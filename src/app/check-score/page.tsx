@@ -78,34 +78,49 @@ export default function CheckScorePage() {
     try {
       console.log('开始查询，邀请码:', inviteCode.trim().toUpperCase());
       
-      const res = await fetch(`/api/check-score?code=${inviteCode.trim().toUpperCase()}`, {
+      // 使用完整的URL避免路径问题
+      const apiUrl = `${window.location.origin}/api/check-score?code=${encodeURIComponent(inviteCode.trim().toUpperCase())}`;
+      console.log('API URL:', apiUrl);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+      
+      const res = await fetch(apiUrl, {
         method: 'GET',
         headers: {
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
+        // 确保发送cookie（如果有的话）
+        credentials: 'same-origin',
       });
       
+      clearTimeout(timeoutId);
+      
       console.log('响应状态:', res.status, res.statusText);
-      console.log('响应头:', JSON.stringify(Object.fromEntries(res.headers.entries())));
+      console.log('响应类型:', res.type);
+      
+      // 先读取文本再解析JSON，避免某些浏览器的兼容问题
+      const responseText = await res.text();
+      console.log('原始响应:', responseText.slice(0, 500));
       
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('HTTP错误:', res.status, errorText);
+        console.error('HTTP错误:', res.status, responseText);
         setError(`服务器错误 (${res.status})`);
-        setErrorDetail(errorText.slice(0, 500));
+        setErrorDetail(responseText.slice(0, 500));
         setLoading(false);
         return;
       }
       
       let data;
       try {
-        data = await res.json();
-        console.log('响应数据:', JSON.stringify(data, null, 2));
+        data = JSON.parse(responseText);
+        console.log('解析后的数据:', JSON.stringify(data, null, 2));
       } catch (parseErr) {
         console.error('JSON解析错误:', parseErr);
-        const rawText = await res.text();
         setError('数据解析错误');
-        setErrorDetail(`无法解析JSON:\n${rawText.slice(0, 200)}`);
+        setErrorDetail(`无法解析JSON:\n${responseText.slice(0, 200)}`);
         setLoading(false);
         return;
       }
