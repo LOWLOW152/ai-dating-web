@@ -22,7 +22,7 @@ interface Question {
 export default function ChatPage() {
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  // mounted 状态已移除（语音功能禁用）
   
   // 数据
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -39,7 +39,7 @@ export default function ChatPage() {
   const requestLock = useRef(false); // 请求锁，防止重复发送
 
   useEffect(() => {
-    setMounted(true);
+    // mounted 状态已移除
     const code = localStorage.getItem('inviteCode');
     if (!code) {
       router.push('/');
