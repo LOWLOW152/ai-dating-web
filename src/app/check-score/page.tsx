@@ -95,8 +95,21 @@ export default function CheckScorePage() {
         setErrorDetail(JSON.stringify(data, null, 2).slice(0, 300));
       }
     } catch (err) {
+      console.error('Fetch error:', err);
       setError('网络错误，请重试');
-      setErrorDetail(err instanceof Error ? err.message : '无法连接到服务器');
+      let detail = '未知错误';
+      if (err instanceof Error) {
+        detail = `类型: ${err.name}\n消息: ${err.message}`;
+      } else if (typeof err === 'string') {
+        detail = err;
+      } else {
+        try {
+          detail = JSON.stringify(err);
+        } catch {
+          detail = String(err);
+        }
+      }
+      setErrorDetail(detail);
     } finally {
       setLoading(false);
     }
