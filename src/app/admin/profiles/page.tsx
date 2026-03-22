@@ -81,9 +81,8 @@ export default function ProfilesPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setProfiles(profiles.map(p => 
-          p.id === profileId ? { ...p, tags: selectedTags } : p
-        ));
+        // 重新加载档案列表确保数据同步
+        await loadProfiles();
         setEditingTags(null);
       } else {
         alert('保存失败: ' + data.error);
