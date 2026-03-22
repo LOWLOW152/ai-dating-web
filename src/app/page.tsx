@@ -120,16 +120,24 @@ export default function InvitePage() {
               </div>
             </div>
 
-            {/* 查分入口 */}
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => router.push('/check-score')}
-                className="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center gap-1 mx-auto"
-              >
-                <span>🔍</span>
-                <span>已有邀请码？查询我的分数</span>
-              </button>
-            </div>
+            <p className="text-xs text-gray-400 text-center mt-6 mb-4">
+              或者
+            </p>
+
+            {/* 查分入口 - 大按钮样式 */}
+            <button
+              onClick={() => router.push('/check-score')}
+              className="w-full bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100 flex items-center gap-4"
+            >
+              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🔍</span>
+              </div>
+              <div className="text-left flex-1">
+                <h3 className="font-semibold text-gray-800">查询我的分数</h3>
+                <p className="text-sm text-gray-500">输入邀请码查看颜值打分和问卷档案</p>
+              </div>
+              <span className="text-gray-300">→</span>
+            </button>
           </div>
         </div>
       </div>
