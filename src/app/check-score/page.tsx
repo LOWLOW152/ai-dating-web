@@ -94,9 +94,9 @@ export default function CheckScorePage() {
         setError(data.error || '查询失败');
         setErrorDetail(JSON.stringify(data, null, 2).slice(0, 300));
       }
-    } catch (err: any) {
+    } catch (err) {
       setError('网络错误，请重试');
-      setErrorDetail(err?.message || '无法连接到服务器');
+      setErrorDetail(err instanceof Error ? err.message : '无法连接到服务器');
     } finally {
       setLoading(false);
     }
