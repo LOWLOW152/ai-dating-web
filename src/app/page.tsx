@@ -106,6 +106,19 @@ export default function InvitePage() {
             <p className="text-xs text-gray-400 text-center mt-8">
               同一个邀请码可以用于两个功能
             </p>
+
+            {/* AI匹配开发中提示 */}
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <span className="text-blue-500 mt-0.5">🤖</span>
+                <div>
+                  <p className="text-sm text-blue-800 font-medium">AI 匹配正在开发中</p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    请找管理员帮你手动 AI 匹配
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
