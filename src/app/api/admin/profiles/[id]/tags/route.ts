@@ -25,10 +25,10 @@ export async function PATCH(
       );
     }
 
-    // 更新标签 - pg 会自动处理 JSON 格式
+    // 更新标签 - 使用 to_jsonb 确保正确格式
     await sql.query(
-      'UPDATE profiles SET tags = $1, updated_at = NOW() WHERE id = $2',
-      [JSON.stringify(tags), id]
+      'UPDATE profiles SET tags = to_jsonb($1::text[]), updated_at = NOW() WHERE id = $2',
+      [tags, id]
     );
 
     return Response.json({

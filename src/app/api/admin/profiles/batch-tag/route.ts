@@ -36,8 +36,8 @@ export async function POST(request: Request) {
       const newTags = [...currentTags, tag];
       
       await sql.query(
-        'UPDATE profiles SET tags = $1, updated_at = NOW() WHERE id = $2',
-        [JSON.stringify(newTags), profile.id]
+        'UPDATE profiles SET tags = to_jsonb($1::text[]), updated_at = NOW() WHERE id = $2',
+        [newTags, profile.id]
       );
       
       updatedCount++;
