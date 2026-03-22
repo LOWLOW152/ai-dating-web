@@ -224,6 +224,29 @@ export async function POST(request: NextRequest) {
     log(`邀请码: ${inviteCode}`);
     log(`照片数据长度: ${photoBase64?.length || 0}`);
 
+    // 检查邀请码是否已使用过颜值打分
+    const inviteCheckRes = await sql.query(
+      `SELECT project_usages->'beauty-score' as beauty_score_used, use_count 
+       FROM invite_codes WHERE code = $1`,
+      [inviteCode.toUpperCase()]
+    );
+    
+    if (inviteCheckRes.rows.length > 0) {
+      const beautyScoreUsed = inviteCheckRes.rows[0]?.beauty_score_used?.used === true;
+      // 兼容旧数据：如果没有 project_usages，用 use_count 判断
+      const useCount = inviteCheckRes.rows[0]?.use_count || 0;
+      const hasProjectUsages = inviteCheckRes.rows[0]?.beauty_score_used !== null;
+      const alreadyUsed = hasProjectUsages ? beautyScoreUsed : (useCount >= 1);
+      
+      if (alreadyUsed) {
+        log('错误: 邀请码已使用过颜值打分');
+        return NextResponse.json(
+          { success: false, error: '该邀请码已经完成过颜值打分，不能重复评分', debug: debugLogs },
+          { status: 403 }
+        );
+      }
+    }
+
     // 查找或创建档案
     const profileRes = await sql.query(
       'SELECT id FROM profiles WHERE invite_code = $1',
