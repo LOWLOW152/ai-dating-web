@@ -25,9 +25,9 @@ export async function PATCH(
       );
     }
 
-    // 更新标签 - 使用 JSON.stringify 确保正确格式
+    // 更新标签 - pg 会自动处理 JSON 格式
     await sql.query(
-      'UPDATE profiles SET tags = $1::jsonb, updated_at = NOW() WHERE id = $2',
+      'UPDATE profiles SET tags = $1, updated_at = NOW() WHERE id = $2',
       [JSON.stringify(tags), id]
     );
 
