@@ -18,10 +18,15 @@ export async function POST(request: Request) {
     const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
     const profileId = `${today}-${upperCode}`;
 
-    // 保存档案
+    // 保存档案（使用 UPSERT：存在则更新，不存在则插入）
     await sql.query(
-      `INSERT INTO profiles (id, invite_code, answers, status, created_at, updated_at)
-       VALUES ($1, $2, $3, 'pending', NOW(), NOW())`,
+      `INSERT INTO profiles (id, invite_code, answers, status, created_at, updated_at, completed_at)
+       VALUES ($1, $2, $3, 'completed', NOW(), NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         answers = EXCLUDED.answers,
+         status = 'completed',
+         updated_at = NOW(),
+         completed_at = NOW()`,
       [profileId, upperCode, JSON.stringify(data)]
     );
 
