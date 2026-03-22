@@ -62,6 +62,36 @@ export default function CheckScorePage() {
   const [error, setError] = useState('');
   const [errorDetail, setErrorDetail] = useState('');
 
+  // 使用 XMLHttpRequest (安卓兼容性更好)
+  const makeRequest = (code: string): Promise<unknown> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const url = `${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`;
+      
+      xhr.open('GET', url, true);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.timeout = 15000;
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve(data);
+          } catch {
+            reject(new Error('JSON解析失败'));
+          }
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
+      
+      xhr.onerror = () => reject(new Error('网络请求失败'));
+      xhr.ontimeout = () => reject(new Error('请求超时'));
+      
+      xhr.send();
+    });
+  };
+
   async function handleQuery(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -76,39 +106,9 @@ export default function CheckScorePage() {
     }
 
     const code = inviteCode.trim().toUpperCase();
-    
-    // 使用 XMLHttpRequest (安卓兼容性更好)
-    const useXHR = (): Promise<unknown> => {
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const url = `${window.location.origin}/api/check-score?code=${encodeURIComponent(code)}`;
-        
-        xhr.open('GET', url, true);
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.timeout = 15000;
-        
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              resolve(data);
-            } catch (e) {
-              reject(new Error('JSON解析失败'));
-            }
-          } else {
-            reject(new Error(`HTTP ${xhr.status}`));
-          }
-        };
-        
-        xhr.onerror = () => reject(new Error('网络请求失败'));
-        xhr.ontimeout = () => reject(new Error('请求超时'));
-        
-        xhr.send();
-      });
-    };
 
     try {
-      const data = await useXHR() as { success: boolean; data?: QueryResult; error?: string };
+      const data = await makeRequest(code) as { success: boolean; data?: QueryResult; error?: string };
 
       if (data.success && data.data) {
         setResult(data.data);
