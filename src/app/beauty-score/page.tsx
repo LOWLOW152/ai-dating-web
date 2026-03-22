@@ -325,8 +325,6 @@ export default function BeautyScoreUserPage() {
               >
                 使用新邀请码
               </button>
-                返回首页
-              </button>
             </div>
           ) : (
             <div>
