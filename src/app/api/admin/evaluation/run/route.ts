@@ -8,31 +8,70 @@ interface Profile {
   ai_summary: Record<string, unknown> | null;
 }
 
-// AI评价提示词模板
+// AI评价提示词模板 - 输出结构化标签
 const EVALUATION_PROMPT = `你是狗蛋，一个专业的相亲档案分析师。
 
 【任务】
-分析用户的相亲档案，生成一份结构化评价报告，用于后续的匹配推荐。
+分析用户的相亲档案，生成结构化标签和匹配报告。
 
-【分析维度】
-1. 性格画像（3-5个关键词）
-2. 情感需求等级（高/中/低）
-3. 相处模式偏好（主动型/被动型/平衡型）
-4. 匹配建议标签（给潜在匹配对象看的标签）
-5. 可能适合的伴侣类型（2-3种）
-6. 红旗预警（如果有明显问题）
+【标签提取规则】
+必须从以下19个维度提取标签，每个维度必须选一个值（选最接近的，不要编造）：
+
+基础条件（从答案中直接提取或推断）：
+1. 年龄段: 22岁以下 / 22-25岁 / 26-30岁 / 31-35岁 / 35岁以上 / 未提及
+2. 地区: 一线城市(北上广深) / 新一线(杭蓉渝等) / 二线城市 / 三线及以下 / 海外 / 未提及
+3. 同城偏好: 必须同城 / 同城+周边可接受 / 省内可接受 / 全国可接受 / 未提及
+4. 学历: 高中及以下 / 专科 / 本科 / 硕士 / 博士 / 未提及
+5. 职业稳定性: 体制内(公务员/事业编/国企) / 大厂/上市公司 / 中小公司 / 创业/自由职业 / 未提及
+
+生活方式（从生活习惯题推断）：
+6. 消费观: 节俭存钱型 / 量入为出型 / 适度享受型 / 品质优先型 / 未提及
+7. 作息类型: 早睡早起(7点前起) / 正常作息(8-9点起) / 弹性作息 / 夜猫子(12点后睡) / 未提及
+8. 周末偏好: 居家休息型 / 外出社交型 / 平衡型 / 户外/运动型 / 未提及
+9. 兴趣爱好大类: 文艺类(书/影/音/展) / 运动健身类 / 游戏/动漫类 / 户外/旅行类 / 未提及
+
+情感模式（从情感题深度分析）：
+10. 依恋类型: 安全型 / 焦虑型(需要频繁确认) / 回避型(需要独处空间) / 恐惧型(既渴望又害怕) / 未明确
+11. 情感需求等级: 高(需要大量陪伴) / 中高 / 中等 / 较低 / 未提及
+12. 冲突处理风格: 直接沟通型 / 冷静后沟通型 / 回避退让型 / 需要调解型 / 未提及
+13. 关系主动性: 主动追求型 / 互动回应型 / 被动慢热型 / 佛系随缘型 / 未提及
+
+价值观（从价值观题判断）：
+14. 婚育时间观: 1年内结婚 / 2-3年结婚 / 3-5年结婚 / 看感情发展 / 未提及
+15. 家庭角色观: 传统分工(男主外女主内) / 平等分担 / 灵活协商 / 以事业为重 / 未提及
+16. 经济共享观: 完全共同 / 部分共同+各自支配 / 完全各自独立 / 一方主导 / 未提及
+
+AI综合判断：
+17. 性格关键词: 提取3-5个核心性格特征词
+18. 匹配优势: 这个人最吸引人的2-3个点
+19. 匹配风险: 可能影响关系的1-2个红旗（没有就写"无明显风险"）
 
 【输出格式】
 必须用JSON格式返回，不要有任何其他文字：
 
 {
-  "personality": ["关键词1", "关键词2", ...],
-  "emotional_needs": "高/中/低",
-  "interaction_style": "主动型/被动型/平衡型",
-  "match_tags": ["标签1", "标签2", ...],
-  "suitable_types": ["类型1", "类型2", ...],
-  "red_flags": ["如果有问题写这里，没有就空数组"],
-  "summary": "50字以内的整体评价"
+  "tags": {
+    "基础条件_年龄段": "具体值",
+    "基础条件_地区": "具体值",
+    "基础条件_同城偏好": "具体值",
+    "基础条件_学历": "具体值",
+    "基础条件_职业稳定性": "具体值",
+    "生活方式_消费观": "具体值",
+    "生活方式_作息类型": "具体值",
+    "生活方式_周末偏好": "具体值",
+    "生活方式_兴趣爱好大类": "具体值",
+    "情感模式_依恋类型": "具体值",
+    "情感模式_情感需求等级": "具体值",
+    "情感模式_冲突处理风格": "具体值",
+    "情感模式_关系主动性": "具体值",
+    "价值观_婚育时间观": "具体值",
+    "价值观_家庭角色观": "具体值",
+    "价值观_经济共享观": "具体值",
+    "AI综合_性格关键词": ["词1", "词2", "词3"],
+    "AI综合_匹配优势": ["优势1", "优势2"],
+    "AI综合_匹配风险": ["风险1"] 
+  },
+  "summary": "50字以内的整体评价，突出最适合什么样的伴侣"
 }
 
 【档案数据】
@@ -158,7 +197,7 @@ export async function POST(request: NextRequest) {
           [profileId, '/api/admin/evaluation/run', evalResult.tokens.request, evalResult.tokens.response, evalResult.tokens.total, costCny]
         );
         
-        // 更新档案
+        // 保存AI评价结果到 profiles 表
         await sql.query(
           `UPDATE profiles 
            SET ai_evaluation = $1, 
@@ -166,6 +205,16 @@ export async function POST(request: NextRequest) {
                ai_evaluation_status = $2
            WHERE id = $3`,
           [JSON.stringify(evalResult.result), 'completed', profileId]
+        );
+        
+        // 保存标签到 profile_ai_tags 表
+        const tags = evalResult.result.tags || {};
+        await sql.query(
+          `INSERT INTO profile_ai_tags (profile_id, tags, created_at, updated_at)
+           VALUES ($1, $2, NOW(), NOW())
+           ON CONFLICT (profile_id) 
+           DO UPDATE SET tags = $2, updated_at = NOW()`,
+          [profileId, JSON.stringify(tags)]
         );
         
         // 记录日志
@@ -252,6 +301,16 @@ export async function POST(request: NextRequest) {
                ai_evaluation_status = $2
            WHERE id = $3`,
           [JSON.stringify(evalResult.result), 'completed', profile.id]
+        );
+        
+        // 保存标签到 profile_ai_tags 表
+        const tags = evalResult.result.tags || {};
+        await sql.query(
+          `INSERT INTO profile_ai_tags (profile_id, tags, created_at, updated_at)
+           VALUES ($1, $2, NOW(), NOW())
+           ON CONFLICT (profile_id) 
+           DO UPDATE SET tags = $2, updated_at = NOW()`,
+          [profile.id, JSON.stringify(tags)]
         );
         
         await sql.query(
