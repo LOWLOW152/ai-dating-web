@@ -4,7 +4,7 @@ import { sql } from '@/lib/db';
 // GET /api/admin/check-pending-profiles
 // 查询所有 pending 状态但有答题数据的档案
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 查询所有 pending 状态的档案
     const res = await sql.query(`
