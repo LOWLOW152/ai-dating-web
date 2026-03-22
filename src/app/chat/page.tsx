@@ -156,13 +156,13 @@ export default function ChatPage() {
       
       setMessages(prev => [...prev, newMessage]);
 
-      // 语音播报
-      if (mounted && 'speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(displayContent);
-        utterance.lang = 'zh-CN';
-        utterance.rate = 1;
-        window.speechSynthesis.speak(utterance);
-      }
+      // 语音播报已禁用
+      // if (mounted && 'speechSynthesis' in window) {
+      //   const utterance = new SpeechSynthesisUtterance(displayContent);
+      //   utterance.lang = 'zh-CN';
+      //   utterance.rate = 1;
+      //   window.speechSynthesis.speak(utterance);
+      // }
     }
 
     // 判断是否要进入下一题或完成（只有用户对话后，不是初始加载时才判断）
