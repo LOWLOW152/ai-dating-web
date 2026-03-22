@@ -125,7 +125,9 @@ export default function EvaluationPage() {
                     <span className={r.status === 'success' ? 'text-green-600' : 'text-red-600'}>
                       {r.status === 'success' ? '✓' : '✗'}
                     </span>
-                    <span className="font-mono">{r.id}</span>
+                    <Link href={`/admin/profiles/${r.id}`} className="font-mono text-blue-600 hover:underline">
+                      {r.id}
+                    </Link>
                     {r.error && <span className="text-red-500 text-xs">{r.error}</span>}
                   </div>
                 ))}
@@ -151,7 +153,11 @@ export default function EvaluationPage() {
               <tbody className="divide-y">
                 {logs.map((log) => (
                   <tr key={`${log.id}-${log.created_at}`} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm font-mono">{log.id.slice(0, 8)}...</td>
+                    <td className="px-4 py-2 text-sm font-mono">
+                      <Link href={`/admin/profiles/${log.id}`} className="text-blue-600 hover:underline">
+                        {log.id.slice(0, 8)}...
+                      </Link>
+                    </td>
                     <td className="px-4 py-2 text-sm">{log.invite_code}</td>
                     <td className="px-4 py-2">
                       <span className={`text-xs px-2 py-1 rounded ${
