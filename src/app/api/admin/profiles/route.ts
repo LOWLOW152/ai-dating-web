@@ -10,21 +10,20 @@ export async function GET() {
     return Response.json({
       success: true,
       profiles: result.rows.map(row => {
-        // 确保 tags 是数组（处理数据库可能返回字符串的情况）
+        // pg 库会自动解析 jsonb 为 JavaScript 对象
         let tags = row.tags;
-        if (typeof tags === 'string') {
-          try {
-            tags = JSON.parse(tags);
-          } catch {
-            tags = [];
-          }
-        }
+        
+        // 防御性处理：如果不是数组，设为空数组
         if (!Array.isArray(tags)) {
           tags = [];
         }
+        
         return {
-          ...row,
-          tags: tags
+          id: row.id,
+          invite_code: row.invite_code,
+          status: row.status,
+          tags: tags,
+          created_at: row.created_at
         };
       })
     });
