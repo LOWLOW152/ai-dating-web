@@ -12,6 +12,12 @@ export async function GET() {
       'SELECT id, "order", question_text, category, type, is_active FROM questions ORDER BY "order" ASC'
     );
     
+    // 调试日志
+    const nicknameRow = result.rows.find(r => r.id === 'nickname');
+    console.log('DB row nickname:', nicknameRow);
+    console.log('is_active raw:', nicknameRow?.is_active);
+    console.log('is_active type:', typeof nicknameRow?.is_active);
+    
     // 确保 is_active 是布尔值
     const questions = result.rows.map(row => ({
       id: row.id,
@@ -19,7 +25,7 @@ export async function GET() {
       question_text: row.question_text,
       category: row.category,
       type: row.type,
-      is_active: Boolean(row.is_active)
+      is_active: row.is_active === true || row.is_active === 't' || row.is_active === 'true' || row.is_active === 1
     }));
     
     return NextResponse.json(
