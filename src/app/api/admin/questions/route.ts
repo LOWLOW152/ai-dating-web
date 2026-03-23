@@ -12,13 +12,7 @@ export async function GET() {
       'SELECT id, "order", question_text, category, type, is_active FROM questions ORDER BY "order" ASC'
     );
     
-    // 调试日志
-    const nicknameRow = result.rows.find(r => r.id === 'nickname');
-    console.log('DB row nickname:', nicknameRow);
-    console.log('is_active raw:', nicknameRow?.is_active);
-    console.log('is_active type:', typeof nicknameRow?.is_active);
-    
-    // 确保 is_active 是布尔值
+    // 确保 is_active 是布尔值（pg 库可能返回多种格式）
     const questions = result.rows.map(row => ({
       id: row.id,
       order: row.order,
