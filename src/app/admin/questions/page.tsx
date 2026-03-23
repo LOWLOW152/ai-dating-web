@@ -1,15 +1,79 @@
-import { sql } from '@/lib/db';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+
+interface Question {
+  id: string;
+  order: number;
+  question_text: string;
+  category: string;
+  type: string;
+  is_active: boolean;
+}
 
 export const dynamic = 'force-dynamic';
 
-async function getQuestions() {
-  const result = await sql.query('SELECT * FROM questions ORDER BY "order" ASC');
-  return result.rows;
-}
+export default function QuestionsPage() {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
-export default async function QuestionsPage() {
-  const questions = await getQuestions();
+  useEffect(() => {
+    loadQuestions();
+  }, []);
+
+  async function loadQuestions() {
+    try {
+      const res = await fetch('/api/admin/questions');
+      const data = await res.json();
+      if (data.success !== false) {
+        setQuestions(data.data || data);
+      }
+    } catch (error) {
+      console.error('加载题目失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleActive(question: Question) {
+    setTogglingId(question.id);
+    try {
+      const res = await fetch(`/api/admin/questions/${question.id}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !question.is_active }),
+      });
+      
+      if (res.ok) {
+        // 本地更新状态
+        setQuestions(questions.map(q => 
+          q.id === question.id ? { ...q, is_active: !q.is_active } : q
+        ));
+      } else {
+        alert('切换状态失败');
+      }
+    } catch (error) {
+      console.error('切换状态失败:', error);
+      alert('切换状态失败');
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">题库管理</h1>
+        </div>
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4">
@@ -59,7 +123,20 @@ export default async function QuestionsPage() {
                 </td>
                 <td className="px-4 py-3 text-sm">{q.type}</td>
                 <td className="px-4 py-3 text-sm">
-                  <span className={q.is_active ? 'text-green-600' : 'text-gray-400'}>
+                  <button
+                    onClick={() => toggleActive(q)}
+                    disabled={togglingId === q.id}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      q.is_active ? 'bg-green-500' : 'bg-gray-300'
+                    } ${togglingId === q.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        q.is_active ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className={`ml-2 text-xs ${q.is_active ? 'text-green-600' : 'text-gray-400'}`}>
                     {q.is_active ? '启用' : '禁用'}
                   </span>
                 </td>
