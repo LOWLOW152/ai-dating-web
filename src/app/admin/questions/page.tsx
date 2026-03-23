@@ -25,7 +25,12 @@ export default function QuestionsPage() {
 
   async function loadQuestions() {
     try {
-      const res = await fetch('/api/admin/questions');
+      const res = await fetch('/api/admin/questions', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      });
       const data = await res.json();
       if (data.success !== false) {
         setQuestions(data.data || data);

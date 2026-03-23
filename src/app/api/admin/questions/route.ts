@@ -9,7 +9,26 @@ export async function GET() {
       'SELECT id, "order", question_text, category, type, is_active FROM questions ORDER BY "order" ASC'
     );
     
-    return NextResponse.json({ success: true, data: result.rows });
+    // 确保 is_active 是布尔值
+    const questions = result.rows.map(row => ({
+      id: row.id,
+      order: row.order,
+      question_text: row.question_text,
+      category: row.category,
+      type: row.type,
+      is_active: Boolean(row.is_active)
+    }));
+    
+    return NextResponse.json(
+      { success: true, data: questions },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Get questions error:', error);
     return NextResponse.json(
