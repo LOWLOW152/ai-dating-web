@@ -1,6 +1,9 @@
 import { sql } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET /api/admin/questions
 // 获取所有题目（包括禁用的），用于管理后台
 export async function GET() {
