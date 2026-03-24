@@ -206,7 +206,7 @@ export default function TemplateLevel1Page({ params }: { params: Promise<{ id: s
 
         {configs.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            暂无筛选条件，点击"添加筛选条件"开始配置
+            暂无筛选条件，点击&quot;添加筛选条件&quot;开始配置
           </div>
         ) : (
           <div className="divide-y">

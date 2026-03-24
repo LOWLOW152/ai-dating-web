@@ -63,9 +63,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // 事务处理
-    const client = await sql.query('BEGIN');
-
     try {
+      await sql.query('BEGIN');
+
       for (const filter of filters) {
         await sql.query(
           `INSERT INTO level1_filter_config 
