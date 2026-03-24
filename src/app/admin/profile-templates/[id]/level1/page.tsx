@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 
 interface FilterConfig {
   id?: number;
@@ -37,9 +37,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   social: '社交模式',
 };
 
-export default function TemplateLevel1Page({ params }: { params: Promise<{ id: string }> }) {
+export default function TemplateLevel1Page() {
   const router = useRouter();
-  const { id: templateId } = use(params);
+  const params = useParams();
+  const templateId = params.id as string;
   
   const [configs, setConfigs] = useState<FilterConfig[]>([]);
   const [availableQuestions, setAvailableQuestions] = useState<AvailableQuestion[]>([]);
