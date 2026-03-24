@@ -129,7 +129,7 @@ async function evaluateLevel3(
 
 export async function POST(request: NextRequest) {
   try {
-    const { profileId, candidateId, templateId = 'v1_default' } = await request.json();
+    const { profileId, candidateId, templateId: _templateId } = await request.json();
 
     if (!profileId) {
       return Response.json({ success: false, error: '缺少profileId' }, { status: 400 });
