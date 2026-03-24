@@ -42,8 +42,8 @@ export default function MatchPage() {
 // 第一层筛选组件
 function Level1Filter() {
   const [profileId, setProfileId] = useState('');
-  const [candidates, setCandidates] = useState<any[] | null>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [candidates, setCandidates] = useState<Array<Record<string, string>> | null>(null);
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
@@ -198,7 +198,7 @@ function PairMatch() {
   const [profileA, setProfileA] = useState('');
   const [profileB, setProfileB] = useState('');
   const [templateId, setTemplateId] = useState('v1_default');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{ success?: boolean; data?: { overallScore: number; categoryScores: { basic: number; lifestyle: number; emotion: number }; vetoFlags: string[] }; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleMatch = async () => {
