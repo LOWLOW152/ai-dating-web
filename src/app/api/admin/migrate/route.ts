@@ -81,6 +81,64 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS standardized_answers JSONB DEFAULT
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_profiles_standardized_answers ON profiles USING GIN (standardized_answers);
     `
+  },
+  {
+    name: '006_level2_level3',
+    description: '第二层、第三层匹配字段和配置表',
+    sql: `
+-- match_candidates 表新增第二层、第三层字段
+ALTER TABLE match_candidates 
+ADD COLUMN IF NOT EXISTS level_2_score DECIMAL(5,2),
+ADD COLUMN IF NOT EXISTS level_2_passed BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS level_2_calculated_at TIMESTAMP,
+ADD COLUMN IF NOT EXISTS level_3_report JSONB,
+ADD COLUMN IF NOT EXISTS level_3_calculated_at TIMESTAMP;
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_match_candidates_level2 ON match_candidates(profile_id, level_2_passed, level_2_score);
+CREATE INDEX IF NOT EXISTS idx_match_candidates_level3 ON match_candidates(profile_id, level_3_calculated_at);
+
+-- 第二层筛选配置表
+CREATE TABLE IF NOT EXISTS level2_config (
+    id SERIAL PRIMARY KEY,
+    template_id VARCHAR(255) NOT NULL DEFAULT 'v1_default',
+    question_keys TEXT[] NOT NULL,
+    similarity_threshold DECIMAL(5,2) DEFAULT 60.0,
+    top_percent INTEGER DEFAULT 20,
+    is_enabled BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(template_id)
+);
+
+-- 插入默认配置（5道题）
+INSERT INTO level2_config (template_id, question_keys, similarity_threshold, top_percent)
+VALUES (
+    'v1_default', 
+    ARRAY['interests', 'sleep_schedule', 'social_mode', 'topics', 'exercise'],
+    60.0,
+    20
+)
+ON CONFLICT (template_id) DO NOTHING;
+
+-- 第三层匹配报告表
+CREATE TABLE IF NOT EXISTS level3_reports (
+    id SERIAL PRIMARY KEY,
+    profile_id VARCHAR(255) NOT NULL,
+    candidate_id VARCHAR(255) NOT NULL,
+    overall_score INTEGER,
+    similarity_score INTEGER,
+    complement_score INTEGER,
+    strengths TEXT[],
+    risks TEXT[],
+    advice TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(profile_id, candidate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_level3_reports_profile ON level3_reports(profile_id);
+CREATE INDEX IF NOT EXISTS idx_level3_reports_candidate ON level3_reports(candidate_id);
+    `
   }
 ];
 
@@ -169,6 +227,36 @@ export async function GET() {
       name: '字段: standardized_answers',
       description: 'AI标准化答案字段',
       applied: colRes.rows[0].exists
+    });
+
+    // 检查 level2_config 表
+    const level2TableRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'level2_config')"
+    );
+    status.push({
+      name: '表: level2_config',
+      description: '第二层筛选配置',
+      applied: level2TableRes.rows[0].exists
+    });
+
+    // 检查 level3_reports 表
+    const level3TableRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'level3_reports')"
+    );
+    status.push({
+      name: '表: level3_reports',
+      description: '第三层深度匹配报告',
+      applied: level3TableRes.rows[0].exists
+    });
+
+    // 检查 match_candidates 是否有第二层字段
+    const level2ColRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'match_candidates' AND column_name = 'level_2_score')"
+    );
+    status.push({
+      name: '字段: level_2_score 等',
+      description: '第二层、第三层匹配字段',
+      applied: level2ColRes.rows[0].exists
     });
 
     return NextResponse.json({ success: true, status });
