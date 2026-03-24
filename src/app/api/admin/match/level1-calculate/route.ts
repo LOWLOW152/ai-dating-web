@@ -189,18 +189,29 @@ function applyFilter(
       return { passed: true };
 
     case 'city_or_accept':
-      // 不接受异地则必须同城
+      // 不接受异地则必须同城（模糊匹配）
       const longDistanceA = answersA.long_distance;
       const longDistanceB = answersB.long_distance;
-      const cityA = String(answersA.city || '').trim();
-      const cityB = String(answersB.city || '').trim();
+      let cityA = String(answersA.city || '').trim();
+      let cityB = String(answersB.city || '').trim();
+      
+      // 去掉常见后缀（市、区、县）用于模糊匹配
+      cityA = cityA.replace(/[市区县]$/, '');
+      cityB = cityB.replace(/[市区县]$/, '');
+
+      // 判断是否同城：互相包含或相等
+      // 例如："北京" 和 "北京市" → 同城
+      // 例如："上海" 和 "上海浦东" → 同城（浦东包含上海，虽然不完全准确，但比误杀好）
+      const isSameCity = cityA === cityB || 
+                         cityA.includes(cityB) || 
+                         cityB.includes(cityA);
 
       // 如果A完全不接受异地且不在同一城市
-      if (longDistanceA === '完全不行' && cityA !== cityB) {
+      if (longDistanceA === '完全不行' && !isSameCity) {
         return { passed: false, reason: 'location' };
       }
       // 如果B完全不接受异地且不在同一城市
-      if (longDistanceB === '完全不行' && cityA !== cityB) {
+      if (longDistanceB === '完全不行' && !isSameCity) {
         return { passed: false, reason: 'location' };
       }
       return { passed: true };
