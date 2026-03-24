@@ -50,6 +50,16 @@ CREATE INDEX IF NOT EXISTS idx_profiles_level1_calculated ON profiles(level1_cal
     name: '004_level1_filter_seed',
     description: '插入默认第一层筛选规则',
     sql: `
+-- 先添加唯一约束（如果不存在）
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes WHERE indexname = 'idx_level1_filter_config_template_rule'
+  ) THEN
+    CREATE UNIQUE INDEX idx_level1_filter_config_template_rule ON level1_filter_config(template_id, filter_rule);
+  END IF;
+END $$;
+
 -- 插入默认筛选规则
 INSERT INTO level1_filter_config (template_id, question_id, filter_type, filter_rule, is_enabled, params)
 VALUES 
@@ -86,6 +96,7 @@ export async function POST() {
         results.push({ name: migration.name, status: 'success' });
       } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
+        console.error(`Migration ${migration.name} error:`, error);
         // 忽略"已存在"的错误
         if (error.includes('already exists') || error.includes('duplicate')) {
           results.push({ name: migration.name, status: 'already_exists' });
@@ -105,7 +116,7 @@ export async function POST() {
   } catch (error) {
     console.error('Migration error:', error);
     return NextResponse.json(
-      { success: false, error: '迁移失败' },
+      { success: false, error: String(error) },
       { status: 500 }
     );
   }
