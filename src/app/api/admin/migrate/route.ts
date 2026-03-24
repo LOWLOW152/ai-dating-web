@@ -47,6 +47,21 @@ CREATE INDEX IF NOT EXISTS idx_profiles_level1_calculated ON profiles(level1_cal
     `
   },
   {
+    name: '004_level1_filter_seed',
+    description: '插入默认第一层筛选规则',
+    sql: `
+-- 插入默认筛选规则
+INSERT INTO level1_filter_config (template_id, question_id, filter_type, filter_rule, is_enabled, params)
+VALUES 
+  ('v1_default', 'gender', 'hard_filter', 'gender_opposite', true, '{}'),
+  ('v1_default', 'age', 'hard_filter', 'age_mutual', true, '{}'),
+  ('v1_default', 'city', 'hard_filter', 'city_or_accept', true, '{}'),
+  ('v1_default', 'education', 'hard_filter', 'education_min', true, '{}'),
+  ('v1_default', 'diet', 'hard_filter', 'diet_compatible', true, '{}')
+ON CONFLICT (template_id, filter_rule) DO NOTHING;
+    `
+  },
+  {
     name: '005_standardized_answers',
     description: 'AI标准化答案字段',
     sql: `
@@ -112,6 +127,26 @@ export async function GET() {
         name: `表: ${table}`,
         description: '',
         applied: res.rows[0].exists
+      });
+    }
+
+    // 检查 level1_filter_config 是否有默认筛选规则数据
+    try {
+      const filterCountRes = await sql.query(
+        "SELECT COUNT(*) as count FROM level1_filter_config WHERE template_id = 'v1_default'"
+      );
+      const hasFilters = parseInt(filterCountRes.rows[0].count) >= 5;
+      status.push({
+        name: '数据: 默认筛选规则',
+        description: '性别、年龄、地域等5条规则',
+        applied: hasFilters
+      });
+    } catch {
+      // 表可能不存在
+      status.push({
+        name: '数据: 默认筛选规则',
+        description: '性别、年龄、地域等5条规则',
+        applied: false
       });
     }
 
