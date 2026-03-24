@@ -3,9 +3,8 @@ import Link from 'next/link';
 export default function AdminHome() {
   const links = [
     { href: '/admin/questions', label: '题库管理', desc: '管理所有题目、配置AI提示词', color: 'blue' },
-    { href: '/admin/profile-templates', label: '资料库管理', desc: '管理匹配模板、设置权重算法', color: 'indigo' },
-    { href: '/admin/match', label: '匹配测试', desc: '测试两个档案的匹配度', color: 'green' },
-    { href: '/admin/match/level1', label: '第一层筛选', desc: '硬性条件赛马机制第一层筛选', color: 'emerald' },
+    { href: '/admin/profile-templates', label: '资料库管理', desc: '管理匹配模板、设置权重算法、第一层筛选规则', color: 'indigo' },
+    { href: '/admin/match', label: '匹配测试', desc: '第一层筛选、两人匹配度测试', color: 'green' },
     { href: '/admin/profiles', label: '档案管理', desc: '查看所有用户档案', color: 'purple' },
     { href: '/admin/evaluation', label: 'AI评价', desc: 'AI自动评价档案，生成匹配标签', color: 'cyan' },
     { href: '/admin/beauty-score', label: '颜值打分', desc: 'P图程度、颜值类型、颜值评分', color: 'pink' },
@@ -17,7 +16,6 @@ export default function AdminHome() {
     blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
     indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' },
     green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' },
-    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' },
     purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
     cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-100' },
     pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-100' },

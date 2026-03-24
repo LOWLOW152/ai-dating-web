@@ -10,7 +10,6 @@ export default function AdminLayout({
     { href: '/admin/questions', label: '题库' },
     { href: '/admin/profile-templates', label: '资料库' },
     { href: '/admin/match', label: '匹配测试' },
-    { href: '/admin/match/level1', label: '第一层筛选' },
     { href: '/admin/profiles', label: '档案' },
     { href: '/admin/evaluation', label: 'AI评价' },
     { href: '/admin/beauty-score', label: '颜值打分' },
