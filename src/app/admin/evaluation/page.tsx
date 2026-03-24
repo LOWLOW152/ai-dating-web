@@ -119,7 +119,7 @@ interface EvaluationLog {
   status: string;
   created_at: string;
   error_message: string | null;
-  ai_evaluation?: {
+  evaluation_result?: {
     tags?: Record<string, unknown>;
     standardized_answers?: {
       gender?: string;
@@ -370,39 +370,39 @@ export default function EvaluationPage() {
                         )}
                       </td>
                     </tr>
-                    {expandedId === log.id && log.ai_evaluation && (
+                    {expandedId === log.id && log.evaluation_result && (
                       <tr className="bg-purple-50">
                         <td colSpan={6} className="px-4 py-4">
                           <div className="space-y-4">
                             {/* 标准化答案 */}
-                            {log.ai_evaluation.standardized_answers && (
+                            {log.evaluation_result.standardized_answers && (
                               <div>
                                 <h4 className="text-sm font-semibold text-purple-800 mb-2">标准化词条</h4>
                                 <div className="grid grid-cols-6 gap-2 text-xs">
                                   <div className="bg-white rounded p-2">
                                     <span className="text-gray-500">性别</span>
-                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.gender || '-'}</p>
+                                    <p className="font-medium">{log.evaluation_result.standardized_answers.gender || '-'}</p>
                                   </div>
                                   <div className="bg-white rounded p-2">
                                     <span className="text-gray-500">出生年</span>
-                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.birth_year || '-'}</p>
+                                    <p className="font-medium">{log.evaluation_result.standardized_answers.birth_year || '-'}</p>
                                   </div>
                                   <div className="bg-white rounded p-2">
                                     <span className="text-gray-500">城市</span>
-                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.city || '-'}</p>
+                                    <p className="font-medium">{log.evaluation_result.standardized_answers.city || '-'}</p>
                                   </div>
                                   <div className="bg-white rounded p-2">
                                     <span className="text-gray-500">异地接受</span>
-                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.long_distance || '-'}</p>
+                                    <p className="font-medium">{log.evaluation_result.standardized_answers.long_distance || '-'}</p>
                                   </div>
                                   <div className="bg-white rounded p-2">
                                     <span className="text-gray-500">学历</span>
-                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.education || '-'}</p>
+                                    <p className="font-medium">{log.evaluation_result.standardized_answers.education || '-'}</p>
                                   </div>
                                   <div className="bg-white rounded p-2">
                                     <span className="text-gray-500">饮食</span>
                                     <p className="font-medium">
-                                      {log.ai_evaluation.standardized_answers.diet?.join(', ') || '-'}
+                                      {log.evaluation_result.standardized_answers.diet?.join(', ') || '-'}
                                     </p>
                                   </div>
                                 </div>
@@ -410,11 +410,11 @@ export default function EvaluationPage() {
                             )}
                             
                             {/* 标签 */}
-                            {log.ai_evaluation.tags && (
+                            {log.evaluation_result.tags && (
                               <div>
                                 <h4 className="text-sm font-semibold text-purple-800 mb-2">19维标签</h4>
                                 <div className="grid grid-cols-4 gap-2 text-xs">
-                                  {Object.entries(log.ai_evaluation.tags).map(([key, value]) => (
+                                  {Object.entries(log.evaluation_result.tags).map(([key, value]) => (
                                     <div key={key} className="bg-white rounded p-2">
                                       <span className="text-gray-500 truncate block">{key}</span>
                                       <p className="font-medium truncate">
@@ -427,10 +427,10 @@ export default function EvaluationPage() {
                             )}
                             
                             {/* 总结 */}
-                            {log.ai_evaluation.summary && (
+                            {log.evaluation_result.summary && (
                               <div className="bg-white rounded p-3">
                                 <span className="text-gray-500 text-xs">AI总结</span>
-                                <p className="text-sm mt-1">{log.ai_evaluation.summary}</p>
+                                <p className="text-sm mt-1">{log.evaluation_result.summary}</p>
                               </div>
                             )}
                           </div>
