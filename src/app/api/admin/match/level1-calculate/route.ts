@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const profile = profileRes.rows[0];
-    const answers = profile.answers || {};
+    const answers = profile.standardized_answers || profile.answers || {};
 
     // 获取第一层筛选配置
     const configRes = await sql.query(
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // 逐个检查硬性条件并插入
     for (const other of others) {
-      const otherAnswers = other.answers || {};
+      const otherAnswers = other.standardized_answers || other.answers || {};
       let passed = true;
       let failedReason: string | undefined;
 

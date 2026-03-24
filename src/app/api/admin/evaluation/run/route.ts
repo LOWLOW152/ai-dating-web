@@ -8,35 +8,37 @@ interface Profile {
   ai_summary: Record<string, unknown> | null;
 }
 
-// AI评价提示词模板 - 输出结构化标签
+// AI评价提示词模板 - 输出结构化标签 + 标准化答案
 const EVALUATION_PROMPT = `你是狗蛋，一个专业的相亲档案分析师。
 
 【任务】
-分析用户的相亲档案，生成结构化标签和匹配报告。
+分析用户的相亲档案，完成两件事：
+1. 生成结构化标签和匹配报告
+2. 从用户回答中提取/推断标准化字段值（用于系统硬性条件筛选）
 
-【标签提取规则】
-必须从以下19个维度提取标签，每个维度必须选一个值（选最接近的，不要编造）：
+【标签提取规则 - 19个维度】
+必须从以下维度提取标签，每个维度必须选一个值（选最接近的，不要编造）：
 
-基础条件（从答案中直接提取或推断）：
+基础条件：
 1. 年龄段: 22岁以下 / 22-25岁 / 26-30岁 / 31-35岁 / 35岁以上 / 未提及
 2. 地区: 一线城市(北上广深) / 新一线(杭蓉渝等) / 二线城市 / 三线及以下 / 海外 / 未提及
 3. 同城偏好: 必须同城 / 同城+周边可接受 / 省内可接受 / 全国可接受 / 未提及
 4. 学历: 高中及以下 / 专科 / 本科 / 硕士 / 博士 / 未提及
 5. 职业稳定性: 体制内(公务员/事业编/国企) / 大厂/上市公司 / 中小公司 / 创业/自由职业 / 未提及
 
-生活方式（从生活习惯题推断）：
+生活方式：
 6. 消费观: 节俭存钱型 / 量入为出型 / 适度享受型 / 品质优先型 / 未提及
 7. 作息类型: 早睡早起(7点前起) / 正常作息(8-9点起) / 弹性作息 / 夜猫子(12点后睡) / 未提及
 8. 周末偏好: 居家休息型 / 外出社交型 / 平衡型 / 户外/运动型 / 未提及
 9. 兴趣爱好大类: 文艺类(书/影/音/展) / 运动健身类 / 游戏/动漫类 / 户外/旅行类 / 未提及
 
-情感模式（从情感题深度分析）：
+情感模式：
 10. 依恋类型: 安全型 / 焦虑型(需要频繁确认) / 回避型(需要独处空间) / 恐惧型(既渴望又害怕) / 未明确
 11. 情感需求等级: 高(需要大量陪伴) / 中高 / 中等 / 较低 / 未提及
 12. 冲突处理风格: 直接沟通型 / 冷静后沟通型 / 回避退让型 / 需要调解型 / 未提及
 13. 关系主动性: 主动追求型 / 互动回应型 / 被动慢热型 / 佛系随缘型 / 未提及
 
-价值观（从价值观题判断）：
+价值观：
 14. 婚育时间观: 1年内结婚 / 2-3年结婚 / 3-5年结婚 / 看感情发展 / 未提及
 15. 家庭角色观: 传统分工(男主外女主内) / 平等分担 / 灵活协商 / 以事业为重 / 未提及
 16. 经济共享观: 完全共同 / 部分共同+各自支配 / 完全各自独立 / 一方主导 / 未提及
@@ -45,6 +47,32 @@ AI综合判断：
 17. 性格关键词: 提取3-5个核心性格特征词
 18. 匹配优势: 这个人最吸引人的2-3个点
 19. 匹配风险: 可能影响关系的1-2个红旗（没有就写"无明显风险"）
+
+【标准化答案提取规则】
+从用户回答中提取以下字段的标准值，用于系统第一层硬性条件筛选：
+
+- gender: 性别，必须是"男"或"女"
+  如果用户回答模糊（如"男生""女的"），标准化为"男"/"女"
+  
+- birth_year: 出生年份，必须是4位数字年份（如2000）
+  如果用户回答"21岁"，计算为当前年份-21
+  如果回答"2000年出生"，提取2000
+  如果只有年龄段，取中间值推算（如"26-30岁"→1998）
+  
+- city: 城市，必须是标准城市名（如"北京"、"上海"、"杭州"）
+  去掉"市""区"等后缀，只保留城市名
+  如果回答模糊，选最接近的标准城市
+  
+- long_distance: 异地接受度，必须是以下之一：
+  "完全不行" / "短期可接受" / "完全OK"
+  根据用户回答判断归类
+  
+- education: 学历，必须是以下之一：
+  "高中" / "大专" / "本科" / "硕士" / "博士"
+  如果回答"大学本科"→"本科"，"研究生"→"硕士"
+  
+- diet: 饮食习惯，字符串数组，如["素食", "不吃辣"]
+  从用户回答中提取所有饮食相关标签
 
 【输出格式】
 必须用JSON格式返回，不要有任何其他文字：
@@ -71,7 +99,15 @@ AI综合判断：
     "AI综合_匹配优势": ["优势1", "优势2"],
     "AI综合_匹配风险": ["风险1"] 
   },
-  "summary": "50字以内的整体评价，突出最适合什么样的伴侣"
+  "standardized_answers": {
+    "gender": "男"或"女",
+    "birth_year": 数字如2000,
+    "city": "城市名",
+    "long_distance": "完全不行"或"短期可接受"或"完全OK",
+    "education": "高中"/"大专"/"本科"/"硕士"/"博士",
+    "diet": ["标签1", "标签2"]
+  },
+  "summary": "50字以内的整体评价"
 }
 
 【档案数据】
@@ -198,13 +234,15 @@ export async function POST(request: NextRequest) {
         );
         
         // 保存AI评价结果到 profiles 表
+        const standardizedAnswers = evalResult.result.standardized_answers || {};
         await sql.query(
           `UPDATE profiles 
            SET ai_evaluation = $1, 
                ai_evaluated_at = NOW(),
-               ai_evaluation_status = $2
-           WHERE id = $3`,
-          [JSON.stringify(evalResult.result), 'completed', profileId]
+               ai_evaluation_status = $2,
+               standardized_answers = $3
+           WHERE id = $4`,
+          [JSON.stringify(evalResult.result), 'completed', JSON.stringify(standardizedAnswers), profileId]
         );
         
         // 保存标签到 profile_ai_tags 表
@@ -294,13 +332,15 @@ export async function POST(request: NextRequest) {
           [profile.id, '/api/admin/evaluation/run', evalResult.tokens.request, evalResult.tokens.response, evalResult.tokens.total, costCny]
         );
         
+        const standardizedAnswers = evalResult.result.standardized_answers || {};
         await sql.query(
           `UPDATE profiles 
            SET ai_evaluation = $1, 
                ai_evaluated_at = NOW(),
-               ai_evaluation_status = $2
-           WHERE id = $3`,
-          [JSON.stringify(evalResult.result), 'completed', profile.id]
+               ai_evaluation_status = $2,
+               standardized_answers = $3
+           WHERE id = $4`,
+          [JSON.stringify(evalResult.result), 'completed', JSON.stringify(standardizedAnswers), profile.id]
         );
         
         // 保存标签到 profile_ai_tags 表
