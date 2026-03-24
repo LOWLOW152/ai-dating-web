@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
   try {
     // 获取请求参数
     const body = await request.json().catch(() => ({}));
-    const { profileId, batchSize = 10 } = body;
+    const { profileId, batchSize = 10, reEvaluate = false } = body;
     
     // 如果指定了profileId，只评价这一个
     if (profileId) {
@@ -290,17 +290,32 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 批量模式：获取未评价的档案（排除已删除标签，且必须有答题数据）
-    const pendingRes = await sql.query(
-      `SELECT * FROM profiles 
-       WHERE (ai_evaluation_status IN ('pending', 'failed')
-          OR ai_evaluation IS NULL)
-       AND (tags IS NULL OR NOT (tags @> '["deleted"]'::jsonb))
-       AND (answers IS NOT NULL AND jsonb_typeof(answers) = 'object' AND answers != '{}'::jsonb)
-       ORDER BY created_at ASC
-       LIMIT $1`,
-      [batchSize]
-    );
+    // 批量模式：获取档案
+    let pendingRes;
+    if (reEvaluate) {
+      // 重新评价：获取所有已完成的档案
+      pendingRes = await sql.query(
+        `SELECT * FROM profiles 
+         WHERE ai_evaluation_status = 'completed'
+         AND (tags IS NULL OR NOT (tags @> '["deleted"]'::jsonb))
+         AND (answers IS NOT NULL AND jsonb_typeof(answers) = 'object' AND answers != '{}'::jsonb)
+         ORDER BY ai_evaluated_at ASC NULLS FIRST
+         LIMIT $1`,
+        [batchSize]
+      );
+    } else {
+      // 正常模式：只获取未评价的档案
+      pendingRes = await sql.query(
+        `SELECT * FROM profiles 
+         WHERE (ai_evaluation_status IN ('pending', 'failed')
+            OR ai_evaluation IS NULL)
+         AND (tags IS NULL OR NOT (tags @> '["deleted"]'::jsonb))
+         AND (answers IS NOT NULL AND jsonb_typeof(answers) = 'object' AND answers != '{}'::jsonb)
+         ORDER BY created_at ASC
+         LIMIT $1`,
+        [batchSize]
+      );
+    }
     
     const pendingProfiles = pendingRes.rows;
     

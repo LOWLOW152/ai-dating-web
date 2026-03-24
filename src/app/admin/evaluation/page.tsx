@@ -126,6 +126,7 @@ export default function EvaluationPage() {
   const [logs, setLogs] = useState<EvaluationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [reEvaluating, setReEvaluating] = useState(false);
   const [runResult, setRunResult] = useState<{ processed: number; results: { id: string; status: string; error?: string }[] } | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 
@@ -170,6 +171,34 @@ export default function EvaluationPage() {
     }
   }
 
+  async function runReEvaluation() {
+    if (!confirm('确定要重新评价所有已完成的档案吗？这将覆盖原有评价结果并消耗Token。')) return;
+    
+    setReEvaluating(true);
+    setRunResult(null);
+    
+    try {
+      const res = await fetch('/api/admin/evaluation/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchSize: 10, reEvaluate: true })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setRunResult(data);
+        fetchStatus(); // 刷新状态
+      } else {
+        alert('执行失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Run re-evaluation error:', error);
+      alert('执行出错');
+    } finally {
+      setReEvaluating(false);
+    }
+  }
+
   useEffect(() => {
     fetchStatus();
   }, []);
@@ -195,6 +224,15 @@ export default function EvaluationPage() {
           >
             {showPrompt ? '隐藏提示词' : '查看提示词'}
           </button>
+          {completedCount > 0 && (
+            <button
+              onClick={runReEvaluation}
+              disabled={reEvaluating}
+              className="px-4 py-2 text-orange-600 border border-orange-300 rounded hover:bg-orange-50 disabled:bg-gray-100"
+            >
+              {reEvaluating ? '重新评价中...' : `重新评价 (${completedCount}个)`}
+            </button>
+          )}
           <button
             onClick={runEvaluation}
             disabled={running || pendingCount === 0}
