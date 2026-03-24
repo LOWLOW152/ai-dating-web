@@ -129,6 +129,7 @@ async function evaluateLevel3(
 
 export async function POST(request: NextRequest) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { profileId, candidateId, templateId: _templateId } = await request.json();
 
     if (!profileId) {
