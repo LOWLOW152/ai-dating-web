@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 
 interface Question {
   id: string;
@@ -47,9 +47,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   social: '社交模式',
 };
 
-export default function TemplateConfigPage({ params }: { params: Promise<{ id: string }> }) {
+export default function TemplateConfigPage() {
   const router = useRouter();
-  const { id } = use(params);
+  const params = useParams();
+  const id = params.id as string;
   
   const [template, setTemplate] = useState<Template | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
