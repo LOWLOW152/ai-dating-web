@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_standardized_answers ON profiles USING G
 ];
 
 // POST /api/admin/migrate - 执行数据库迁移
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const results: Array<{ name: string; status: string; error?: string }> = [];
 
