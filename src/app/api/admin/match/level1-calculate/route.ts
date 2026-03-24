@@ -51,13 +51,14 @@ export async function POST(request: NextRequest) {
     );
 
     const others = othersRes.rows;
-    const results: Array<{
-      candidateId: string;
-      passed: boolean;
-      failedReason?: string;
-    }> = [];
 
-    // 逐个检查硬性条件
+    // 先删除旧的
+    await sql.query(
+      'DELETE FROM match_candidates WHERE profile_id = $1 OR candidate_id = $1',
+      [profileId]
+    );
+
+    // 逐个检查硬性条件并插入
     for (const other of others) {
       const otherAnswers = other.answers || {};
       let passed = true;
@@ -69,34 +70,11 @@ export async function POST(request: NextRequest) {
         if (!result.passed) {
           passed = false;
           failedReason = result.reason;
-          break; // 一个条件不满足就排除
+          break;
         }
       }
 
-      results.push({
-        candidateId: other.id,
-        passed,
-        failedReason
-      });
-    }
-
-    // 批量插入/更新 match_candidates 表
-    // 先删除旧的
-    await sql.query(
-      'DELETE FROM match_candidates WHERE profile_id = $1',
-      [profileId]
-    );
-
-    // 插入新结果
-    for (const result of results) {
-      await sql.query(
-        `INSERT INTO match_candidates (profile_id, candidate_id, passed_level_1, failed_reason)
-         VALUES ($1, $2, $3, $4)`,
-        [profileId, result.candidateId, result.passed, result.failedReason || null]
-      );
-
-      // 双向记录（对方视角）
-      const reverseResult = applyReverseFilter(filters, answers, otherAnswers, profile, results.find(r => r.candidateId === result.candidateId)!);
+      // 正向记录 (A→B)
       await sql.query(
         `INSERT INTO match_candidates (profile_id, candidate_id, passed_level_1, failed_reason)
          VALUES ($1, $2, $3, $4)
@@ -104,7 +82,31 @@ export async function POST(request: NextRequest) {
          passed_level_1 = EXCLUDED.passed_level_1,
          failed_reason = EXCLUDED.failed_reason,
          calculated_at = NOW()`,
-        [result.candidateId, profileId, reverseResult.passed, reverseResult.reason || null]
+        [profileId, other.id, passed, failedReason || null]
+      );
+
+      // 反向记录 (B→A) - 需要重新计算对方视角
+      let reversePassed = true;
+      let reverseFailedReason: string | undefined;
+
+      for (const filter of filters) {
+        const result = applyFilter(filter.filter_rule, otherAnswers, answers, other, profile);
+        
+        if (!result.passed) {
+          reversePassed = false;
+          reverseFailedReason = result.reason;
+          break;
+        }
+      }
+
+      await sql.query(
+        `INSERT INTO match_candidates (profile_id, candidate_id, passed_level_1, failed_reason)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (profile_id, candidate_id) DO UPDATE SET
+         passed_level_1 = EXCLUDED.passed_level_1,
+         failed_reason = EXCLUDED.failed_reason,
+         calculated_at = NOW()`,
+        [other.id, profileId, reversePassed, reverseFailedReason || null]
       );
     }
 
@@ -114,15 +116,25 @@ export async function POST(request: NextRequest) {
       [profileId]
     );
 
-    const passedCount = results.filter(r => r.passed).length;
+    // 重新统计
+    const statsRes = await sql.query(
+      `SELECT 
+        COUNT(*) FILTER (WHERE passed_level_1 = true) as passed,
+        COUNT(*) as total
+       FROM match_candidates
+       WHERE profile_id = $1`,
+      [profileId]
+    );
+
+    const { passed, total } = statsRes.rows[0];
 
     return Response.json({
       success: true,
       data: {
         profileId,
-        totalChecked: others.length,
-        passed: passedCount,
-        failed: others.length - passedCount
+        totalChecked: parseInt(total),
+        passed: parseInt(passed),
+        failed: parseInt(total) - parseInt(passed)
       }
     });
 
@@ -230,20 +242,4 @@ function applyFilter(
     default:
       return { passed: true };
   }
-}
-
-// 反向检查（对方视角）
-function applyReverseFilter(
-  filters: Array<{ filter_rule: string }>,
-  answersA: Record<string, unknown>,
-  answersB: Record<string, unknown>,
-  profileA: Record<string, unknown>,
-  forwardResult: { passed: boolean; failedReason?: string }
-): { passed: boolean; reason?: string } {
-  // 大部分规则是对称的，直接复用结果
-  // 但可以考虑添加不对称的特殊逻辑
-  return {
-    passed: forwardResult.passed,
-    reason: forwardResult.failedReason
-  };
 }
