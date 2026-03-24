@@ -428,7 +428,8 @@ export async function GET() {
         p.invite_code,
         el.status,
         el.created_at,
-        el.error_message
+        el.error_message,
+        el.evaluation_result
       FROM evaluation_logs el
       JOIN profiles p ON el.profile_id = p.id
       ORDER BY el.created_at DESC

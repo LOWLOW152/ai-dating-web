@@ -119,6 +119,18 @@ interface EvaluationLog {
   status: string;
   created_at: string;
   error_message: string | null;
+  ai_evaluation?: {
+    tags?: Record<string, unknown>;
+    standardized_answers?: {
+      gender?: string;
+      birth_year?: number;
+      city?: string;
+      long_distance?: string;
+      education?: string;
+      diet?: string[];
+    };
+    summary?: string;
+  };
 }
 
 export default function EvaluationPage() {
@@ -129,6 +141,7 @@ export default function EvaluationPage() {
   const [reEvaluating, setReEvaluating] = useState(false);
   const [runResult, setRunResult] = useState<{ processed: number; results: { id: string; status: string; error?: string }[] } | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function fetchStatus() {
     try {
@@ -318,33 +331,113 @@ export default function EvaluationPage() {
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">状态</th>
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">时间</th>
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">错误</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {logs.map((log) => (
-                  <tr key={`${log.id}-${log.created_at}`} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm font-mono">
-                      <Link href={`/admin/profiles/${log.id}`} className="text-blue-600 hover:underline">
-                        {log.id.slice(0, 8)}...
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2 text-sm">{log.invite_code}</td>
-                    <td className="px-4 py-2">
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        log.status === 'success' 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {log.status === 'success' ? '成功' : '失败'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">
-                      {new Date(log.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-red-500 max-w-xs truncate">
-                      {log.error_message || '-'}
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={`${log.id}-${log.created_at}`} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm font-mono">
+                        <Link href={`/admin/profiles/${log.id}`} className="text-blue-600 hover:underline">
+                          {log.id.slice(0, 8)}...
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{log.invite_code}</td>
+                      <td className="px-4 py-2">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          log.status === 'success' 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {log.status === 'success' ? '成功' : '失败'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-500">
+                        {new Date(log.created_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-red-500 max-w-xs truncate">
+                        {log.error_message || '-'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {log.status === 'success' && (
+                          <button
+                            onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                            className="text-xs text-purple-600 hover:text-purple-800 underline"
+                          >
+                            {expandedId === log.id ? '收起' : '查看详情'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {expandedId === log.id && log.ai_evaluation && (
+                      <tr className="bg-purple-50">
+                        <td colSpan={6} className="px-4 py-4">
+                          <div className="space-y-4">
+                            {/* 标准化答案 */}
+                            {log.ai_evaluation.standardized_answers && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-purple-800 mb-2">标准化词条</h4>
+                                <div className="grid grid-cols-6 gap-2 text-xs">
+                                  <div className="bg-white rounded p-2">
+                                    <span className="text-gray-500">性别</span>
+                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.gender || '-'}</p>
+                                  </div>
+                                  <div className="bg-white rounded p-2">
+                                    <span className="text-gray-500">出生年</span>
+                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.birth_year || '-'}</p>
+                                  </div>
+                                  <div className="bg-white rounded p-2">
+                                    <span className="text-gray-500">城市</span>
+                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.city || '-'}</p>
+                                  </div>
+                                  <div className="bg-white rounded p-2">
+                                    <span className="text-gray-500">异地接受</span>
+                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.long_distance || '-'}</p>
+                                  </div>
+                                  <div className="bg-white rounded p-2">
+                                    <span className="text-gray-500">学历</span>
+                                    <p className="font-medium">{log.ai_evaluation.standardized_answers.education || '-'}</p>
+                                  </div>
+                                  <div className="bg-white rounded p-2">
+                                    <span className="text-gray-500">饮食</span>
+                                    <p className="font-medium">
+                                      {log.ai_evaluation.standardized_answers.diet?.join(', ') || '-'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* 标签 */}
+                            {log.ai_evaluation.tags && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-purple-800 mb-2">19维标签</h4>
+                                <div className="grid grid-cols-4 gap-2 text-xs">
+                                  {Object.entries(log.ai_evaluation.tags).map(([key, value]) => (
+                                    <div key={key} className="bg-white rounded p-2">
+                                      <span className="text-gray-500 truncate block">{key}</span>
+                                      <p className="font-medium truncate">
+                                        {Array.isArray(value) ? value.join(', ') : String(value)}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* 总结 */}
+                            {log.ai_evaluation.summary && (
+                              <div className="bg-white rounded p-3">
+                                <span className="text-gray-500 text-xs">AI总结</span>
+                                <p className="text-sm mt-1">{log.ai_evaluation.summary}</p>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>
