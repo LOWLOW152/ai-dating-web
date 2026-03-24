@@ -31,7 +31,7 @@ export default async function ProfileTemplatesPage() {
             </div>
             <p className="text-gray-600 text-sm mb-4">{t.description || '无描述'}</p>
             
-            <div className="flex gap-4 text-sm">
+            <div className="flex gap-4 text-sm flex-wrap">
               <Link
                 href={`/admin/profile-templates/${t.id}/prompt`}
                 className="text-purple-600 hover:underline"
@@ -43,6 +43,12 @@ export default async function ProfileTemplatesPage() {
                 className="text-blue-600 hover:underline"
               >
                 配置权重 →
+              </Link>
+              <Link
+                href={`/admin/profile-templates/${t.id}/level1`}
+                className="text-emerald-600 hover:underline"
+              >
+                第一层筛选 →
               </Link>
             </div>
           </div>
