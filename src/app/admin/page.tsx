@@ -87,12 +87,16 @@ export default function AdminHome() {
           </div>
 
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-sm p-6 text-white">
-            <h3 className="font-semibold mb-2">💡 今日提醒</h3>
-            <ul className="text-sm space-y-1 opacity-90">
-              <li>• 每日凌晨3点自动AI评价</li>
-              <li>• 颜值评分用于匹配参考</li>
-              <li>• Token使用每日凌晨统计</li>
-            </ul>
+            <h3 className="font-semibold mb-2">⚙️ 系统维护</h3>
+            <div className="flex flex-wrap gap-3">
+              <Link 
+                href="/admin/migrate" 
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors"
+              >
+                数据库迁移
+              </Link>
+            </div>
+            <p className="text-xs opacity-75 mt-2">执行数据库结构升级</p>
           </div>
         </div>
 
