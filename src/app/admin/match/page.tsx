@@ -2,31 +2,52 @@
 
 import { useState } from 'react';
 
-// ==================== 第一层筛选组件 ====================
-function Level1FilterSection() {
+export default function MatchPage() {
+  const [activeTab, setActiveTab] = useState<'level1' | 'pair'>('level1');
+
+  return (
+    <div className="max-w-6xl mx-auto px-4">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">匹配测试</h1>
+
+      {/* Tab 切换 */}
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab('level1')}
+          className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'level1'
+              ? 'bg-white text-emerald-600 shadow'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          第一层筛选
+        </button>
+        <button
+          onClick={() => setActiveTab('pair')}
+          className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'pair'
+              ? 'bg-white text-blue-600 shadow'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          两人匹配测试
+        </button>
+      </div>
+
+      {/* 内容区域 */}
+      {activeTab === 'level1' ? <Level1Filter /> : <PairMatch />}
+    </div>
+  );
+}
+
+// 第一层筛选组件
+function Level1Filter() {
   const [profileId, setProfileId] = useState('');
-  const [candidates, setCandidates] = useState<Array<{
-    id: string;
-    inviteCode: string;
-    nickname: string;
-    gender: string;
-    birthYear: string;
-    city: string;
-    education: string;
-  }> | null>(null);
-  const [stats, setStats] = useState<{
-    passed: number;
-    failed: number;
-    failed_gender: number;
-    failed_age: number;
-    failed_location: number;
-    failed_education: number;
-    failed_diet: number;
-  } | null>(null);
+  const [candidates, setCandidates] = useState<any[] | null>(null);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
-  async function calculateLevel1() {
+  const handleCalculate = async () => {
     if (!profileId) return;
     setCalculating(true);
     try {
@@ -38,17 +59,18 @@ function Level1FilterSection() {
       const data = await res.json();
       if (data.success) {
         alert(`计算完成！共检查 ${data.data.totalChecked} 人，通过 ${data.data.passed} 人`);
-        loadCandidates();
+        handleLoadCandidates();
       } else {
-        alert(data.error);
+        alert(data.error || '计算失败');
       }
     } catch (error) {
       console.error('Calculate error:', error);
+      alert('计算出错');
     }
     setCalculating(false);
-  }
+  };
 
-  async function loadCandidates() {
+  const handleLoadCandidates = async () => {
     if (!profileId) return;
     setLoading(true);
     try {
@@ -62,12 +84,12 @@ function Level1FilterSection() {
       console.error('Load candidates error:', error);
     }
     setLoading(false);
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-        <h3 className="font-medium text-emerald-800 mb-2">💡 第一层硬性条件筛选</h3>
+        <h3 className="font-medium text-emerald-800 mb-2">第一层硬性条件筛选</h3>
         <p className="text-sm text-emerald-700">
           系统自动筛选符合硬性条件的候选人（性别、年龄、地域等），不消耗AI Token
         </p>
@@ -83,14 +105,14 @@ function Level1FilterSection() {
             className="flex-1 border border-gray-300 rounded-md px-3 py-2"
           />
           <button
-            onClick={calculateLevel1}
+            onClick={handleCalculate}
             disabled={calculating || !profileId}
             className="bg-emerald-600 text-white px-6 py-2 rounded-md hover:bg-emerald-700 disabled:bg-gray-300"
           >
             {calculating ? '计算中...' : '开始筛选'}
           </button>
           <button
-            onClick={loadCandidates}
+            onClick={handleLoadCandidates}
             disabled={loading || !profileId}
             className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 disabled:bg-gray-300"
           >
@@ -101,31 +123,31 @@ function Level1FilterSection() {
         {stats && (
           <div className="grid grid-cols-7 gap-2 text-center mb-6">
             <div className="bg-green-50 p-3 rounded">
-              <div className="text-2xl font-bold text-green-600">{stats.passed}</div>
+              <div className="text-2xl font-bold text-green-600">{stats.passed || 0}</div>
               <div className="text-xs text-gray-500">通过</div>
             </div>
             <div className="bg-red-50 p-3 rounded">
-              <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
+              <div className="text-2xl font-bold text-red-600">{stats.failed || 0}</div>
               <div className="text-xs text-gray-500">排除</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-xl font-bold">{stats.failed_gender}</div>
+              <div className="text-xl font-bold">{stats.failed_gender || 0}</div>
               <div className="text-xs text-gray-500">性别</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-xl font-bold">{stats.failed_age}</div>
+              <div className="text-xl font-bold">{stats.failed_age || 0}</div>
               <div className="text-xs text-gray-500">年龄</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-xl font-bold">{stats.failed_location}</div>
+              <div className="text-xl font-bold">{stats.failed_location || 0}</div>
               <div className="text-xs text-gray-500">地域</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-xl font-bold">{stats.failed_education}</div>
+              <div className="text-xl font-bold">{stats.failed_education || 0}</div>
               <div className="text-xs text-gray-500">学历</div>
             </div>
             <div className="bg-gray-50 p-3 rounded">
-              <div className="text-xl font-bold">{stats.failed_diet}</div>
+              <div className="text-xl font-bold">{stats.failed_diet || 0}</div>
               <div className="text-xs text-gray-500">饮食</div>
             </div>
           </div>
@@ -143,18 +165,16 @@ function Level1FilterSection() {
                     <th className="text-left px-4 py-2">出生年</th>
                     <th className="text-left px-4 py-2">城市</th>
                     <th className="text-left px-4 py-2">学历</th>
-                    <th className="text-left px-4 py-2">邀请码</th>
                   </tr>
                 </thead>
                 <tbody>
                   {candidates.map((c) => (
                     <tr key={c.id} className="border-b">
-                      <td className="px-4 py-3">{c.nickname}</td>
-                      <td className="px-4 py-3">{c.gender}</td>
-                      <td className="px-4 py-3">{c.birthYear}</td>
-                      <td className="px-4 py-3">{c.city}</td>
-                      <td className="px-4 py-3">{c.education}</td>
-                      <td className="px-4 py-3 text-gray-500">{c.inviteCode}</td>
+                      <td className="px-4 py-3">{c.nickname || '-'}</td>
+                      <td className="px-4 py-3">{c.gender || '-'}</td>
+                      <td className="px-4 py-3">{c.birthYear || '-'}</td>
+                      <td className="px-4 py-3">{c.city || '-'}</td>
+                      <td className="px-4 py-3">{c.education || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -173,15 +193,16 @@ function Level1FilterSection() {
   );
 }
 
-// ==================== 两人匹配测试组件 ====================
-function PairMatchSection() {
+// 两人匹配测试组件
+function PairMatch() {
   const [profileA, setProfileA] = useState('');
   const [profileB, setProfileB] = useState('');
   const [templateId, setTemplateId] = useState('v1_default');
-  const [result, setResult] = useState<{ success?: boolean; data?: { overallScore: number; categoryScores: { basic: number; lifestyle: number; emotion: number }; vetoFlags: string[] }; error?: string } | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleMatch() {
+  const handleMatch = async () => {
+    if (!profileA || !profileB) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/match', {
@@ -195,12 +216,12 @@ function PairMatchSection() {
       console.error(error);
     }
     setLoading(false);
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-medium text-blue-800 mb-2">💡 两人匹配测试</h3>
+        <h3 className="font-medium text-blue-800 mb-2">两人匹配测试</h3>
         <p className="text-sm text-blue-700">
           测试两个特定档案之间的匹配度，基于资料库权重算法计算
         </p>
@@ -261,20 +282,20 @@ function PairMatchSection() {
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center p-4 bg-gray-50 rounded">
-              <div className="text-2xl font-semibold">{result.data.categoryScores.basic}</div>
+              <div className="text-2xl font-semibold">{result.data.categoryScores?.basic || 0}</div>
               <div className="text-sm text-gray-500">基础条件</div>
             </div>
             <div className="text-center p-4 bg-gray-50 rounded">
-              <div className="text-2xl font-semibold">{result.data.categoryScores.lifestyle}</div>
+              <div className="text-2xl font-semibold">{result.data.categoryScores?.lifestyle || 0}</div>
               <div className="text-sm text-gray-500">生活方式</div>
             </div>
             <div className="text-center p-4 bg-gray-50 rounded">
-              <div className="text-2xl font-semibold">{result.data.categoryScores.emotion}</div>
+              <div className="text-2xl font-semibold">{result.data.categoryScores?.emotion || 0}</div>
               <div className="text-sm text-gray-500">情感核心</div>
             </div>
           </div>
 
-          {result.data.vetoFlags.length > 0 && (
+          {result.data.vetoFlags?.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded p-4">
               <h3 className="text-red-700 font-medium mb-2">一票否决项</h3>
               <ul className="list-disc list-inside text-red-600">
@@ -292,45 +313,6 @@ function PairMatchSection() {
           {result.error}
         </div>
       )}
-    </div>
-  );
-}
-
-// ==================== 主页面 ====================
-export default function MatchPage() {
-  const [activeTab, setActiveTab] = useState<'level1' | 'pair'>('level1');
-
-  return (
-    <div className="max-w-6xl mx-auto px-4">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">匹配测试</h1>
-
-      {/* Tab 切换 */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setActiveTab('level1')}
-          className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'level1'
-              ? 'bg-white text-emerald-600 shadow'
-              : 'text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          第一层筛选
-        </button>
-        <button
-          onClick={() => setActiveTab('pair')}
-          className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'pair'
-              ? 'bg-white text-blue-600 shadow'
-              : 'text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          两人匹配测试
-        </button>
-      </div>
-
-      {/* 内容区域 */}
-      {activeTab === 'level1' && <Level1FilterSection />}
-      {activeTab === 'pair' && <PairMatchSection />}
     </div>
   );
 }
