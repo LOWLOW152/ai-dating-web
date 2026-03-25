@@ -94,9 +94,11 @@ export default function ProfilesPage() {
         return false;
       }
     }
-    // 邀请码搜索
+    // 邀请码或ID搜索
     if (searchCode.trim()) {
-      return p.invite_code.toLowerCase().includes(searchCode.toLowerCase());
+      const search = searchCode.toLowerCase();
+      return p.invite_code.toLowerCase().includes(search) || 
+             p.id.toLowerCase().includes(search);
     }
     return true;
   });
@@ -183,7 +185,7 @@ export default function ProfilesPage() {
               type="text"
               value={searchCode}
               onChange={(e) => setSearchCode(e.target.value)}
-              placeholder="搜索邀请码..."
+              placeholder="搜索邀请码或ID..."
               className="px-3 py-2 border rounded-md text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchCode && (
