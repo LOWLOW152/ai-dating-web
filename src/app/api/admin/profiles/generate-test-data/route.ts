@@ -19,54 +19,66 @@ export async function POST(request: NextRequest) {
     }
 
     const generated = [];
+    const errors = [];
     
     for (let i = 0; i < count; i++) {
-      const g = gender === 'mixed' ? (Math.random() > 0.5 ? '男' : '女') : gender;
-      const name = rand(g === '男' ? MALE_NAMES : FEMALE_NAMES);
-      const birthYear = randInt(1988, 1998);
-      const city = rand(CITIES);
-      
-      // 使用时间戳+随机数确保唯一性
-      const inviteCode = `TEST${Date.now()}${Math.floor(Math.random() * 1000)}${i.toString().padStart(3, '0')}`;
-      
-      const answers = {
-        nickname: name,
-        gender: g,
-        birthYear: String(birthYear),
-        city: city,
-        education: rand(EDUS),
-        long_distance: Math.random() > 0.7 ? '接受' : '不接受',
-        diet: ['无特殊要求'],
-        interests: [rand(INTERESTS), rand(INTERESTS), rand(INTERESTS)],
-        sleep_schedule: '早睡早起',
-        social_mode: '外向健谈',
-        topics: ['社会热点'],
-        exercise: '经常运动',
-      };
-      
-      // 先创建邀请码记录
-      await sql.query(
-        `INSERT INTO invite_codes (code, status, max_uses, use_count, created_at)
-         VALUES ($1, 'used', 1, 1, NOW())
-         ON CONFLICT (code) DO NOTHING`,
-        [inviteCode]
-      );
-      
-      // 再创建档案
-      const res = await sql.query(
-        `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
-         VALUES (gen_random_uuid(), $1, 'completed', $2::jsonb, NOW())
-         RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
-        [inviteCode, JSON.stringify(answers)]
-      );
-      
-      generated.push(res.rows[0]);
+      try {
+        const g = gender === 'mixed' ? (Math.random() > 0.5 ? '男' : '女') : gender;
+        const name = rand(g === '男' ? MALE_NAMES : FEMALE_NAMES);
+        const birthYear = randInt(1988, 1998);
+        const city = rand(CITIES);
+        
+        // 使用uuid确保唯一性
+        const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+        const inviteCode = `TEST${uniqueId}${i.toString().padStart(3, '0')}`;
+        
+        const answers = {
+          nickname: name,
+          gender: g,
+          birthYear: String(birthYear),
+          city: city,
+          education: rand(EDUS),
+          long_distance: Math.random() > 0.7 ? '接受' : '不接受',
+          diet: ['无特殊要求'],
+          interests: [rand(INTERESTS), rand(INTERESTS), rand(INTERESTS)],
+          sleep_schedule: '早睡早起',
+          social_mode: '外向健谈',
+          topics: ['社会热点'],
+          exercise: '经常运动',
+        };
+        
+        // 先创建档案（不依赖invite_codes表）
+        const res = await sql.query(
+          `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
+           VALUES (gen_random_uuid(), $1, 'completed', $2::jsonb, NOW())
+           ON CONFLICT (invite_code) DO NOTHING
+           RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
+          [inviteCode, JSON.stringify(answers)]
+        );
+        
+        if (res.rows.length > 0) {
+          generated.push(res.rows[0]);
+          
+          // 同时创建邀请码记录（忽略冲突）
+          await sql.query(
+            `INSERT INTO invite_codes (code, status, max_uses, use_count, created_at, used_by, used_at)
+             VALUES ($1, 'used', 1, 1, NOW(), $2, NOW())
+             ON CONFLICT (code) DO NOTHING`,
+            [inviteCode, res.rows[0].id]
+          );
+        } else {
+          errors.push(`第${i+1}个: 邀请码冲突`);
+        }
+      } catch (itemError) {
+        errors.push(`第${i+1}个: ${String(itemError)}`);
+      }
     }
 
     return Response.json({
-      success: true,
-      message: `成功生成 ${generated.length} 个测试档案`,
-      data: generated
+      success: generated.length > 0,
+      message: `成功生成 ${generated.length} 个测试档案${errors.length > 0 ? `，${errors.length}个失败` : ''}`,
+      data: generated,
+      errors: errors.length > 0 ? errors : undefined
     });
 
   } catch (error) {
