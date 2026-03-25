@@ -121,15 +121,16 @@ async function getPendingProfiles(level: number): Promise<string[]> {
       
     case 3:
       // 第三层：第二层已完成，有候选人分数>80且>现有最高分
+      // 使用子查询先排序再LIMIT，避免DISTINCT + ORDER BY冲突
       query = `
-        SELECT DISTINCT p.id 
+        SELECT DISTINCT ON (p.id) p.id 
         FROM profiles p
         JOIN match_candidates mc ON p.id = mc.profile_id
         WHERE p.match_level2_status = 'completed'
           AND (p.match_level3_status IS NULL OR p.match_level3_status = 'pending')
           AND mc.level_2_passed = true
           AND mc.level_3_calculated_at IS NULL
-        ORDER BY mc.level_2_score DESC
+        ORDER BY p.id, mc.level_2_score DESC
         LIMIT 30
       `;
       break;
