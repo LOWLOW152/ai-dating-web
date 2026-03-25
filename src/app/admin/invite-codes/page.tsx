@@ -18,10 +18,13 @@ interface InviteCode {
 
 export default function InviteCodesPage() {
   const [codes, setCodes] = useState<InviteCode[]>([]);
+  const [filteredCodes, setFilteredCodes] = useState<InviteCode[]>([]);
   const [newCodes, setNewCodes] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hideTestCodes, setHideTestCodes] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [editDate, setEditDate] = useState<string>('');
@@ -32,7 +35,7 @@ export default function InviteCodesPage() {
   // 加载邀请码列表
   async function loadCodes() {
     try {
-      const res = await fetch(`/api/admin/invite-codes?status=${statusFilter}&limit=100`);
+      const res = await fetch(`/api/admin/invite-codes?status=${statusFilter}&limit=200`);
       const data = await res.json();
       if (data.success) {
         setCodes(data.codes);
@@ -47,6 +50,29 @@ export default function InviteCodesPage() {
   useEffect(() => {
     loadCodes();
   }, [statusFilter]);
+
+  // 过滤邀请码
+  useEffect(() => {
+    let filtered = codes;
+    
+    // 搜索过滤
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.code.toLowerCase().includes(query) || 
+        (c.notes && c.notes.toLowerCase().includes(query))
+      );
+    }
+    
+    // 隐藏测试邀请码
+    if (hideTestCodes) {
+      filtered = filtered.filter(c => 
+        !(c.notes && c.notes.toLowerCase().includes('测试'))
+      );
+    }
+    
+    setFilteredCodes(filtered);
+  }, [codes, searchQuery, hideTestCodes]);
 
   // 生成邀请码
   async function handleGenerate() {
@@ -209,24 +235,62 @@ export default function InviteCodesPage() {
       {/* 头部 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold text-gray-800">邀请码管理</h1>
-        <div className="flex gap-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md text-sm"
-          >
-            <option value="all">全部</option>
-            <option value="unused">未使用</option>
-            <option value="used">已用完</option>
-            <option value="expired">已过期</option>
-          </select>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {generating ? '生成中...' : '生成10个邀请码'}
-          </button>
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {generating ? '生成中...' : '生成10个邀请码'}
+        </button>
+      </div>
+
+      {/* 筛选栏 */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center flex-wrap">
+          {/* 状态筛选 */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">状态:</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border rounded-md text-sm"
+            >
+              <option value="all">全部</option>
+              <option value="unused">未使用</option>
+              <option value="used">已用完</option>
+              <option value="expired">已过期</option>
+            </select>
+          </div>
+
+          {/* 搜索框 */}
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <label className="text-sm text-gray-600">搜索:</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索邀请码或备注..."
+              className="px-3 py-2 border rounded-md text-sm flex-1"
+            />
+          </div>
+
+          {/* 隐藏测试邀请码 */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hideTestCodes}
+                onChange={(e) => setHideTestCodes(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-600">隐藏测试邀请码</span>
+            </label>
+          </div>
+
+          {/* 结果数量 */}
+          <div className="text-sm text-gray-500 ml-auto">
+            显示 {filteredCodes.length} / {codes.length} 个
+          </div>
         </div>
       </div>
 
@@ -278,14 +342,14 @@ export default function InviteCodesPage() {
                     加载中...
                   </td>
                 </tr>
-              ) : codes.length === 0 ? (
+              ) : filteredCodes.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                    暂无邀请码，点击上方按钮生成
+                    {codes.length === 0 ? '暂无邀请码，点击上方按钮生成' : '没有符合条件的邀请码'}
                   </td>
                 </tr>
               ) : (
-                codes.map((invite) => (
+                filteredCodes.map((invite) => (
                   <tr key={invite.code} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-mono text-sm font-semibold text-gray-800">
                       {invite.code}
@@ -417,27 +481,31 @@ export default function InviteCodesPage() {
       </div>
 
       {/* 统计信息 */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-blue-50 rounded-lg p-4">
           <p className="text-sm text-gray-600">总邀请码</p>
           <p className="text-2xl font-bold text-blue-600">{codes.length}</p>
         </div>
+        <div className="bg-cyan-50 rounded-lg p-4">
+          <p className="text-sm text-gray-600">当前显示</p>
+          <p className="text-2xl font-bold text-cyan-600">{filteredCodes.length}</p>
+        </div>
         <div className="bg-green-50 rounded-lg p-4">
           <p className="text-sm text-gray-600">未使用</p>
           <p className="text-2xl font-bold text-green-600">
-            {codes.filter(c => c.status === 'unused').length}
+            {filteredCodes.filter(c => c.status === 'unused').length}
           </p>
         </div>
         <div className="bg-yellow-50 rounded-lg p-4">
           <p className="text-sm text-gray-600">部分使用</p>
           <p className="text-2xl font-bold text-yellow-600">
-            {codes.filter(c => c.status === 'partial').length}
+            {filteredCodes.filter(c => c.status === 'partial').length}
           </p>
         </div>
         <div className="bg-red-50 rounded-lg p-4">
           <p className="text-sm text-gray-600">已用完</p>
           <p className="text-2xl font-bold text-red-600">
-            {codes.filter(c => c.status === 'used').length}
+            {filteredCodes.filter(c => c.status === 'used').length}
           </p>
         </div>
       </div>
