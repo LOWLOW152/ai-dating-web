@@ -622,12 +622,30 @@ function Level2Filter() {
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
         <h3 className="font-medium text-purple-800 mb-2">第二层AI初筛 - 相似度评分</h3>
         <p className="text-sm text-purple-700 mb-2">
-          AI对第一层通过的候选人进行相似度评分，取Top 20%进入第三层
+          AI对第一层通过的候选人进行相似度评分，<strong>≥ 79分</strong>进入第三层
         </p>
-        <div className="text-xs text-purple-600 bg-purple-100/50 rounded p-2">
-          <strong>评分维度：</strong>
-          兴趣爱好（重叠度）、作息习惯（一致性）、社交模式（偏好匹配）、话题偏好（共同话题）、运动习惯（活跃程度）
-        </div>
+        
+        {/* 评分规则展开 */}
+        <details className="mt-3">
+          <summary className="text-sm text-purple-700 cursor-pointer hover:text-purple-900 font-medium">
+            📋 查看详细评分规则
+          </summary>
+          <div className="mt-3 text-xs text-purple-800 bg-white/70 rounded p-3 space-y-2">
+            <p><strong>1. 兴趣爱好（最重要）</strong></p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>兴趣类型：运动类、文艺类、社交类、静享类、游戏类</li>
+              <li>90-100分：类型相同 + 2+个具体项目重叠</li>
+              <li>70-89分：类型相同但项目不同（如都喜欢运动，一个跑步一个游泳）</li>
+              <li>50-69分：一动一静（如运动+阅读），或类型差异但能互相理解</li>
+              <li>30-49分：类型完全不同，几乎没有交集</li>
+              <li>0-29分：一方有大量爱好，另一方几乎没有</li>
+            </ul>
+            <p className="mt-2"><strong>2. 作息习惯</strong> - 作息越接近分数越高</p>
+            <p><strong>3. 社交模式</strong> - 社交偏好越一致分数越高</p>
+            <p><strong>4. 话题偏好</strong> - 喜欢聊的话题重叠度越高分数越高</p>
+            <p><strong>5. 运动习惯</strong> - 运动习惯越接近分数越高</p>
+            </div>
+        </details>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
