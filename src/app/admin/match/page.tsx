@@ -71,6 +71,11 @@ function Level1Filter() {
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
+  
+  // 批量匹配相关
+  const [batchCount, setBatchCount] = useState(10);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
 
   const handleCalculate = async () => {
     if (!profileId) return;
@@ -142,6 +147,68 @@ function Level1Filter() {
     setLoading(false);
   };
 
+  // 批量自动匹配
+  const handleBatchMatch = async () => {
+    setBatchRunning(true);
+    setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setError(null);
+    setApiError(null);
+    
+    try {
+      // 1. 获取待处理的档案列表
+      const pendingRes = await fetch(`/api/admin/match/pending?level=1&limit=${batchCount}`);
+      const pendingData = await pendingRes.json();
+      
+      if (!pendingData.success || !pendingData.profiles || pendingData.profiles.length === 0) {
+        setError('没有待处理的第一层档案');
+        setBatchRunning(false);
+        return;
+      }
+      
+      const profiles = pendingData.profiles;
+      let success = 0;
+      let failed = 0;
+      
+      // 2. 逐个处理
+      for (let i = 0; i < profiles.length; i++) {
+        const pid = profiles[i];
+        setBatchProgress({ current: i + 1, total: profiles.length, success, failed });
+        
+        try {
+          const res = await fetch('/api/admin/match/level1-calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profileId: pid }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            success++;
+          } else {
+            failed++;
+            console.error(`档案 ${pid} 第一层失败:`, data.error);
+          }
+        } catch (err) {
+          failed++;
+          console.error(`档案 ${pid} 请求异常:`, err);
+        }
+        
+        // 间隔避免限流
+        await new Promise(r => setTimeout(r, 500));
+      }
+      
+      setBatchProgress({ current: profiles.length, total: profiles.length, success, failed });
+      
+      if (success > 0) {
+        alert(`批量匹配完成！成功: ${success}, 失败: ${failed}`);
+      }
+    } catch (error) {
+      console.error('Batch match error:', error);
+      setError(`批量匹配失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    setBatchRunning(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
@@ -152,6 +219,7 @@ function Level1Filter() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
+        {/* 单档案操作 */}
         <div className="flex gap-4 mb-4">
           <input
             type="text"
@@ -174,6 +242,36 @@ function Level1Filter() {
           >
             {loading ? '加载中...' : '查看结果'}
           </button>
+        </div>
+
+        {/* 批量自动匹配 */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">批量自动匹配</h4>
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">匹配数量:</label>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={batchCount}
+                onChange={(e) => setBatchCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 10)))}
+                className="w-20 border border-gray-300 rounded-md px-3 py-2 text-center"
+              />
+            </div>
+            <button
+              onClick={handleBatchMatch}
+              disabled={batchRunning}
+              className="bg-emerald-500 text-white px-6 py-2 rounded-md hover:bg-emerald-600 disabled:bg-gray-300"
+            >
+              {batchRunning ? '批量匹配中...' : '一键批量匹配'}
+            </button>
+            {batchRunning && batchProgress && (
+              <span className="text-sm text-gray-600">
+                进度: {batchProgress.current}/{batchProgress.total} (成功{batchProgress.success}/失败{batchProgress.failed})
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 错误显示 */}
@@ -287,6 +385,11 @@ function Level2Filter() {
   const [result, setResult] = useState<{ processed: number; totalTokens: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
+  
+  // 批量匹配相关
+  const [batchCount, setBatchCount] = useState(10);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
 
   const handleCalculate = async () => {
     if (!profileId) return;
@@ -362,6 +465,68 @@ function Level2Filter() {
     setLoading(false);
   };
 
+  // 批量自动匹配
+  const handleBatchMatch = async () => {
+    setBatchRunning(true);
+    setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setError(null);
+    setApiError(null);
+    
+    try {
+      // 1. 获取待处理的档案列表
+      const pendingRes = await fetch(`/api/admin/match/pending?level=2&limit=${batchCount}`);
+      const pendingData = await pendingRes.json();
+      
+      if (!pendingData.success || !pendingData.profiles || pendingData.profiles.length === 0) {
+        setError('没有待处理的第二层档案');
+        setBatchRunning(false);
+        return;
+      }
+      
+      const profiles = pendingData.profiles;
+      let success = 0;
+      let failed = 0;
+      
+      // 2. 逐个处理
+      for (let i = 0; i < profiles.length; i++) {
+        const pid = profiles[i];
+        setBatchProgress({ current: i + 1, total: profiles.length, success, failed });
+        
+        try {
+          const res = await fetch('/api/admin/match/level2-calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profileId: pid }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            success++;
+          } else {
+            failed++;
+            console.error(`档案 ${pid} 第二层失败:`, data.error);
+          }
+        } catch (err) {
+          failed++;
+          console.error(`档案 ${pid} 请求异常:`, err);
+        }
+        
+        // 间隔避免限流（第二层AI调用需要更长的间隔）
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      
+      setBatchProgress({ current: profiles.length, total: profiles.length, success, failed });
+      
+      if (success > 0) {
+        alert(`批量匹配完成！成功: ${success}, 失败: ${failed}`);
+      }
+    } catch (error) {
+      console.error('Batch match error:', error);
+      setError(`批量匹配失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    setBatchRunning(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
@@ -394,6 +559,37 @@ function Level2Filter() {
           >
             {loading ? '加载中...' : '查看状态'}
           </button>
+        </div>
+
+        {/* 批量自动匹配 */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">批量自动匹配</h4>
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">匹配数量:</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={batchCount}
+                onChange={(e) => setBatchCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 10)))}
+                className="w-20 border border-gray-300 rounded-md px-3 py-2 text-center"
+              />
+            </div>
+            <button
+              onClick={handleBatchMatch}
+              disabled={batchRunning}
+              className="bg-purple-500 text-white px-6 py-2 rounded-md hover:bg-purple-600 disabled:bg-gray-300"
+            >
+              {batchRunning ? '批量匹配中...' : '一键批量匹配'}
+            </button>
+            {batchRunning && batchProgress && (
+              <span className="text-sm text-gray-600">
+                进度: {batchProgress.current}/{batchProgress.total} (成功{batchProgress.success}/失败{batchProgress.failed})
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">注：第二层AI调用较慢，建议每次不超过20个</p>
         </div>
 
         {result && (
@@ -513,6 +709,11 @@ function Level3Match() {
   const [selectedReport, setSelectedReport] = useState<typeof reports[0] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
+  
+  // 批量匹配相关
+  const [batchCount, setBatchCount] = useState(5);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
 
   const handleCalculateAll = async () => {
     if (!profileId) return;
@@ -620,6 +821,68 @@ function Level3Match() {
     setLoading(false);
   };
 
+  // 批量自动匹配 - 第三层
+  const handleBatchMatch = async () => {
+    setBatchRunning(true);
+    setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setError(null);
+    setApiError(null);
+    
+    try {
+      // 1. 获取待处理的档案列表
+      const pendingRes = await fetch(`/api/admin/match/pending?level=3&limit=${batchCount}`);
+      const pendingData = await pendingRes.json();
+      
+      if (!pendingData.success || !pendingData.profiles || pendingData.profiles.length === 0) {
+        setError('没有待处理的第三层档案');
+        setBatchRunning(false);
+        return;
+      }
+      
+      const profiles = pendingData.profiles;
+      let success = 0;
+      let failed = 0;
+      
+      // 2. 逐个处理
+      for (let i = 0; i < profiles.length; i++) {
+        const pid = profiles[i];
+        setBatchProgress({ current: i + 1, total: profiles.length, success, failed });
+        
+        try {
+          const res = await fetch('/api/admin/match/level3-calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profileId: pid }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            success++;
+          } else {
+            failed++;
+            console.error(`档案 ${pid} 第三层失败:`, data.error);
+          }
+        } catch (err) {
+          failed++;
+          console.error(`档案 ${pid} 请求异常:`, err);
+        }
+        
+        // 间隔避免限流（第三层AI调用最慢，需要更长间隔）
+        await new Promise(r => setTimeout(r, 3000));
+      }
+      
+      setBatchProgress({ current: profiles.length, total: profiles.length, success, failed });
+      
+      if (success > 0) {
+        alert(`批量匹配完成！成功: ${success}, 失败: ${failed}`);
+      }
+    } catch (error) {
+      console.error('Batch match error:', error);
+      setError(`批量匹配失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    setBatchRunning(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
@@ -668,6 +931,37 @@ function Level3Match() {
           >
             {loading ? '加载中...' : '查看报告'}
           </button>
+        </div>
+
+        {/* 批量自动匹配 */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">批量自动匹配</h4>
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">匹配数量:</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={batchCount}
+                onChange={(e) => setBatchCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 5)))}
+                className="w-20 border border-gray-300 rounded-md px-3 py-2 text-center"
+              />
+            </div>
+            <button
+              onClick={handleBatchMatch}
+              disabled={batchRunning}
+              className="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 disabled:bg-gray-300"
+            >
+              {batchRunning ? '批量匹配中...' : '一键批量匹配'}
+            </button>
+            {batchRunning && batchProgress && (
+              <span className="text-sm text-gray-600">
+                进度: {batchProgress.current}/{batchProgress.total} (成功{batchProgress.success}/失败{batchProgress.failed})
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">注：第三层AI调用最慢且消耗Token较多，建议每次不超过10个</p>
         </div>
 
         {/* 第三层错误显示 */}
