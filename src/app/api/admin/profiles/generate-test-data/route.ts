@@ -97,7 +97,7 @@ export async function GET() {
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE answers->>'gender' = '男') as male_count,
         COUNT(*) FILTER (WHERE answers->>'gender' = '女') as female_count,
-        COUNT(*) FILTER (WHERE invite_code LIKE 'TEST%') as test_count
+        COUNT(*) FILTER (WHERE invite_code ILIKE 'TEST%') as test_count
        FROM profiles WHERE status = 'completed'`
     );
     return Response.json({ success: true, data: res.rows[0] });
