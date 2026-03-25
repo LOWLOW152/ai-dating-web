@@ -39,7 +39,6 @@ function generateNickname(gender: string): string {
   return prefix + FEMALE_NAMES[randomInt(0, FEMALE_NAMES.length - 1)];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function generateProfile(gender: string, index: number) {
   const birthYear = randomInt(1988, 1998);
   const age = 2026 - birthYear;
@@ -102,19 +101,24 @@ export async function POST(request: NextRequest) {
         profileGender = gender;
       }
       
-      // 最简化插入 - 只测试核心字段
-      const testInviteCode = `TEST${Date.now()}${i.toString().padStart(4, '0')}`;
-      const testStatus = 'completed';
+      // 生成完整档案数据
+      const profile = generateProfile(profileGender, i);
       
       const res = await sql.query(
-        `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
-         VALUES (gen_random_uuid(), $1, $2, $3::jsonb, $4)
+        `INSERT INTO profiles (id, invite_code, status, answers, ai_summary, tags, 
+         accept_age_min, accept_age_max, standardized_answers, completed_at)
+         VALUES (gen_random_uuid(), $1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8::jsonb, $9)
          RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
         [
-          testInviteCode,
-          testStatus,
-          JSON.stringify({ nickname: '测试', gender: profileGender }),
-          new Date().toISOString(),
+          profile.invite_code,
+          profile.status,
+          JSON.stringify(profile.answers),
+          profile.ai_summary,
+          JSON.stringify(profile.tags),
+          profile.accept_age_min,
+          profile.accept_age_max,
+          JSON.stringify(profile.standardized_answers),
+          profile.completed_at,
         ]
       );
       
