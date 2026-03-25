@@ -149,7 +149,8 @@ export async function GET() {
       `SELECT 
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE answers->>'gender' = '男') as male_count,
-        COUNT(*) FILTER (WHERE answers->>'gender' = '女') as female_count
+        COUNT(*) FILTER (WHERE answers->>'gender' = '女') as female_count,
+        COUNT(*) FILTER (WHERE invite_code LIKE 'TEST%') as test_count
        FROM profiles WHERE status = 'completed'`
     );
 
@@ -160,6 +161,29 @@ export async function GET() {
 
   } catch (error) {
     console.error('Get stats error:', error);
+    return Response.json(
+      { success: false, error: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - 删除所有测试档案
+export async function DELETE() {
+  try {
+    const res = await sql.query(
+      `DELETE FROM profiles WHERE invite_code LIKE 'TEST%'
+       RETURNING id, invite_code`
+    );
+
+    return Response.json({
+      success: true,
+      message: `成功删除 ${res.rows.length} 个测试档案`,
+      data: res.rows
+    });
+
+  } catch (error) {
+    console.error('Delete test data error:', error);
     return Response.json(
       { success: false, error: String(error) },
       { status: 500 }

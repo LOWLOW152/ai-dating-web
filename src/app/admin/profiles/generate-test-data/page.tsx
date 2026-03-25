@@ -5,9 +5,10 @@ import { useState, useEffect } from 'react';
 export default function GenerateTestDataPage() {
   const [count, setCount] = useState(20);
   const [gender, setGender] = useState<'mixed' | '男' | '女'>('mixed');
-  const [stats, setStats] = useState<{ total: number; male_count: number; female_count: number } | null>(null);
+  const [stats, setStats] = useState<{ total: number; male_count: number; female_count: number; test_count: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; data?: Array<{ id: string; invite_code: string; nickname: string; gender: string }> } | null>(null);
 
   useEffect(() => {
@@ -53,6 +54,33 @@ export default function GenerateTestDataPage() {
     setGenerating(false);
   };
 
+  const handleDelete = async () => {
+    if (!stats || stats.test_count === 0) {
+      alert('没有测试档案可删除');
+      return;
+    }
+    if (!confirm(`确定删除所有 ${stats.test_count} 个测试档案吗？此操作不可恢复！`)) {
+      return;
+    }
+
+    setDeleting(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/admin/profiles/generate-test-data', {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      setResult(data);
+      if (data.success) {
+        loadStats();
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      setResult({ success: false, message: '删除失败' });
+    }
+    setDeleting(false);
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">生成测试档案数据</h1>
@@ -63,7 +91,7 @@ export default function GenerateTestDataPage() {
         {loading ? (
           <p className="text-blue-700">加载中...</p>
         ) : stats ? (
-          <div className="flex gap-6">
+          <div className="flex gap-6 flex-wrap">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
               <div className="text-sm text-gray-600">总档案</div>
@@ -75,6 +103,10 @@ export default function GenerateTestDataPage() {
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.female_count}</div>
               <div className="text-sm text-gray-600">女性</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.test_count}</div>
+              <div className="text-sm text-gray-600">测试档案</div>
             </div>
           </div>
         ) : (
@@ -114,13 +146,22 @@ export default function GenerateTestDataPage() {
           </div>
         </div>
 
-        <button
-          onClick={handleGenerate}
-          disabled={generating}
-          className="bg-green-600 text-white px-8 py-3 rounded-md hover:bg-green-700 disabled:bg-gray-300 font-medium"
-        >
-          {generating ? '生成中...' : `生成 ${count} 个测试档案`}
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="bg-green-600 text-white px-8 py-3 rounded-md hover:bg-green-700 disabled:bg-gray-300 font-medium"
+          >
+            {generating ? '生成中...' : `生成 ${count} 个测试档案`}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting || !stats || stats.test_count === 0}
+            className="bg-red-600 text-white px-6 py-3 rounded-md hover:bg-red-700 disabled:bg-gray-300 font-medium"
+          >
+            {deleting ? '删除中...' : `删除所有测试档案${stats?.test_count ? ` (${stats.test_count})` : ''}`}
+          </button>
+        </div>
 
         {result && (
           <div className={`mt-4 p-4 rounded ${result.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
