@@ -77,7 +77,7 @@ function generateProfile(gender: string, index: number) {
       city,
       long_distance: Math.random() > 0.7,
       education: EDUCATIONS[randomInt(0, EDUCATIONS.length - 1)],
-      diet: randomPick(DIETS, randomInt(1, 2)),
+      diet: DIETS[randomInt(0, DIETS.length - 1)],
     },
     completed_at: new Date().toISOString(),
   };
