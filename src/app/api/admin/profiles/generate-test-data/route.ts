@@ -1,15 +1,78 @@
 import { NextRequest } from 'next/server';
 import { sql } from '@/lib/db';
 
-const MALE_NAMES = ['伟','强','磊','明','辉','杰','浩','宇','鑫','俊'];
-const FEMALE_NAMES = ['芳','娜','敏','静','丽','艳','娟','霞','秀兰','燕'];
-const CITIES = ['北京','上海','广州','深圳','杭州','南京','成都','武汉','西安'];
-const EDUS = ['高中','大专','本科','硕士'];
-const INTERESTS = ['阅读','旅行','电影','音乐','健身','摄影','美食','游戏'];
+// 调试接口 - 查看TEST档案详情
+export async function GET(request: NextRequest) {
+  try {
+    // 查看所有TEST档案的status分布
+    const statusDist = await sql.query(
+      `SELECT status, COUNT(*) as count 
+       FROM profiles 
+       WHERE invite_code ILIKE 'TEST%'
+       GROUP BY status`
+    );
+    
+    // 查看前10个TEST档案的详细信息
+    const details = await sql.query(
+      `SELECT id, invite_code, status, answers->>'gender' as gender
+       FROM profiles 
+       WHERE invite_code ILIKE 'TEST%'
+       ORDER BY created_at DESC
+       LIMIT 10`
+    );
+    
+    // 查看completed状态的TEST档案
+    const completed = await sql.query(
+      `SELECT COUNT(*) as count
+       FROM profiles 
+       WHERE invite_code ILIKE 'TEST%' AND status = 'completed'`
+    );
+    
+    return Response.json({
+      success: true,
+      statusDistribution: statusDist.rows,
+      testCountCompleted: completed.rows[0],
+      recentTestProfiles: details.rows
+    });
+  } catch (error) {
+    return Response.json({ success: false, error: String(error) }, { status: 500 });
+  }
+}
 
-function rand(arr: string[]) { return arr[Math.floor(Math.random() * arr.length)]; }
-function randInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+// 强制删除所有TEST档案（无论status）
+export async function DELETE() {
+  try {
+    const testProfiles = await sql.query(
+      `SELECT id, invite_code, status FROM profiles WHERE invite_code ILIKE 'TEST%'`
+    );
+    
+    if (testProfiles.rows.length === 0) {
+      return Response.json({ success: true, message: '没有TEST档案', data: [] });
+    }
+    
+    const testIds = testProfiles.rows.map(r => r.id);
+    
+    // 删除关联数据
+    await sql.query(`DELETE FROM match_results WHERE profile_a_id = ANY($1) OR profile_b_id = ANY($1)`, [testIds]);
+    await sql.query(`DELETE FROM match_candidates WHERE profile_id = ANY($1) OR candidate_id = ANY($1)`, [testIds]);
+    
+    // 删除档案
+    const res = await sql.query(`DELETE FROM profiles WHERE invite_code ILIKE 'TEST%' RETURNING id, invite_code, status`);
+    
+    // 删除邀请码
+    await sql.query(`DELETE FROM invite_codes WHERE code ILIKE 'TEST%'`);
+    
+    return Response.json({
+      success: true,
+      message: `成功删除 ${res.rows.length} 个TEST档案`,
+      deleted: res.rows
+    });
+  } catch (error) {
+    return Response.json({ success: false, error: String(error) }, { status: 500 });
+  }
+}
 
+// 生成测试档案
 export async function POST(request: NextRequest) {
   try {
     const { count = 10, gender = 'mixed' } = await request.json();
@@ -18,167 +81,52 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, error: '数量必须在1-100之间' }, { status: 400 });
     }
 
+    const MALE_NAMES = ['伟','强','磊','明','辉','杰','浩','宇','鑫','俊'];
+    const FEMALE_NAMES = ['芳','娜','敏','静','丽','艳','娟','霞','秀兰','燕'];
+    const CITIES = ['北京','上海','广州','深圳','杭州','南京','成都','武汉','西安'];
+    const EDUS = ['高中','大专','本科','硕士'];
+    const INTERESTS = ['阅读','旅行','电影','音乐','健身','摄影','美食','游戏'];
+    
+    const rand = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+    const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+    
     const generated = [];
-    const errors = [];
     
     for (let i = 0; i < count; i++) {
-      try {
-        const g = gender === 'mixed' ? (Math.random() > 0.5 ? '男' : '女') : gender;
-        const name = rand(g === '男' ? MALE_NAMES : FEMALE_NAMES);
-        const birthYear = randInt(1988, 1998);
-        const city = rand(CITIES);
-        
-        // 使用uuid确保唯一性
-        const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
-        const inviteCode = `TEST${uniqueId}${i.toString().padStart(3, '0')}`;
-        
-        const answers = {
-          nickname: name,
-          gender: g,
-          birthYear: String(birthYear),
-          city: city,
-          education: rand(EDUS),
-          long_distance: Math.random() > 0.7 ? '接受' : '不接受',
-          diet: ['无特殊要求'],
-          interests: [rand(INTERESTS), rand(INTERESTS), rand(INTERESTS)],
-          sleep_schedule: '早睡早起',
-          social_mode: '外向健谈',
-          topics: ['社会热点'],
-          exercise: '经常运动',
-        };
-        
-        // 检查 invite_code 是否已存在
-        const existing = await sql.query(
-          'SELECT id FROM profiles WHERE invite_code = $1',
-          [inviteCode]
-        );
-        
-        if (existing.rows.length > 0) {
-          errors.push(`第${i+1}个: 邀请码 ${inviteCode} 已存在`);
-          continue;
-        }
-        
-        // 插入档案 - 捕获具体错误
-        const res = await sql.query(
-          `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
-           VALUES (gen_random_uuid(), $1, 'completed', $2::jsonb, NOW())
-           RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
-          [inviteCode, JSON.stringify(answers)]
-        );
-        
-        if (res.rows.length === 0) {
-          errors.push(`第${i+1}个: 插入返回空结果`);
-          continue;
-        }
-        
+      const g = gender === 'mixed' ? (Math.random() > 0.5 ? '男' : '女') : gender;
+      const name = rand(g === '男' ? MALE_NAMES : FEMALE_NAMES);
+      const birthYear = randInt(1988, 1998);
+      const city = rand(CITIES);
+      
+      const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8);
+      const inviteCode = `TEST${uniqueId}${i.toString().padStart(3, '0')}`;
+      
+      const answers = {
+        nickname: name, gender: g, birthYear: String(birthYear), city: city,
+        education: rand(EDUS), long_distance: Math.random() > 0.7 ? '接受' : '不接受',
+        diet: ['无特殊要求'], interests: [rand(INTERESTS), rand(INTERESTS), rand(INTERESTS)],
+        sleep_schedule: '早睡早起', social_mode: '外向健谈', topics: ['社会热点'], exercise: '经常运动',
+      };
+      
+      const res = await sql.query(
+        `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
+         VALUES (gen_random_uuid(), $1, 'completed', $2::jsonb, NOW())
+         RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
+        [inviteCode, JSON.stringify(answers)]
+      );
+      
+      if (res.rows.length > 0) {
         generated.push(res.rows[0]);
-        
-        // 创建邀请码记录
-        try {
-          await sql.query(
-            `INSERT INTO invite_codes (code, status, max_uses, use_count, created_at, used_by, used_at)
-             VALUES ($1, 'used', 1, 1, NOW(), $2, NOW())
-             ON CONFLICT (code) DO NOTHING`,
-            [inviteCode, res.rows[0].id]
-          );
-        } catch (inviteError) {
-          // 邀请码创建失败不影响主流程
-          console.log('Invite code create warning:', inviteError);
-        }
-        
-      } catch (itemError) {
-        console.error(`第${i+1}个错误:`, itemError);
-        errors.push(`第${i+1}个: ${String(itemError)}`);
+        await sql.query(
+          `INSERT INTO invite_codes (code, status, max_uses, use_count, created_at, used_by, used_at)
+           VALUES ($1, 'used', 1, 1, NOW(), $2, NOW()) ON CONFLICT (code) DO NOTHING`,
+          [inviteCode, res.rows[0].id]
+        );
       }
     }
 
-    return Response.json({
-      success: generated.length > 0,
-      message: `成功生成 ${generated.length} 个测试档案${errors.length > 0 ? `，${errors.length}个失败` : ''}`,
-      data: generated,
-      errors: errors.length > 0 ? errors : undefined
-    });
-
+    return Response.json({ success: true, message: `成功生成 ${generated.length} 个测试档案`, data: generated });
   } catch (error) {
-    console.error('Generate error:', error);
-    return Response.json(
-      { success: false, error: String(error) },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET() {
-  try {
-    const res = await sql.query(
-      `SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE answers->>'gender' = '男') as male_count,
-        COUNT(*) FILTER (WHERE answers->>'gender' = '女') as female_count,
-        COUNT(*) FILTER (WHERE invite_code ILIKE 'TEST%') as test_count
-       FROM profiles WHERE status = 'completed'`
-    );
-    return Response.json({ success: true, data: res.rows[0] });
-  } catch (error) {
-    return Response.json({ success: false, error: String(error) }, { status: 500 });
-  }
-}
-
-export async function DELETE() {
-  try {
-    // 使用 ILIKE 进行不区分大小写的匹配
-    const testProfiles = await sql.query(
-      `SELECT id, invite_code FROM profiles WHERE invite_code ILIKE 'TEST%'`
-    );
-    
-    if (testProfiles.rows.length === 0) {
-      return Response.json({
-        success: true,
-        message: '没有测试档案可删除',
-        data: [],
-        debug: { count: 0 }
-      });
-    }
-    
-    const testIds = testProfiles.rows.map(r => r.id);
-    const inviteCodes = testProfiles.rows.map(r => r.invite_code);
-    
-    // 先删除关联的匹配结果
-    await sql.query(
-      `DELETE FROM match_results 
-       WHERE profile_a_id = ANY($1) OR profile_b_id = ANY($1)`,
-      [testIds]
-    );
-    
-    // 删除第一层候选匹配
-    await sql.query(
-      `DELETE FROM match_candidates 
-       WHERE profile_id = ANY($1) OR candidate_id = ANY($1)`,
-      [testIds]
-    );
-    
-    // 删除测试档案
-    const res = await sql.query(
-      `DELETE FROM profiles WHERE invite_code ILIKE 'TEST%' RETURNING id, invite_code`
-    );
-    
-    // 同时删除对应的邀请码
-    await sql.query(
-      `DELETE FROM invite_codes WHERE code ILIKE 'TEST%'`
-    );
-    
-    return Response.json({
-      success: true,
-      message: `成功删除 ${res.rows.length} 个测试档案`,
-      data: res.rows,
-      debug: { 
-        found: testProfiles.rows.length,
-        deleted: res.rows.length,
-        inviteCodes: inviteCodes.slice(0, 5)
-      }
-    });
-  } catch (error) {
-    console.error('Delete error:', error);
     return Response.json({ success: false, error: String(error) }, { status: 500 });
   }
 }
