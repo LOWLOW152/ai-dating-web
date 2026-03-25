@@ -193,6 +193,46 @@ CREATE TABLE IF NOT EXISTS match_queue (
 CREATE INDEX IF NOT EXISTS idx_mq_status_layer ON match_queue(status, layer);
 CREATE INDEX IF NOT EXISTS idx_mq_priority ON match_queue(priority DESC, created_at);
     `
+  {
+    name: '008_fix_match_status_data',
+    description: '修复已有匹配数据的状态字段',
+    sql: `
+-- 修复第一层状态：已经有 level1_calculated_at 的标记为 completed
+UPDATE profiles 
+SET match_level1_status = 'completed',
+    match_level1_at = COALESCE(match_level1_at, level1_calculated_at)
+WHERE level1_calculated_at IS NOT NULL 
+  AND (match_level1_status IS NULL OR match_level1_status = 'pending');
+
+-- 修复第二层状态：已经有 level_2_score 的标记为 completed 并更新最高分
+UPDATE profiles 
+SET match_level2_status = 'completed',
+    match_level2_at = COALESCE(match_level2_at, NOW()),
+    level2_max_score = (
+      SELECT MAX(level_2_score)
+      FROM match_candidates
+      WHERE profile_id = profiles.id
+        AND passed_level_1 = true
+        AND level_2_score IS NOT NULL
+    )
+WHERE id IN (
+  SELECT DISTINCT profile_id 
+  FROM match_candidates 
+  WHERE level_2_score IS NOT NULL
+)
+AND (match_level2_status IS NULL OR match_level2_status = 'pending');
+
+-- 修复第三层状态：已经有 level_3_report 的标记为 completed
+UPDATE profiles 
+SET match_level3_status = 'completed',
+    match_level3_at = COALESCE(match_level3_at, NOW())
+WHERE id IN (
+  SELECT DISTINCT profile_id 
+  FROM match_candidates 
+  WHERE level_3_report IS NOT NULL
+)
+AND (match_level3_status IS NULL OR match_level3_status = 'pending');
+    `
   }
 ];
 
@@ -342,6 +382,28 @@ export async function GET() {
       description: '匹配任务队列',
       applied: queueTableRes.rows[0].exists
     });
+
+    // 检查是否需要修复匹配状态数据
+    try {
+      const fixCheckRes = await sql.query(
+        `SELECT COUNT(*) as count 
+         FROM profiles 
+         WHERE level1_calculated_at IS NOT NULL 
+           AND (match_level1_status IS NULL OR match_level1_status = 'pending')`
+      );
+      const needsFix = parseInt(fixCheckRes.rows[0].count) > 0;
+      status.push({
+        name: '数据: 匹配状态修复',
+        description: needsFix ? `需要修复 ${fixCheckRes.rows[0].count} 条档案` : '已修复',
+        applied: !needsFix
+      });
+    } catch {
+      status.push({
+        name: '数据: 匹配状态修复',
+        description: '依赖字段未创建',
+        applied: false
+      });
+    }
 
     return NextResponse.json({ success: true, status });
 
