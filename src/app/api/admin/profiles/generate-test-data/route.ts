@@ -87,9 +87,18 @@ export async function GET() {
 
 export async function DELETE() {
   try {
+    // 先删除关联的匹配结果（因为有外键约束）
+    await sql.query(
+      `DELETE FROM match_results 
+       WHERE profile_a_id IN (SELECT id FROM profiles WHERE invite_code LIKE 'TEST%')
+       OR profile_b_id IN (SELECT id FROM profiles WHERE invite_code LIKE 'TEST%')`
+    );
+    
+    // 再删除测试档案
     const res = await sql.query(
       `DELETE FROM profiles WHERE invite_code LIKE 'TEST%' RETURNING id, invite_code`
     );
+    
     return Response.json({
       success: true,
       message: `成功删除 ${res.rows.length} 个测试档案`,
