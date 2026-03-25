@@ -83,6 +83,13 @@ export default function AdminHome() {
               >
                 生成邀请码
               </Link>
+              <Link 
+                href="/api/admin/match/debug" 
+                target="_blank"
+                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors"
+              >
+                匹配调试
+              </Link>
             </div>
           </div>
 
