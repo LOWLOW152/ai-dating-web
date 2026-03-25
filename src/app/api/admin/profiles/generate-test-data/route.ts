@@ -107,8 +107,8 @@ export async function POST(request: NextRequest) {
       const testStatus = 'completed';
       
       const res = await sql.query(
-        `INSERT INTO profiles (invite_code, status, answers, completed_at)
-         VALUES ($1, $2, $3::jsonb, $4)
+        `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
+         VALUES (gen_random_uuid(), $1, $2, $3::jsonb, $4)
          RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
         [
           testInviteCode,
