@@ -139,6 +139,60 @@ CREATE TABLE IF NOT EXISTS level3_reports (
 CREATE INDEX IF NOT EXISTS idx_level3_reports_profile ON level3_reports(profile_id);
 CREATE INDEX IF NOT EXISTS idx_level3_reports_candidate ON level3_reports(candidate_id);
     `
+  },
+  {
+    name: '007_match_automation_status',
+    description: '自动化匹配状态字段和日志表',
+    sql: `
+-- 档案匹配状态字段（加到 profiles 表）
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_level1_status TEXT DEFAULT 'pending';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_level2_status TEXT DEFAULT 'pending';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_level3_status TEXT DEFAULT 'pending';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_level1_at TIMESTAMP;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_level2_at TIMESTAMP;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_level3_at TIMESTAMP;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_error TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS level2_max_score INTEGER;
+
+-- 自动化匹配日志表
+CREATE TABLE IF NOT EXISTS match_automation_logs (
+  id SERIAL PRIMARY KEY,
+  run_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  run_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  total_profiles INTEGER DEFAULT 0,
+  success_count INTEGER DEFAULT 0,
+  failed_count INTEGER DEFAULT 0,
+  skipped_count INTEGER DEFAULT 0,
+  details JSONB DEFAULT '{}',
+  error_message TEXT,
+  started_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mal_run_date ON match_automation_logs(run_date);
+CREATE INDEX IF NOT EXISTS idx_mal_run_type ON match_automation_logs(run_type);
+CREATE INDEX IF NOT EXISTS idx_mal_status ON match_automation_logs(status);
+
+-- 匹配队列表
+CREATE TABLE IF NOT EXISTS match_queue (
+  id SERIAL PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  layer INTEGER NOT NULL,
+  status TEXT DEFAULT 'pending',
+  priority INTEGER DEFAULT 0,
+  retry_count INTEGER DEFAULT 0,
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  started_at TIMESTAMP,
+  completed_at TIMESTAMP,
+  UNIQUE(profile_id, layer)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mq_status_layer ON match_queue(status, layer);
+CREATE INDEX IF NOT EXISTS idx_mq_priority ON match_queue(priority DESC, created_at);
+    `
   }
 ];
 
@@ -257,6 +311,36 @@ export async function GET() {
       name: '字段: level_2_score 等',
       description: '第二层、第三层匹配字段',
       applied: level2ColRes.rows[0].exists
+    });
+
+    // 检查 profiles 是否有自动化匹配状态字段
+    const matchStatusColRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'match_level1_status')"
+    );
+    status.push({
+      name: '字段: match_level1_status 等',
+      description: '自动化匹配状态字段（3层状态+时间戳）',
+      applied: matchStatusColRes.rows[0].exists
+    });
+
+    // 检查 match_automation_logs 表
+    const logsTableRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'match_automation_logs')"
+    );
+    status.push({
+      name: '表: match_automation_logs',
+      description: '自动化匹配日志',
+      applied: logsTableRes.rows[0].exists
+    });
+
+    // 检查 match_queue 表
+    const queueTableRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'match_queue')"
+    );
+    status.push({
+      name: '表: match_queue',
+      description: '匹配任务队列',
+      applied: queueTableRes.rows[0].exists
     });
 
     return NextResponse.json({ success: true, status });
