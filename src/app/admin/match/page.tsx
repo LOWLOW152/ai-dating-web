@@ -237,7 +237,10 @@ function Level2Filter() {
       });
       const data = await res.json();
       if (data.success) {
-        setResult({ processed: data.data.processed, totalTokens: data.data.totalTokens });
+        setResult({ 
+          processed: data.data?.processed || 0, 
+          totalTokens: data.data?.totalTokens || 0 
+        });
         handleLoadStatus();
       } else {
         alert(data.error || '计算失败');

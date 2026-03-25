@@ -186,9 +186,13 @@ export async function POST(request: NextRequest) {
       
       return Response.json({
         success: true,
-        message: '所有候选人已评分',
-        topCandidates: topCandidatesRes.rows,
-        totalCalculated: 0
+        data: {
+          message: '所有候选人已评分',
+          processed: 0,
+          totalTokens: 0,
+          topCandidates: topCandidatesRes.rows,
+          totalCalculated: 0
+        }
       });
     }
 
