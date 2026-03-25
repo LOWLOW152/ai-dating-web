@@ -31,13 +31,29 @@ export async function GET(request: NextRequest) {
           COUNT(*) FILTER (WHERE level_3_calculated_at IS NOT NULL) as l3_calculated
         FROM match_candidates
       `);
+
+      // 获取前5个有候选人的档案示例
+      const sampleProfilesRes = await sql.query(`
+        SELECT DISTINCT ON (p.id)
+          p.id, p.invite_code, p.match_level2_status, p.match_level3_status,
+          COUNT(mc.candidate_id) as total_candidates,
+          COUNT(*) FILTER (WHERE mc.level_2_passed = true) as l2_passed_count
+        FROM profiles p
+        JOIN match_candidates mc ON p.id = mc.profile_id
+        WHERE p.ai_evaluation_status = 'completed'
+        GROUP BY p.id
+        ORDER BY p.id
+        LIMIT 5
+      `);
       
       return Response.json({
         success: true,
         summary: {
           profiles: statsRes.rows[0],
           candidates: candidatesRes.rows[0]
-        }
+        },
+        sampleProfiles: sampleProfilesRes.rows,
+        hint: '添加 ?profileId=xxx 查看单个档案的详细候选人列表'
       });
     }
 
