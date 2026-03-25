@@ -47,29 +47,47 @@ export async function POST(request: NextRequest) {
           exercise: '经常运动',
         };
         
-        // 先创建档案（不依赖invite_codes表）
+        // 检查 invite_code 是否已存在
+        const existing = await sql.query(
+          'SELECT id FROM profiles WHERE invite_code = $1',
+          [inviteCode]
+        );
+        
+        if (existing.rows.length > 0) {
+          errors.push(`第${i+1}个: 邀请码 ${inviteCode} 已存在`);
+          continue;
+        }
+        
+        // 插入档案 - 捕获具体错误
         const res = await sql.query(
           `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
            VALUES (gen_random_uuid(), $1, 'completed', $2::jsonb, NOW())
-           ON CONFLICT (invite_code) DO NOTHING
            RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
           [inviteCode, JSON.stringify(answers)]
         );
         
-        if (res.rows.length > 0) {
-          generated.push(res.rows[0]);
-          
-          // 同时创建邀请码记录（忽略冲突）
+        if (res.rows.length === 0) {
+          errors.push(`第${i+1}个: 插入返回空结果`);
+          continue;
+        }
+        
+        generated.push(res.rows[0]);
+        
+        // 创建邀请码记录
+        try {
           await sql.query(
             `INSERT INTO invite_codes (code, status, max_uses, use_count, created_at, used_by, used_at)
              VALUES ($1, 'used', 1, 1, NOW(), $2, NOW())
              ON CONFLICT (code) DO NOTHING`,
             [inviteCode, res.rows[0].id]
           );
-        } else {
-          errors.push(`第${i+1}个: 邀请码冲突`);
+        } catch (inviteError) {
+          // 邀请码创建失败不影响主流程
+          console.log('Invite code create warning:', inviteError);
         }
+        
       } catch (itemError) {
+        console.error(`第${i+1}个错误:`, itemError);
         errors.push(`第${i+1}个: ${String(itemError)}`);
       }
     }
@@ -156,7 +174,7 @@ export async function DELETE() {
       debug: { 
         found: testProfiles.rows.length,
         deleted: res.rows.length,
-        inviteCodes: inviteCodes.slice(0, 5) // 显示前5个
+        inviteCodes: inviteCodes.slice(0, 5)
       }
     });
   } catch (error) {
