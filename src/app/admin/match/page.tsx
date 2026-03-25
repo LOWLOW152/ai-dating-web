@@ -536,8 +536,15 @@ function Level2Filter() {
             body: JSON.stringify({ profileId: pid }),
           });
           const data = await res.json();
-          if (data.success) {
+          // 判断成功：API返回成功 且 至少有一个候选人评分成功
+          const hasSuccessfulCandidate = data.success && 
+            data.data?.results?.some((r: {status: string}) => r.status === 'success');
+          
+          if (hasSuccessfulCandidate) {
             successList.push(pid);
+          } else if (data.success) {
+            // API成功但所有候选人都失败
+            failedList.push({ id: pid, error: '所有候选人评分失败' });
           } else {
             failedList.push({ id: pid, error: data.error || '未知错误' });
           }
@@ -594,8 +601,14 @@ function Level2Filter() {
             body: JSON.stringify({ profileId: pid }),
           });
           const data = await res.json();
-          if (data.success) {
+          // 判断成功：API返回成功 且 至少有一个候选人评分成功
+          const hasSuccessfulCandidate = data.success && 
+            data.data?.results?.some((r: {status: string}) => r.status === 'success');
+          
+          if (hasSuccessfulCandidate) {
             successList.push(pid);
+          } else if (data.success) {
+            failedList.push({ id: pid, error: '所有候选人评分失败' });
           } else {
             failedList.push({ id: pid, error: data.error || '未知错误' });
           }
