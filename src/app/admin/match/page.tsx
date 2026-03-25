@@ -210,9 +210,13 @@ function Level1Filter() {
     <div className="space-y-6">
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
         <h3 className="font-medium text-emerald-800 mb-2">第一层硬性条件筛选</h3>
-        <p className="text-sm text-emerald-700">
-          系统自动筛选符合硬性条件的候选人（性别、年龄、地域等），不消耗AI Token
+        <p className="text-sm text-emerald-700 mb-2">
+          系统自动筛选符合硬性条件的候选人，不消耗AI Token
         </p>
+        <div className="text-xs text-emerald-600 bg-emerald-100/50 rounded p-2">
+          <strong>匹配内容：</strong>
+          异性、双向年龄互适（在彼此接受范围内）、同城或接受异地、学历满足最低要求、饮食兼容
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
@@ -617,9 +621,13 @@ function Level2Filter() {
     <div className="space-y-6">
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
         <h3 className="font-medium text-purple-800 mb-2">第二层AI初筛 - 相似度评分</h3>
-        <p className="text-sm text-purple-700">
-          从第一层通过的候选人中，基于5个维度（兴趣爱好、作息习惯、社交模式、话题、运动习惯）进行AI相似度评分，取Top 20%进入第三层
+        <p className="text-sm text-purple-700 mb-2">
+          AI对第一层通过的候选人进行相似度评分，取Top 20%进入第三层
         </p>
+        <div className="text-xs text-purple-600 bg-purple-100/50 rounded p-2">
+          <strong>评分维度：</strong>
+          兴趣爱好（重叠度）、作息习惯（一致性）、社交模式（偏好匹配）、话题偏好（共同话题）、运动习惯（活跃程度）
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
