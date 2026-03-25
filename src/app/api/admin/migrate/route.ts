@@ -193,6 +193,7 @@ CREATE TABLE IF NOT EXISTS match_queue (
 CREATE INDEX IF NOT EXISTS idx_mq_status_layer ON match_queue(status, layer);
 CREATE INDEX IF NOT EXISTS idx_mq_priority ON match_queue(priority DESC, created_at);
     `
+  },
   {
     name: '008_fix_match_status_data',
     description: '修复已有匹配数据的状态字段',
