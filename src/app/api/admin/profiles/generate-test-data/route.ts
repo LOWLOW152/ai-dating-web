@@ -7,35 +7,40 @@ export async function GET(request: NextRequest) {
     const tests = [];
     
     // 1. 直接查询所有档案
-    const all = await sql.query('SELECT COUNT(*) as c FROM profiles');
-    tests.push({ query: 'SELECT COUNT(*) FROM profiles', result: all.rows[0].c });
+    try {
+      const all = await sql.query('SELECT COUNT(*) as c FROM profiles');
+      tests.push({ query: 'SELECT COUNT(*) FROM profiles', result: all.rows[0]?.c ?? 'error' });
+    } catch (e) {
+      tests.push({ query: 'SELECT COUNT(*) FROM profiles', error: String(e) });
+    }
     
     // 2. LIKE查询
-    const likeTest = await sql.query(`SELECT COUNT(*) as c FROM profiles WHERE invite_code LIKE 'TEST%'`);
-    tests.push({ query: `LIKE 'TEST%'`, result: likeTest.rows[0].c });
+    try {
+      const likeTest = await sql.query(`SELECT COUNT(*) as c FROM profiles WHERE invite_code LIKE 'TEST%'`);
+      tests.push({ query: `LIKE 'TEST%'`, result: likeTest.rows[0]?.c ?? 'error' });
+    } catch (e) {
+      tests.push({ query: `LIKE 'TEST%'`, error: String(e) });
+    }
     
     // 3. 使用POSITION
-    const posTest = await sql.query(`SELECT COUNT(*) as c FROM profiles WHERE POSITION('TEST' IN invite_code) = 1`);
-    tests.push({ query: `POSITION('TEST' IN invite_code) = 1`, result: posTest.rows[0].c });
+    try {
+      const posTest = await sql.query(`SELECT COUNT(*) as c FROM profiles WHERE POSITION('TEST' IN invite_code) = 1`);
+      tests.push({ query: `POSITION('TEST' IN invite_code) = 1`, result: posTest.rows[0]?.c ?? 'error' });
+    } catch (e) {
+      tests.push({ query: `POSITION`, error: String(e) });
+    }
     
-    // 4. 使用SUBSTRING
-    const subTest = await sql.query(`SELECT COUNT(*) as c FROM profiles WHERE SUBSTRING(invite_code FROM 1 FOR 4) = 'TEST'`);
-    tests.push({ query: `SUBSTRING(invite_code FROM 1 FOR 4) = 'TEST'`, result: subTest.rows[0].c });
-    
-    // 5. 查看invite_code字段类型
-    const colInfo = await sql.query(`
-      SELECT data_type FROM information_schema.columns 
-      WHERE table_name = 'profiles' AND column_name = 'invite_code'
-    `);
-    tests.push({ query: 'invite_code字段类型', result: colInfo.rows[0]?.data_type || 'unknown' });
-    
-    // 6. 查看前3个invite_code的实际字节
-    const samples = await sql.query(`SELECT invite_code, ENCODE(invite_code::bytea, 'hex') as hex FROM profiles LIMIT 3`);
+    // 4. 查看前3个invite_code
+    try {
+      const samples = await sql.query(`SELECT invite_code FROM profiles LIMIT 3`);
+      tests.push({ query: 'samples', result: samples.rows.map(r => r.invite_code) });
+    } catch (e) {
+      tests.push({ query: 'samples', error: String(e) });
+    }
     
     return Response.json({
       success: true,
-      tests,
-      samples: samples.rows
+      tests
     });
   } catch (error) {
     return Response.json({ success: false, error: String(error) }, { status: 500 });
