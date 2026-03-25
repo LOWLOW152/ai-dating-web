@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { sql } from '@/lib/db';
 
+// VERSION: 2026-03-25-2140 - Force redeploy
+
 export async function GET(request: NextRequest) {
   try {
     // 测试各种查询方式
