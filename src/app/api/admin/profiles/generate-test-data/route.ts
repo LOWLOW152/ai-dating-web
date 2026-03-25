@@ -108,20 +108,22 @@ export async function GET() {
 
 export async function DELETE() {
   try {
-    // 获取要删除的测试档案ID
+    // 使用 ILIKE 进行不区分大小写的匹配
     const testProfiles = await sql.query(
-      `SELECT id FROM profiles WHERE invite_code LIKE 'TEST%'`
+      `SELECT id, invite_code FROM profiles WHERE invite_code ILIKE 'TEST%'`
     );
     
     if (testProfiles.rows.length === 0) {
       return Response.json({
         success: true,
         message: '没有测试档案可删除',
-        data: []
+        data: [],
+        debug: { count: 0 }
       });
     }
     
     const testIds = testProfiles.rows.map(r => r.id);
+    const inviteCodes = testProfiles.rows.map(r => r.invite_code);
     
     // 先删除关联的匹配结果
     await sql.query(
@@ -139,20 +141,26 @@ export async function DELETE() {
     
     // 删除测试档案
     const res = await sql.query(
-      `DELETE FROM profiles WHERE invite_code LIKE 'TEST%' RETURNING id, invite_code`
+      `DELETE FROM profiles WHERE invite_code ILIKE 'TEST%' RETURNING id, invite_code`
     );
     
     // 同时删除对应的邀请码
     await sql.query(
-      `DELETE FROM invite_codes WHERE code LIKE 'TEST%'`
+      `DELETE FROM invite_codes WHERE code ILIKE 'TEST%'`
     );
     
     return Response.json({
       success: true,
       message: `成功删除 ${res.rows.length} 个测试档案`,
-      data: res.rows
+      data: res.rows,
+      debug: { 
+        found: testProfiles.rows.length,
+        deleted: res.rows.length,
+        inviteCodes: inviteCodes.slice(0, 5) // 显示前5个
+      }
     });
   } catch (error) {
+    console.error('Delete error:', error);
     return Response.json({ success: false, error: String(error) }, { status: 500 });
   }
 }
