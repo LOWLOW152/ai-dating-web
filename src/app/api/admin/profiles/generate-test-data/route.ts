@@ -39,6 +39,7 @@ function generateNickname(gender: string): string {
   return prefix + FEMALE_NAMES[randomInt(0, FEMALE_NAMES.length - 1)];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function generateProfile(gender: string, index: number) {
   const birthYear = randomInt(1988, 1998);
   const age = 2026 - birthYear;
@@ -101,8 +102,6 @@ export async function POST(request: NextRequest) {
         profileGender = gender;
       }
       
-      const profile = generateProfile(profileGender, i);
-      
       // 最简化插入 - 只测试核心字段
       const testInviteCode = `TEST${Date.now()}${i.toString().padStart(4, '0')}`;
       const testStatus = 'completed';
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
         [
           testInviteCode,
           testStatus,
-          JSON.stringify({ nickname: '测试', gender: '男' }),
+          JSON.stringify({ nickname: '测试', gender: profileGender }),
           new Date().toISOString(),
         ]
       );
