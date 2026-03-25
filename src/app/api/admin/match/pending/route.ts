@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
         
       case 2:
         if (status === 'failed') {
-          // 第二层失败的档案：有候选人但所有都失败了（没有成功计算的分数）
+          // 第二层失败的档案：第一层已完成，但第二层还没有成功完成的
+          // 包括：计算过但失败的、或者还没开始计算的
           query = `
             SELECT DISTINCT p.id 
             FROM profiles p
@@ -36,7 +37,6 @@ export async function GET(request: NextRequest) {
             WHERE p.match_level1_status = 'completed'
               AND mc.passed_level_1 = true
               AND mc.level_2_score IS NULL
-              AND mc.level_2_calculated_at IS NOT NULL
             ORDER BY p.id
             LIMIT ${limit}
           `;
