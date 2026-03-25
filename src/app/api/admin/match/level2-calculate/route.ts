@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
       [profileId]
     );
 
-    // 获取统计
+    // 获取统计并更新档案状态
     const statsRes = await sql.query(
       `SELECT 
         COUNT(*) FILTER (WHERE level_2_score IS NOT NULL) as calculated,
@@ -270,6 +270,24 @@ export async function POST(request: NextRequest) {
        FROM match_candidates
        WHERE profile_id = $1 AND passed_level_1 = true`,
       [profileId]
+    );
+
+    // 更新档案第二层状态
+    const maxScoreRes = await sql.query(
+      `SELECT MAX(level_2_score) as max_score
+       FROM match_candidates
+       WHERE profile_id = $1 AND passed_level_1 = true`,
+      [profileId]
+    );
+    const maxScore = maxScoreRes.rows[0]?.max_score || 0;
+
+    await sql.query(
+      `UPDATE profiles 
+       SET match_level2_status = 'completed',
+           match_level2_at = NOW(),
+           level2_max_score = $2
+       WHERE id = $1`,
+      [profileId, maxScore]
     );
 
     return Response.json({

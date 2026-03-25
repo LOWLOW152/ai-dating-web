@@ -110,9 +110,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 更新档案的计算时间
+    // 更新档案的计算时间和状态
     await sql.query(
-      'UPDATE profiles SET level1_calculated_at = NOW() WHERE id = $1',
+      `UPDATE profiles 
+       SET level1_calculated_at = NOW(),
+           match_level1_status = 'completed',
+           match_level1_at = NOW()
+       WHERE id = $1`,
       [profileId]
     );
 

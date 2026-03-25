@@ -289,6 +289,15 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
+    // 更新档案第三层状态
+    await sql.query(
+      `UPDATE profiles 
+       SET match_level3_status = 'completed',
+           match_level3_at = NOW()
+       WHERE id = $1`,
+      [profileId]
+    );
+
     return Response.json({
       success: true,
       data: {
