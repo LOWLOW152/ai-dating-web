@@ -2,14 +2,15 @@ import { NextRequest } from 'next/server';
 import { sql } from '@/lib/db';
 
 /**
- * 获取待处理的档案列表
- * GET /api/admin/match/pending?level=1|2|3&limit=10
+ * 获取待处理或失败的档案列表
+ * GET /api/admin/match/pending?level=1|2|3&limit=10&status=pending|failed
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const level = parseInt(searchParams.get('level') || '1');
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '10')));
+    const status = searchParams.get('status') || 'pending'; // pending 或 failed
 
     let query = '';
     
@@ -19,21 +20,36 @@ export async function GET(request: NextRequest) {
         query = `
           SELECT id FROM profiles 
           WHERE ai_evaluation_status = 'completed' 
-            AND (match_level1_status IS NULL OR match_level1_status = 'pending')
+            AND (match_level1_status IS NULL OR match_level1_status = '${status}')
           ORDER BY ai_evaluated_at ASC
           LIMIT ${limit}
         `;
         break;
         
       case 2:
-        // 第二层：第一层已完成，第二层未开始
-        query = `
-          SELECT id FROM profiles 
-          WHERE match_level1_status = 'completed' 
-            AND (match_level2_status IS NULL OR match_level2_status = 'pending')
-          ORDER BY match_level1_at ASC
-          LIMIT ${limit}
-        `;
+        if (status === 'failed') {
+          // 第二层失败的档案：有候选人但所有都失败了（没有成功计算的分数）
+          query = `
+            SELECT DISTINCT p.id 
+            FROM profiles p
+            JOIN match_candidates mc ON p.id = mc.profile_id
+            WHERE p.match_level1_status = 'completed'
+              AND mc.passed_level_1 = true
+              AND mc.level_2_score IS NULL
+              AND mc.level_2_calculated_at IS NOT NULL
+            ORDER BY p.id
+            LIMIT ${limit}
+          `;
+        } else {
+          // 第二层：第一层已完成，第二层未开始
+          query = `
+            SELECT id FROM profiles 
+            WHERE match_level1_status = 'completed' 
+              AND (match_level2_status IS NULL OR match_level2_status = 'pending')
+            ORDER BY match_level1_at ASC
+            LIMIT ${limit}
+          `;
+        }
         break;
         
       case 3:
@@ -43,7 +59,7 @@ export async function GET(request: NextRequest) {
           FROM profiles p
           JOIN match_candidates mc ON p.id = mc.profile_id
           WHERE p.match_level2_status = 'completed'
-            AND (p.match_level3_status IS NULL OR p.match_level3_status = 'pending')
+            AND (p.match_level3_status IS NULL OR match_level3_status = 'pending')
             AND mc.level_2_passed = true
             AND mc.level_3_calculated_at IS NULL
           ORDER BY p.id, mc.level_2_score DESC
@@ -64,6 +80,7 @@ export async function GET(request: NextRequest) {
     return Response.json({
       success: true,
       level,
+      status,
       count: profiles.length,
       profiles
     });

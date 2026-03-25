@@ -555,6 +555,64 @@ function Level2Filter() {
     setBatchRunning(false);
   };
 
+  // 重试失败的档案
+  const handleRetryFailed = async () => {
+    setBatchRunning(true);
+    setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setBatchResult(null);
+    setError(null);
+    setApiError(null);
+
+    try {
+      // 1. 获取失败的档案列表
+      const failedRes = await fetch(`/api/admin/match/pending?level=2&status=failed&limit=${batchCount}`);
+      const failedData = await failedRes.json();
+
+      if (!failedData.success || !failedData.profiles || failedData.profiles.length === 0) {
+        setError('没有需要重试的失败档案');
+        setBatchRunning(false);
+        return;
+      }
+
+      const profiles = failedData.profiles;
+      const successList: string[] = [];
+      const failedList: { id: string; error: string }[] = [];
+
+      // 2. 逐个重试
+      for (let i = 0; i < profiles.length; i++) {
+        const pid = profiles[i];
+        setBatchProgress({ current: i + 1, total: profiles.length, success: successList.length, failed: failedList.length });
+
+        try {
+          const res = await fetch('/api/admin/match/level2-calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profileId: pid }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            successList.push(pid);
+          } else {
+            failedList.push({ id: pid, error: data.error || '未知错误' });
+          }
+        } catch (err) {
+          failedList.push({ id: pid, error: err instanceof Error ? err.message : String(err) });
+        }
+
+        // 间隔避免限流
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      setBatchProgress({ current: profiles.length, total: profiles.length, success: successList.length, failed: failedList.length });
+      setBatchResult({ success: successList, failed: failedList });
+    } catch (error) {
+      console.error('Retry failed error:', error);
+      setError(`重试失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    setBatchRunning(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
@@ -592,7 +650,7 @@ function Level2Filter() {
         {/* 批量自动匹配 */}
         <div className="border-t border-gray-200 pt-4 mb-4">
           <h4 className="text-sm font-medium text-gray-700 mb-3">批量自动匹配</h4>
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-center mb-3">
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">匹配数量:</label>
               <input
@@ -611,13 +669,20 @@ function Level2Filter() {
             >
               {batchRunning ? '批量匹配中...' : '一键批量匹配'}
             </button>
+            <button
+              onClick={handleRetryFailed}
+              disabled={batchRunning}
+              className="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 disabled:bg-gray-300"
+            >
+              {batchRunning ? '重试中...' : '重试失败档案'}
+            </button>
             {batchRunning && batchProgress && (
               <span className="text-sm text-gray-600">
                 进度: {batchProgress.current}/{batchProgress.total} (成功{batchProgress.success}/失败{batchProgress.failed})
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-2">注：第二层AI调用较慢，建议每次不超过20个</p>
+          <p className="text-xs text-gray-500">注：第二层AI调用较慢，建议每次不超过20个</p>
         </div>
 
         {/* 批量匹配结果 */}
