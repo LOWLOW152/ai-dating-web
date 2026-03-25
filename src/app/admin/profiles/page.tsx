@@ -9,6 +9,12 @@ interface Profile {
   status: string;
   tags: string[];
   created_at: string;
+  ai_evaluation_status?: string;
+  match_level1_status?: string;
+  match_level2_status?: string;
+  match_level3_status?: string;
+  match_error?: string;
+  level2_max_score?: number;
 }
 
 const PREDEFINED_TAGS = [
@@ -20,6 +26,35 @@ const PREDEFINED_TAGS = [
   { value: '测试', label: '🧪 测试', color: 'bg-purple-100 text-purple-700' },
 ];
 
+// 获取匹配状态显示
+function getMatchStatusDisplay(profile: Profile) {
+  const levels = [
+    { key: 'ai_evaluation_status', label: 'AI评价', status: profile.ai_evaluation_status },
+    { key: 'match_level1_status', label: '第一层', status: profile.match_level1_status },
+    { key: 'match_level2_status', label: '第二层', status: profile.match_level2_status },
+    { key: 'match_level3_status', label: '第三层', status: profile.match_level3_status },
+  ];
+  
+  return levels.map(level => {
+    const status = level.status || 'pending';
+    let color = 'bg-gray-100 text-gray-400'; // pending
+    let icon = '○';
+    
+    if (status === 'completed') {
+      color = 'bg-green-100 text-green-700';
+      icon = '✓';
+    } else if (status === 'running') {
+      color = 'bg-blue-100 text-blue-700';
+      icon = '⟳';
+    } else if (status === 'failed') {
+      color = 'bg-red-100 text-red-700';
+      icon = '✗';
+    }
+    
+    return { ...level, color, icon, status };
+  });
+}
+
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +62,7 @@ export default function ProfilesPage() {
   const [searchCode, setSearchCode] = useState<string>('');
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showMatchStatus, setShowMatchStatus] = useState(true);
 
   // 加载档案列表
   async function loadProfiles() {
@@ -81,7 +117,6 @@ export default function ProfilesPage() {
       });
       const data = await res.json();
       if (data.success) {
-        // 重新加载档案列表确保数据同步
         await loadProfiles();
         setEditingTags(null);
       } else {
@@ -108,7 +143,7 @@ export default function ProfilesPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4">
+    <div className="max-w-7xl mx-auto px-4">
       {/* 头部 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -120,8 +155,19 @@ export default function ProfilesPage() {
           </p>
         </div>
         
-        {/* 标签筛选 */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* 操作按钮 */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowMatchStatus(!showMatchStatus)}
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              showMatchStatus 
+                ? 'bg-blue-100 text-blue-700' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {showMatchStatus ? '👁️ 显示匹配进度' : '🙈 隐藏匹配进度'}
+          </button>
+          
           {/* 邀请码搜索 */}
           <div className="flex items-center gap-2">
             <input
@@ -176,91 +222,119 @@ export default function ProfilesPage() {
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">邀请码</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">标签</th>
+                {showMatchStatus && (
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">匹配进度</th>
+                )}
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">创建时间</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredProfiles.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-mono">{p.id}</td>
-                  <td className="px-4 py-3 text-sm">{p.invite_code}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {editingTags === p.id ? (
-                      <div className="flex flex-wrap gap-1">
-                        {PREDEFINED_TAGS.map(tag => (
-                          <button
-                            key={tag.value}
-                            onClick={() => toggleTag(tag.value)}
-                            className={`px-2 py-1 rounded text-xs border ${
-                              selectedTags.includes(tag.value)
-                                ? tag.color + ' border-transparent'
-                                : 'bg-white text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            {selectedTags.includes(tag.value) ? '✓ ' : ''}{tag.label}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {p.tags?.length > 0 ? (
-                          p.tags.map(tag => {
-                            const display = getTagDisplay(tag);
-                            return (
-                              <span key={tag} className={`px-2 py-1 rounded text-xs ${display.color}`}>
-                                {display.label}
-                              </span>
-                            );
-                          })
-                        ) : (
-                          <span className="text-gray-400 text-xs">无标签</span>
+              {filteredProfiles.map((p) => {
+                const matchStatuses = getMatchStatusDisplay(p);
+                return (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-mono">{p.id}</td>
+                    <td className="px-4 py-3 text-sm">{p.invite_code}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {editingTags === p.id ? (
+                        <div className="flex flex-wrap gap-1">
+                          {PREDEFINED_TAGS.map(tag => (
+                            <button
+                              key={tag.value}
+                              onClick={() => toggleTag(tag.value)}
+                              className={`px-2 py-1 rounded text-xs border ${
+                                selectedTags.includes(tag.value)
+                                  ? tag.color + ' border-transparent'
+                                  : 'bg-white text-gray-600 border-gray-200'
+                              }`}
+                            >
+                              {selectedTags.includes(tag.value) ? '✓ ' : ''}{tag.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {p.tags?.length > 0 ? (
+                            p.tags.map(tag => {
+                              const display = getTagDisplay(tag);
+                              return (
+                                <span key={tag} className={`px-2 py-1 rounded text-xs ${display.color}`}>
+                                  {display.label}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-gray-400 text-xs">无标签</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    
+                    {showMatchStatus && (
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex flex-wrap gap-1">
+                          {matchStatuses.map((status) => (
+                            <span
+                              key={status.key}
+                              className={`px-2 py-1 rounded text-xs ${status.color}`}
+                              title={status.status === 'failed' ? p.match_error : undefined}
+                            >
+                              {status.icon} {status.label}
+                            </span>
+                          ))}
+                        </div>
+                        {p.level2_max_score && p.level2_max_score > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            第二层最高分: {p.level2_max_score}
+                          </div>
                         )}
-                      </div>
+                      </td>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(p.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {editingTags === p.id ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveTags(p.id)}
-                          className="text-green-600 hover:text-green-800 text-xs"
-                        >
-                          保存
-                        </button>
-                        <button
-                          onClick={() => setEditingTags(null)}
-                          className="text-gray-500 hover:text-gray-700 text-xs"
-                        >
-                          取消
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-3">
-                        <Link href={`/admin/profiles/${p.id}`} className="text-blue-600 hover:underline">
-                          查看
-                        </Link>
-                        <button
-                          onClick={() => startEditTags(p)}
-                          className="text-orange-600 hover:text-orange-800"
-                        >
-                          标签
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {editingTags === p.id ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => saveTags(p.id)}
+                            className="text-green-600 hover:text-green-800 text-xs"
+                          >
+                            保存
+                          </button>
+                          <button
+                            onClick={() => setEditingTags(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <Link href={`/admin/profiles/${p.id}`} className="text-blue-600 hover:underline">
+                            查看
+                          </Link>
+                          <button
+                            onClick={() => startEditTags(p)}
+                            className="text-orange-600 hover:text-orange-800"
+                          >
+                            标签
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -268,15 +342,16 @@ export default function ProfilesPage() {
 
       {/* 说明 */}
       <div className="mt-6 bg-blue-50 rounded-lg p-4 text-sm text-gray-600">
-        <p className="font-medium mb-2">标签说明:</p>
+        <p className="font-medium mb-2">匹配进度说明:</p>
         <ul className="space-y-1 list-disc list-inside">
-          <li><span className="text-red-600">🗑️ 已删除</span> - 软删除标识，匹配时会自动排除</li>
-          <li><span className="text-yellow-600">⭐ VIP</span> - 重要客户标识</li>
-          <li><span className="text-orange-600">⚠️ 可疑</span> - 需要重点审核</li>
-          <li><span className="text-green-600">✅ 已完成</span> - 档案完整，可以匹配</li>
-          <li><span className="text-blue-600">⏳ 待处理</span> - 等待审核或补充信息</li>
-          <li><span className="text-purple-600">🧪 测试</span> - 测试数据标识</li>
+          <li><span className="text-gray-400">○</span> 待处理 - 等待自动化运行</li>
+          <li><span className="text-blue-600">⟳</span> 运行中 - 正在处理</li>
+          <li><span className="text-green-600">✓</span> 已完成 - 该层处理完成</li>
+          <li><span className="text-red-600">✗</span> 失败 - 处理出错，鼠标悬停查看原因</li>
         </ul>
+        <p className="mt-3 text-xs text-gray-500">
+          自动化时间：AI评价(2:00-3:00) → 第一层(3:00-3:10) → 第二层+第三层(3:10-6:50)
+        </p>
       </div>
     </div>
   );

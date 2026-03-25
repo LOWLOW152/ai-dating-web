@@ -4,7 +4,15 @@ import { sql } from '@/lib/db';
 export async function GET() {
   try {
     const result = await sql.query(
-      'SELECT id, invite_code, status, tags, created_at FROM profiles ORDER BY created_at DESC'
+      `SELECT 
+        id, invite_code, status, tags, created_at,
+        ai_evaluation_status,
+        match_level1_status, match_level2_status, match_level3_status,
+        match_level1_at, match_level2_at, match_level3_at,
+        match_error,
+        level2_max_score
+       FROM profiles 
+       ORDER BY created_at DESC`
     );
 
     return Response.json({
@@ -14,12 +22,23 @@ export async function GET() {
         if (!Array.isArray(tags)) {
           tags = [];
         }
+        
         return {
           id: row.id,
           invite_code: row.invite_code,
           status: row.status,
           tags: tags,
-          created_at: row.created_at
+          created_at: row.created_at,
+          // 匹配状态
+          ai_evaluation_status: row.ai_evaluation_status,
+          match_level1_status: row.match_level1_status,
+          match_level2_status: row.match_level2_status,
+          match_level3_status: row.match_level3_status,
+          match_level1_at: row.match_level1_at,
+          match_level2_at: row.match_level2_at,
+          match_level3_at: row.match_level3_at,
+          match_error: row.match_error,
+          level2_max_score: row.level2_max_score
         };
       })
     }, {
