@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
       
       const res = await sql.query(
         `INSERT INTO profiles (invite_code, status, answers, ai_summary, tags, 
-         accept_age_min, accept_age_max, completed_at)
-         VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8)
+         accept_age_min, accept_age_max, standardized_answers, completed_at)
+         VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8::jsonb, $9)
          RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
         [
           profile.invite_code,
@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
           JSON.stringify(profile.tags),
           profile.accept_age_min,
           profile.accept_age_max,
+          JSON.stringify(profile.standardized_answers),
           profile.completed_at,
         ]
       );
