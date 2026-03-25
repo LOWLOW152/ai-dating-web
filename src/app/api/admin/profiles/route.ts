@@ -10,14 +10,10 @@ export async function GET() {
     return Response.json({
       success: true,
       profiles: result.rows.map(row => {
-        // pg 库会自动解析 jsonb 为 JavaScript 对象
         let tags = row.tags;
-        
-        // 防御性处理：如果不是数组，设为空数组
         if (!Array.isArray(tags)) {
           tags = [];
         }
-        
         return {
           id: row.id,
           invite_code: row.invite_code,
@@ -26,6 +22,12 @@ export async function GET() {
           created_at: row.created_at
         };
       })
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error) {
