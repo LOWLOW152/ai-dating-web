@@ -117,7 +117,7 @@ async function evaluateLevel2(
     
     return {
       success: true,
-      score: result.overall_score,
+      score: Math.round(Number(result.overall_score)),
       dimensionScores: result.dimension_scores,
       reason: result.brief_reason,
       tokens: { request: requestTokens, response: responseTokens, total: requestTokens + responseTokens }

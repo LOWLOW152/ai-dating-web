@@ -109,9 +109,9 @@ async function evaluateLevel3(
     return {
       success: true,
       result: {
-        similarity_score: result.similarity_score,
-        complement_score: result.complement_score,
-        overall_score: result.overall_score,
+        similarity_score: Math.round(Number(result.similarity_score)),
+        complement_score: Math.round(Number(result.complement_score)),
+        overall_score: Math.round(Number(result.overall_score)),
         strengths: result.strengths || [],
         risks: result.risks || [],
         advice: result.advice
