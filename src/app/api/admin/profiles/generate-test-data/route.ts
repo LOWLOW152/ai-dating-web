@@ -43,15 +43,6 @@ export async function POST(request: NextRequest) {
         exercise: '经常运动',
       };
       
-      const standardized = {
-        gender: g,
-        birth_year: birthYear,
-        city: city,
-        long_distance: Math.random() > 0.7,
-        education: rand(EDUS),
-        diet: '无特殊要求',
-      };
-      
       // 简化插入，只保留核心字段
       const res = await sql.query(
         `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
