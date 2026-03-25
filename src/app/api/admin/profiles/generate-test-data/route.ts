@@ -103,20 +103,48 @@ export async function POST(request: NextRequest) {
       
       const profile = generateProfile(profileGender, i);
       
+      // 简化：只插入核心字段
+      const simpleAnswers = {
+        nickname: profile.answers.nickname,
+        gender: profile.answers.gender,
+        birthYear: profile.answers.birthYear,
+        city: profile.answers.city,
+        education: profile.answers.education,
+        long_distance: profile.answers.long_distance,
+        diet: profile.answers.diet,
+        interests: profile.answers.interests,
+        sleep_schedule: profile.answers.sleep_schedule,
+        social_mode: profile.answers.social_mode,
+        topics: profile.answers.topics,
+        exercise: profile.answers.exercise,
+        consumption_view: profile.answers.consumption_view,
+        life_priority: profile.answers.life_priority,
+        marriage_view: profile.answers.marriage_view,
+      };
+      
+      const simpleStandardized = {
+        gender: profile.standardized_answers.gender,
+        birth_year: profile.standardized_answers.birth_year,
+        city: profile.standardized_answers.city,
+        long_distance: profile.standardized_answers.long_distance,
+        education: profile.standardized_answers.education,
+        diet: profile.standardized_answers.diet,
+      };
+      
       const res = await sql.query(
         `INSERT INTO profiles (invite_code, status, answers, ai_summary, tags, 
          accept_age_min, accept_age_max, standardized_answers, completed_at)
-         VALUES ($1, $2, to_jsonb($3::jsonb), $4, to_jsonb($5::jsonb), $6, $7, to_jsonb($8::jsonb), $9)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
         [
           profile.invite_code,
           profile.status,
-          JSON.stringify(profile.answers),
+          JSON.stringify(simpleAnswers),
           profile.ai_summary,
           JSON.stringify(profile.tags),
           profile.accept_age_min,
           profile.accept_age_max,
-          JSON.stringify(profile.standardized_answers),
+          JSON.stringify(simpleStandardized),
           profile.completed_at,
         ]
       );
