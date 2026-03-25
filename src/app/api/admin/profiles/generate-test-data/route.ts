@@ -132,8 +132,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Generate test data error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
     return Response.json(
-      { success: false, error: String(error) },
+      { success: false, error: errorMessage, stack: errorStack },
       { status: 500 }
     );
   }
