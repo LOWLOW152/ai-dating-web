@@ -291,7 +291,7 @@ export async function batchRunLevel3(): Promise<{ success: boolean; stats: { tot
   
   let successCount = 0;
   let failedCount = 0;
-  let skippedCount = 0;
+  const skippedCount = 0;
   
   for (let i = 0; i < profileIds.length; i += CONCURRENCY_LIMIT) {
     const batch = profileIds.slice(i, i + CONCURRENCY_LIMIT);
