@@ -96,11 +96,33 @@ export async function GET() {
 
 export async function DELETE() {
   try {
+    // 获取要删除的测试档案ID
+    const testProfiles = await sql.query(
+      `SELECT id FROM profiles WHERE invite_code LIKE 'TEST%'`
+    );
+    
+    if (testProfiles.rows.length === 0) {
+      return Response.json({
+        success: true,
+        message: '没有测试档案可删除',
+        data: []
+      });
+    }
+    
+    const testIds = testProfiles.rows.map(r => r.id);
+    
     // 先删除关联的匹配结果
     await sql.query(
       `DELETE FROM match_results 
-       WHERE profile_a_id IN (SELECT id FROM profiles WHERE invite_code LIKE 'TEST%')
-       OR profile_b_id IN (SELECT id FROM profiles WHERE invite_code LIKE 'TEST%')`
+       WHERE profile_a_id = ANY($1) OR profile_b_id = ANY($1)`,
+      [testIds]
+    );
+    
+    // 删除第一层候选匹配
+    await sql.query(
+      `DELETE FROM match_candidates 
+       WHERE profile_id = ANY($1) OR candidate_id = ANY($1)`,
+      [testIds]
     );
     
     // 删除测试档案
