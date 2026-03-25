@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
       const birthYear = randInt(1988, 1998);
       const city = rand(CITIES);
       
-      const inviteCode = `TEST${Date.now()}${i.toString().padStart(3, '0')}`;
+      // 使用时间戳+随机数确保唯一性
+      const inviteCode = `TEST${Date.now()}${Math.floor(Math.random() * 1000)}${i.toString().padStart(3, '0')}`;
       
       const answers = {
         nickname: name,
@@ -43,7 +44,15 @@ export async function POST(request: NextRequest) {
         exercise: '经常运动',
       };
       
-      // 简化插入，只保留核心字段
+      // 先创建邀请码记录
+      await sql.query(
+        `INSERT INTO invite_codes (code, status, max_uses, use_count, created_at)
+         VALUES ($1, 'used', 1, 1, NOW())
+         ON CONFLICT (code) DO NOTHING`,
+        [inviteCode]
+      );
+      
+      // 再创建档案
       const res = await sql.query(
         `INSERT INTO profiles (id, invite_code, status, answers, completed_at)
          VALUES (gen_random_uuid(), $1, 'completed', $2::jsonb, NOW())
@@ -87,16 +96,21 @@ export async function GET() {
 
 export async function DELETE() {
   try {
-    // 先删除关联的匹配结果（因为有外键约束）
+    // 先删除关联的匹配结果
     await sql.query(
       `DELETE FROM match_results 
        WHERE profile_a_id IN (SELECT id FROM profiles WHERE invite_code LIKE 'TEST%')
        OR profile_b_id IN (SELECT id FROM profiles WHERE invite_code LIKE 'TEST%')`
     );
     
-    // 再删除测试档案
+    // 删除测试档案
     const res = await sql.query(
       `DELETE FROM profiles WHERE invite_code LIKE 'TEST%' RETURNING id, invite_code`
+    );
+    
+    // 同时删除对应的邀请码
+    await sql.query(
+      `DELETE FROM invite_codes WHERE code LIKE 'TEST%'`
     );
     
     return Response.json({
