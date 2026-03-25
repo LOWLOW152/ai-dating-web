@@ -243,21 +243,14 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // 标记Top 20%通过第二层
+    // 标记 >= 79分通过第二层
     await sql.query(
-      `WITH ranked AS (
-        SELECT candidate_id,
-               ROW_NUMBER() OVER (ORDER BY level_2_score DESC) as rank,
-               COUNT(*) OVER () as total
-        FROM match_candidates
-        WHERE profile_id = $1 AND passed_level_1 = true AND level_2_score IS NOT NULL
-      )
-      UPDATE match_candidates mc
-      SET level_2_passed = true
-      FROM ranked r
-      WHERE mc.profile_id = $1 
-        AND mc.candidate_id = r.candidate_id
-        AND r.rank <= GREATEST(1, r.total * 0.2)`,
+      `UPDATE match_candidates
+       SET level_2_passed = true
+       WHERE profile_id = $1 
+         AND passed_level_1 = true
+         AND level_2_score IS NOT NULL
+         AND level_2_score >= 79`,
       [profileId]
     );
 
