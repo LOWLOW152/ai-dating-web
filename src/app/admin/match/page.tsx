@@ -71,11 +71,12 @@ function Level1Filter() {
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
-  
+
   // 批量匹配相关
   const [batchCount, setBatchCount] = useState(10);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
+  const [batchResult, setBatchResult] = useState<{ success: string[]; failed: { id: string; error: string }[] } | null>(null);
 
   const handleCalculate = async () => {
     if (!profileId) return;
@@ -151,6 +152,7 @@ function Level1Filter() {
   const handleBatchMatch = async () => {
     setBatchRunning(true);
     setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setBatchResult(null);
     setError(null);
     setApiError(null);
     
@@ -166,13 +168,13 @@ function Level1Filter() {
       }
       
       const profiles = pendingData.profiles;
-      let success = 0;
-      let failed = 0;
+      const successList: string[] = [];
+      const failedList: { id: string; error: string }[] = [];
       
       // 2. 逐个处理
       for (let i = 0; i < profiles.length; i++) {
         const pid = profiles[i];
-        setBatchProgress({ current: i + 1, total: profiles.length, success, failed });
+        setBatchProgress({ current: i + 1, total: profiles.length, success: successList.length, failed: failedList.length });
         
         try {
           const res = await fetch('/api/admin/match/level1-calculate', {
@@ -182,25 +184,20 @@ function Level1Filter() {
           });
           const data = await res.json();
           if (data.success) {
-            success++;
+            successList.push(pid);
           } else {
-            failed++;
-            console.error(`档案 ${pid} 第一层失败:`, data.error);
+            failedList.push({ id: pid, error: data.error || '未知错误' });
           }
         } catch (err) {
-          failed++;
-          console.error(`档案 ${pid} 请求异常:`, err);
+          failedList.push({ id: pid, error: err instanceof Error ? err.message : String(err) });
         }
         
         // 间隔避免限流
         await new Promise(r => setTimeout(r, 500));
       }
       
-      setBatchProgress({ current: profiles.length, total: profiles.length, success, failed });
-      
-      if (success > 0) {
-        alert(`批量匹配完成！成功: ${success}, 失败: ${failed}`);
-      }
+      setBatchProgress({ current: profiles.length, total: profiles.length, success: successList.length, failed: failedList.length });
+      setBatchResult({ success: successList, failed: failedList });
     } catch (error) {
       console.error('Batch match error:', error);
       setError(`批量匹配失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -273,6 +270,40 @@ function Level1Filter() {
             )}
           </div>
         </div>
+
+        {/* 批量匹配结果 */}
+        {batchResult && (
+          <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+            <h4 className="font-medium text-gray-800 mb-3">批量匹配结果</h4>
+            
+            {batchResult.success.length > 0 && (
+              <div className="mb-4">
+                <h5 className="text-sm font-medium text-green-700 mb-2">✓ 成功 ({batchResult.success.length})</h5>
+                <div className="flex flex-wrap gap-2">
+                  {batchResult.success.map(id => (
+                    <span key={id} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-mono">{id}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {batchResult.failed.length > 0 && (
+              <div>
+                <h5 className="text-sm font-medium text-red-700 mb-2">✗ 失败 ({batchResult.failed.length})</h5>
+                <div className="space-y-1">
+                  {batchResult.failed.map(item => (
+                    <details key={item.id} className="text-sm">
+                      <summary className="cursor-pointer text-red-600 hover:text-red-800">
+                        {item.id}
+                      </summary>
+                      <p className="text-xs text-red-500 mt-1 pl-4">{item.error}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 错误显示 */}
         {(error || apiError) && (
@@ -385,11 +416,12 @@ function Level2Filter() {
   const [result, setResult] = useState<{ processed: number; totalTokens: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
-  
+
   // 批量匹配相关
   const [batchCount, setBatchCount] = useState(10);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
+  const [batchResult, setBatchResult] = useState<{ success: string[]; failed: { id: string; error: string }[] } | null>(null);
 
   const handleCalculate = async () => {
     if (!profileId) return;
@@ -405,9 +437,9 @@ function Level2Filter() {
       });
       const data = await res.json();
       if (data.success) {
-        setResult({ 
-          processed: data.data?.processed || 0, 
-          totalTokens: data.data?.totalTokens || 0 
+        setResult({
+          processed: data.data?.processed || 0,
+          totalTokens: data.data?.totalTokens || 0
         });
         handleLoadStatus();
       } else {
@@ -469,29 +501,30 @@ function Level2Filter() {
   const handleBatchMatch = async () => {
     setBatchRunning(true);
     setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setBatchResult(null);
     setError(null);
     setApiError(null);
-    
+
     try {
       // 1. 获取待处理的档案列表
       const pendingRes = await fetch(`/api/admin/match/pending?level=2&limit=${batchCount}`);
       const pendingData = await pendingRes.json();
-      
+
       if (!pendingData.success || !pendingData.profiles || pendingData.profiles.length === 0) {
         setError('没有待处理的第二层档案');
         setBatchRunning(false);
         return;
       }
-      
+
       const profiles = pendingData.profiles;
-      let success = 0;
-      let failed = 0;
-      
+      const successList: string[] = [];
+      const failedList: { id: string; error: string }[] = [];
+
       // 2. 逐个处理
       for (let i = 0; i < profiles.length; i++) {
         const pid = profiles[i];
-        setBatchProgress({ current: i + 1, total: profiles.length, success, failed });
-        
+        setBatchProgress({ current: i + 1, total: profiles.length, success: successList.length, failed: failedList.length });
+
         try {
           const res = await fetch('/api/admin/match/level2-calculate', {
             method: 'POST',
@@ -500,30 +533,25 @@ function Level2Filter() {
           });
           const data = await res.json();
           if (data.success) {
-            success++;
+            successList.push(pid);
           } else {
-            failed++;
-            console.error(`档案 ${pid} 第二层失败:`, data.error);
+            failedList.push({ id: pid, error: data.error || '未知错误' });
           }
         } catch (err) {
-          failed++;
-          console.error(`档案 ${pid} 请求异常:`, err);
+          failedList.push({ id: pid, error: err instanceof Error ? err.message : String(err) });
         }
-        
+
         // 间隔避免限流（第二层AI调用需要更长的间隔）
         await new Promise(r => setTimeout(r, 2000));
       }
-      
-      setBatchProgress({ current: profiles.length, total: profiles.length, success, failed });
-      
-      if (success > 0) {
-        alert(`批量匹配完成！成功: ${success}, 失败: ${failed}`);
-      }
+
+      setBatchProgress({ current: profiles.length, total: profiles.length, success: successList.length, failed: failedList.length });
+      setBatchResult({ success: successList, failed: failedList });
     } catch (error) {
       console.error('Batch match error:', error);
       setError(`批量匹配失败: ${error instanceof Error ? error.message : String(error)}`);
     }
-    
+
     setBatchRunning(false);
   };
 
@@ -591,6 +619,40 @@ function Level2Filter() {
           </div>
           <p className="text-xs text-gray-500 mt-2">注：第二层AI调用较慢，建议每次不超过20个</p>
         </div>
+
+        {/* 批量匹配结果 */}
+        {batchResult && (
+          <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+            <h4 className="font-medium text-gray-800 mb-3">批量匹配结果</h4>
+
+            {batchResult.success.length > 0 && (
+              <div className="mb-4">
+                <h5 className="text-sm font-medium text-green-700 mb-2">✓ 成功 ({batchResult.success.length})</h5>
+                <div className="flex flex-wrap gap-2">
+                  {batchResult.success.map(id => (
+                    <span key={id} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-mono">{id}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {batchResult.failed.length > 0 && (
+              <div>
+                <h5 className="text-sm font-medium text-red-700 mb-2">✗ 失败 ({batchResult.failed.length})</h5>
+                <div className="space-y-1">
+                  {batchResult.failed.map(item => (
+                    <details key={item.id} className="text-sm">
+                      <summary className="cursor-pointer text-red-600 hover:text-red-800">
+                        {item.id}
+                      </summary>
+                      <p className="text-xs text-red-500 mt-1 pl-4">{item.error}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {result && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
@@ -709,11 +771,12 @@ function Level3Match() {
   const [selectedReport, setSelectedReport] = useState<typeof reports[0] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
-  
+
   // 批量匹配相关
   const [batchCount, setBatchCount] = useState(5);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
+  const [batchResult, setBatchResult] = useState<{ success: string[]; failed: { id: string; error: string }[] } | null>(null);
 
   const handleCalculateAll = async () => {
     if (!profileId) return;
@@ -825,29 +888,30 @@ function Level3Match() {
   const handleBatchMatch = async () => {
     setBatchRunning(true);
     setBatchProgress({ current: 0, total: batchCount, success: 0, failed: 0 });
+    setBatchResult(null);
     setError(null);
     setApiError(null);
-    
+
     try {
       // 1. 获取待处理的档案列表
       const pendingRes = await fetch(`/api/admin/match/pending?level=3&limit=${batchCount}`);
       const pendingData = await pendingRes.json();
-      
+
       if (!pendingData.success || !pendingData.profiles || pendingData.profiles.length === 0) {
         setError('没有待处理的第三层档案');
         setBatchRunning(false);
         return;
       }
-      
+
       const profiles = pendingData.profiles;
-      let success = 0;
-      let failed = 0;
-      
+      const successList: string[] = [];
+      const failedList: { id: string; error: string }[] = [];
+
       // 2. 逐个处理
       for (let i = 0; i < profiles.length; i++) {
         const pid = profiles[i];
-        setBatchProgress({ current: i + 1, total: profiles.length, success, failed });
-        
+        setBatchProgress({ current: i + 1, total: profiles.length, success: successList.length, failed: failedList.length });
+
         try {
           const res = await fetch('/api/admin/match/level3-calculate', {
             method: 'POST',
@@ -856,30 +920,25 @@ function Level3Match() {
           });
           const data = await res.json();
           if (data.success) {
-            success++;
+            successList.push(pid);
           } else {
-            failed++;
-            console.error(`档案 ${pid} 第三层失败:`, data.error);
+            failedList.push({ id: pid, error: data.error || '未知错误' });
           }
         } catch (err) {
-          failed++;
-          console.error(`档案 ${pid} 请求异常:`, err);
+          failedList.push({ id: pid, error: err instanceof Error ? err.message : String(err) });
         }
-        
+
         // 间隔避免限流（第三层AI调用最慢，需要更长间隔）
         await new Promise(r => setTimeout(r, 3000));
       }
-      
-      setBatchProgress({ current: profiles.length, total: profiles.length, success, failed });
-      
-      if (success > 0) {
-        alert(`批量匹配完成！成功: ${success}, 失败: ${failed}`);
-      }
+
+      setBatchProgress({ current: profiles.length, total: profiles.length, success: successList.length, failed: failedList.length });
+      setBatchResult({ success: successList, failed: failedList });
     } catch (error) {
       console.error('Batch match error:', error);
       setError(`批量匹配失败: ${error instanceof Error ? error.message : String(error)}`);
     }
-    
+
     setBatchRunning(false);
   };
 
@@ -964,6 +1023,40 @@ function Level3Match() {
           <p className="text-xs text-gray-500 mt-2">注：第三层AI调用最慢且消耗Token较多，建议每次不超过10个</p>
         </div>
 
+        {/* 批量匹配结果 */}
+        {batchResult && (
+          <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+            <h4 className="font-medium text-gray-800 mb-3">批量匹配结果</h4>
+            
+            {batchResult.success.length > 0 && (
+              <div className="mb-4">
+                <h5 className="text-sm font-medium text-green-700 mb-2">✓ 成功 ({batchResult.success.length})</h5>
+                <div className="flex flex-wrap gap-2">
+                  {batchResult.success.map(id => (
+                    <span key={id} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-mono">{id}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {batchResult.failed.length > 0 && (
+              <div>
+                <h5 className="text-sm font-medium text-red-700 mb-2">✗ 失败 ({batchResult.failed.length})</h5>
+                <div className="space-y-1">
+                  {batchResult.failed.map(item => (
+                    <details key={item.id} className="text-sm">
+                      <summary className="cursor-pointer text-red-600 hover:text-red-800">
+                        {item.id}
+                      </summary>
+                      <p className="text-xs text-red-500 mt-1 pl-4">{item.error}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 第三层错误显示 */}
         {(error || apiError) && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -997,8 +1090,8 @@ function Level3Match() {
             <h4 className="font-medium text-orange-800">深度匹配报告 ({reports.length})</h4>
             <div className="grid grid-cols-1 gap-4">
               {reports.map((report) => (
-                <div 
-                  key={report.candidate_id} 
+                <div
+                  key={report.candidate_id}
                   className="border rounded-lg p-4 hover:bg-orange-50 cursor-pointer transition-colors"
                   onClick={() => setSelectedReport(selectedReport?.candidate_id === report.candidate_id ? null : report)}
                 >
@@ -1015,7 +1108,7 @@ function Level3Match() {
                       </span>
                     </div>
                   </div>
-                  
+
                   {selectedReport?.candidate_id === report.candidate_id && (
                     <div className="mt-4 space-y-3 border-t pt-3">
                       {report.strengths && report.strengths.length > 0 && (
@@ -1026,7 +1119,7 @@ function Level3Match() {
                           </ul>
                         </div>
                       )}
-                      
+
                       {report.risks && report.risks.length > 0 && (
                         <div>
                           <h5 className="text-sm font-medium text-red-700 mb-1">潜在风险</h5>
@@ -1035,7 +1128,7 @@ function Level3Match() {
                           </ul>
                         </div>
                       )}
-                      
+
                       {report.advice && (
                         <div className="bg-white rounded p-3">
                           <h5 className="text-sm font-medium text-orange-700 mb-1">相处建议</h5>
@@ -1141,7 +1234,7 @@ function PairMatch() {
       {result?.success && result.data && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">匹配结果</h2>
-          
+
           <div className="text-center mb-6">
             <div className="text-5xl font-bold text-blue-600">{result.data.overallScore}</div>
             <div className="text-gray-500">总分</div>
