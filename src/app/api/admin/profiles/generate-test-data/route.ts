@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       
       const profile = generateProfile(profileGender, i);
       
-      // 简化：只插入核心字段
+      // 简化：只插入基本字段，避免数组和复杂类型
       const simpleAnswers = {
         nickname: profile.answers.nickname,
         gender: profile.answers.gender,
@@ -111,14 +111,14 @@ export async function POST(request: NextRequest) {
         city: profile.answers.city,
         education: profile.answers.education,
         long_distance: profile.answers.long_distance,
-        diet: profile.answers.diet,
-        interests: profile.answers.interests,
+        diet: profile.answers.diet ? profile.answers.diet[0] : '无特殊要求',
+        interests: profile.answers.interests ? profile.answers.interests.join(',') : '',
         sleep_schedule: profile.answers.sleep_schedule,
         social_mode: profile.answers.social_mode,
-        topics: profile.answers.topics,
+        topics: profile.answers.topics ? profile.answers.topics.join(',') : '',
         exercise: profile.answers.exercise,
         consumption_view: profile.answers.consumption_view,
-        life_priority: profile.answers.life_priority,
+        life_priority: profile.answers.life_priority ? profile.answers.life_priority[0] : '',
         marriage_view: profile.answers.marriage_view,
       };
       
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         gender: profile.standardized_answers.gender,
         birth_year: profile.standardized_answers.birth_year,
         city: profile.standardized_answers.city,
-        long_distance: profile.standardized_answers.long_distance,
+        long_distance: String(profile.standardized_answers.long_distance),
         education: profile.standardized_answers.education,
         diet: profile.standardized_answers.diet,
       };
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       const res = await sql.query(
         `INSERT INTO profiles (invite_code, status, answers, ai_summary, tags, 
          accept_age_min, accept_age_max, standardized_answers, completed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8::jsonb, $9)
          RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
         [
           profile.invite_code,
