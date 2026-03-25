@@ -11,6 +11,7 @@ export default function AdminLayout({
     { href: '/admin/profile-templates', label: '资料库' },
     { href: '/admin/match', label: '匹配测试' },
     { href: '/admin/profiles', label: '档案' },
+    { href: '/admin/profiles/generate-test-data', label: '测试数据' },
     { href: '/admin/evaluation', label: 'AI评价' },
     { href: '/admin/beauty-score', label: '颜值打分' },
     { href: '/admin/token-stats', label: 'Token统计' },
