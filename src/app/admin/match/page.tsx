@@ -69,10 +69,14 @@ function Level1Filter() {
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
 
   const handleCalculate = async () => {
     if (!profileId) return;
     setCalculating(true);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch('/api/admin/match/level1-calculate', {
         method: 'POST',
@@ -84,11 +88,23 @@ function Level1Filter() {
         alert(`计算完成！共检查 ${data.data.totalChecked} 人，通过 ${data.data.passed} 人`);
         handleLoadCandidates();
       } else {
-        alert(data.error || '计算失败');
+        setError(data.error || '计算失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Calculate error:', error);
-      alert('计算出错');
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setCalculating(false);
   };
@@ -96,15 +112,32 @@ function Level1Filter() {
   const handleLoadCandidates = async () => {
     if (!profileId) return;
     setLoading(true);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch(`/api/admin/match/level1-candidates?profileId=${profileId}`);
       const data = await res.json();
       if (data.success) {
         setCandidates(data.data.candidates);
         setStats(data.data.stats);
+      } else {
+        setError(data.error || '加载失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Load candidates error:', error);
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setLoading(false);
   };
@@ -142,6 +175,34 @@ function Level1Filter() {
             {loading ? '加载中...' : '查看结果'}
           </button>
         </div>
+
+        {/* 错误显示 */}
+        {(error || apiError) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <span className="text-red-600 text-xl">⚠️</span>
+              <div className="flex-1">
+                <h4 className="font-medium text-red-800 mb-1">第一层筛选出错</h4>
+                {error && <p className="text-red-700 text-sm mb-2">{error}</p>}
+                {apiError && (
+                  <div className="mt-2">
+                    <p className="text-red-600 text-sm">
+                      状态码: {apiError.status} | {apiError.message}
+                    </p>
+                    {apiError.details && (
+                      <details className="mt-2">
+                        <summary className="text-red-500 text-xs cursor-pointer">查看详细错误</summary>
+                        <pre className="mt-2 bg-red-100 p-2 rounded text-xs text-red-800 overflow-auto max-h-40">
+                          {apiError.details}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {stats && (
           <div className="grid grid-cols-7 gap-2 text-center mb-6">
@@ -224,11 +285,15 @@ function Level2Filter() {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [result, setResult] = useState<{ processed: number; totalTokens: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
 
   const handleCalculate = async () => {
     if (!profileId) return;
     setCalculating(true);
     setResult(null);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch('/api/admin/match/level2-calculate', {
         method: 'POST',
@@ -243,11 +308,23 @@ function Level2Filter() {
         });
         handleLoadStatus();
       } else {
-        alert(data.error || '计算失败');
+        setError(data.error || '计算失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Calculate error:', error);
-      alert('计算出错');
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setCalculating(false);
   };
@@ -255,15 +332,32 @@ function Level2Filter() {
   const handleLoadStatus = async () => {
     if (!profileId) return;
     setLoading(true);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch(`/api/admin/match/level2-calculate?profileId=${profileId}`);
       const data = await res.json();
       if (data.success) {
         setStats(data.data.stats);
         setTopCandidates(data.data.topCandidates || []);
+      } else {
+        setError(data.error || '加载失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Load status error:', error);
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setLoading(false);
   };
@@ -307,6 +401,34 @@ function Level2Filter() {
             <p className="text-green-800">
               本次评分完成！处理了 {result.processed} 个候选人，消耗 {result.totalTokens} Token
             </p>
+          </div>
+        )}
+
+        {/* 第二层错误显示 */}
+        {(error || apiError) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <span className="text-red-600 text-xl">⚠️</span>
+              <div className="flex-1">
+                <h4 className="font-medium text-red-800 mb-1">第二层AI初筛出错</h4>
+                {error && <p className="text-red-700 text-sm mb-2">{error}</p>}
+                {apiError && (
+                  <div className="mt-2">
+                    <p className="text-red-600 text-sm">
+                      状态码: {apiError.status} | {apiError.message}
+                    </p>
+                    {apiError.details && (
+                      <details className="mt-2">
+                        <summary className="text-red-500 text-xs cursor-pointer">查看详细错误</summary>
+                        <pre className="mt-2 bg-red-100 p-2 rounded text-xs text-red-800 overflow-auto max-h-40">
+                          {apiError.details}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -389,10 +511,14 @@ function Level3Match() {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [selectedReport, setSelectedReport] = useState<typeof reports[0] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
 
   const handleCalculateAll = async () => {
     if (!profileId) return;
     setCalculating(true);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch('/api/admin/match/level3-calculate', {
         method: 'POST',
@@ -404,11 +530,23 @@ function Level3Match() {
         alert(`深度分析完成！分析了 ${data.data.processed} 个候选人，消耗 ${data.data.totalTokens} Token`);
         handleLoadReports();
       } else {
-        alert(data.error || '分析失败');
+        setError(data.error || '分析失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Calculate error:', error);
-      alert('分析出错');
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setCalculating(false);
   };
@@ -416,6 +554,8 @@ function Level3Match() {
   const handleCalculateSingle = async () => {
     if (!profileId || !candidateId) return;
     setCalculating(true);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch('/api/admin/match/level3-calculate', {
         method: 'POST',
@@ -427,11 +567,23 @@ function Level3Match() {
         alert('深度分析完成！');
         handleLoadReports();
       } else {
-        alert(data.error || '分析失败');
+        setError(data.error || '分析失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Calculate error:', error);
-      alert('分析出错');
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setCalculating(false);
   };
@@ -439,14 +591,31 @@ function Level3Match() {
   const handleLoadReports = async () => {
     if (!profileId) return;
     setLoading(true);
+    setError(null);
+    setApiError(null);
     try {
       const res = await fetch(`/api/admin/match/level3-calculate?profileId=${profileId}`);
       const data = await res.json();
       if (data.success) {
         setReports(data.data);
+      } else {
+        setError(data.error || '加载失败');
+        if (res.status !== 200) {
+          setApiError({
+            status: res.status,
+            message: data.error || '服务器返回错误',
+            details: JSON.stringify(data, null, 2)
+          });
+        }
       }
     } catch (error) {
       console.error('Load reports error:', error);
+      setError(`请求异常: ${error instanceof Error ? error.message : String(error)}`);
+      setApiError({
+        status: 0,
+        message: '网络请求失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
     setLoading(false);
   };
@@ -500,6 +669,34 @@ function Level3Match() {
             {loading ? '加载中...' : '查看报告'}
           </button>
         </div>
+
+        {/* 第三层错误显示 */}
+        {(error || apiError) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <span className="text-red-600 text-xl">⚠️</span>
+              <div className="flex-1">
+                <h4 className="font-medium text-red-800 mb-1">第三层深度匹配出错</h4>
+                {error && <p className="text-red-700 text-sm mb-2">{error}</p>}
+                {apiError && (
+                  <div className="mt-2">
+                    <p className="text-red-600 text-sm">
+                      状态码: {apiError.status} | {apiError.message}
+                    </p>
+                    {apiError.details && (
+                      <details className="mt-2">
+                        <summary className="text-red-500 text-xs cursor-pointer">查看详细错误</summary>
+                        <pre className="mt-2 bg-red-100 p-2 rounded text-xs text-red-800 overflow-auto max-h-40">
+                          {apiError.details}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {reports.length > 0 && (
           <div className="space-y-4">
