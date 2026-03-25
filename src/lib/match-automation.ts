@@ -14,7 +14,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // 第一层：硬性条件筛选
 async function runLevel1(profileId: string): Promise<{ success: boolean; error?: string; candidatesCount?: number }> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/match/level1-calculate`, {
+    const res = await fetch('https://www.ai-dating.top/api/admin/match/level1-calculate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profileId })
@@ -41,7 +41,7 @@ async function runLevel1(profileId: string): Promise<{ success: boolean; error?:
 // 第二层：AI初筛
 async function runLevel2(profileId: string): Promise<{ success: boolean; error?: string; processed?: number }> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/match/level2-calculate`, {
+    const res = await fetch('https://www.ai-dating.top/api/admin/match/level2-calculate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profileId, templateId: 'v1_default' })
@@ -68,7 +68,7 @@ async function runLevel2(profileId: string): Promise<{ success: boolean; error?:
 // 第三层：AI深度匹配
 async function runLevel3(profileId: string): Promise<{ success: boolean; error?: string; processed?: number }> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/match/level3-calculate`, {
+    const res = await fetch('https://www.ai-dating.top/api/admin/match/level3-calculate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profileId })
