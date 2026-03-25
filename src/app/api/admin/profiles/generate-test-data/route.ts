@@ -103,49 +103,57 @@ export async function POST(request: NextRequest) {
       
       const profile = generateProfile(profileGender, i);
       
-      // 简化：只插入基本字段，避免数组和复杂类型
+      // 超简化：避免所有特殊类型
       const simpleAnswers = {
-        nickname: profile.answers.nickname,
-        gender: profile.answers.gender,
-        birthYear: profile.answers.birthYear,
-        city: profile.answers.city,
-        education: profile.answers.education,
-        long_distance: profile.answers.long_distance,
-        diet: profile.answers.diet ? profile.answers.diet[0] : '无特殊要求',
-        interests: profile.answers.interests ? profile.answers.interests.join(',') : '',
-        sleep_schedule: profile.answers.sleep_schedule,
-        social_mode: profile.answers.social_mode,
-        topics: profile.answers.topics ? profile.answers.topics.join(',') : '',
-        exercise: profile.answers.exercise,
-        consumption_view: profile.answers.consumption_view,
-        life_priority: profile.answers.life_priority ? profile.answers.life_priority[0] : '',
-        marriage_view: profile.answers.marriage_view,
+        nickname: String(profile.answers.nickname || ''),
+        gender: String(profile.answers.gender || ''),
+        birthYear: String(profile.answers.birthYear || ''),
+        city: String(profile.answers.city || ''),
+        education: String(profile.answers.education || ''),
+        long_distance: String(profile.answers.long_distance || ''),
+        diet: String(profile.answers.diet && profile.answers.diet[0] ? profile.answers.diet[0] : '无特殊要求'),
+        interests: String(profile.answers.interests && profile.answers.interests.join ? profile.answers.interests.join(',') : ''),
+        sleep_schedule: String(profile.answers.sleep_schedule || ''),
+        social_mode: String(profile.answers.social_mode || ''),
+        topics: String(profile.answers.topics && profile.answers.topics.join ? profile.answers.topics.join(',') : ''),
+        exercise: String(profile.answers.exercise || ''),
+        consumption_view: String(profile.answers.consumption_view || ''),
+        life_priority: String(profile.answers.life_priority && profile.answers.life_priority[0] ? profile.answers.life_priority[0] : ''),
+        marriage_view: String(profile.answers.marriage_view || ''),
       };
       
       const simpleStandardized = {
-        gender: profile.standardized_answers.gender,
-        birth_year: profile.standardized_answers.birth_year,
-        city: profile.standardized_answers.city,
+        gender: String(profile.standardized_answers.gender || ''),
+        birth_year: Number(profile.standardized_answers.birth_year) || 1990,
+        city: String(profile.standardized_answers.city || ''),
         long_distance: String(profile.standardized_answers.long_distance),
-        education: profile.standardized_answers.education,
-        diet: profile.standardized_answers.diet,
+        education: String(profile.standardized_answers.education || ''),
+        diet: String(profile.standardized_answers.diet || ''),
       };
       
+      // 简化的 ai_summary
+      const simpleAiSummary = `这是一位${2026 - (Number(profile.answers.birthYear) || 1990)}岁的${profile.answers.gender}性用户，来自${profile.answers.city}。`;
+      
+      const answersJson = JSON.stringify(simpleAnswers);
+      const tagsJson = JSON.stringify(profile.tags || []);
+      const standardizedJson = JSON.stringify(simpleStandardized);
+      
+      // 先用最简单的查询测试
       const res = await sql.query(
         `INSERT INTO profiles (invite_code, status, answers, ai_summary, tags, 
          accept_age_min, accept_age_max, standardized_answers, completed_at)
          VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8::jsonb, $9)
          RETURNING id, invite_code, answers->>'nickname' as nickname, answers->>'gender' as gender`,
         [
-          profile.invite_code,
-          profile.status,
-          JSON.stringify(simpleAnswers),
-          profile.ai_summary,
-          JSON.stringify(profile.tags),
-          profile.accept_age_min,
-          profile.accept_age_max,
-          JSON.stringify(simpleStandardized),
-          profile.completed_at,
+          String(profile.invite_code),
+          String(profile.status),
+          answersJson,
+          simpleAiSummary,
+          tagsJson,
+          Number(profile.accept_age_min) || -5,
+          Number(profile.accept_age_max) || 5,
+          standardizedJson,
+          String(profile.completed_at),
         ]
       );
       
