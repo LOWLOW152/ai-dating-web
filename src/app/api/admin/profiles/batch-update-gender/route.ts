@@ -19,17 +19,20 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, error: 'gender必须是"男"或"女"' }, { status: 400 });
     }
 
-    // 更新档案性别
+    // 更新档案性别 - 先更新answers
     const updateRes = await sql.query(
       `UPDATE profiles 
-       SET answers = answers || jsonb_build_object('gender', $1),
-           standardized_answers = CASE 
-             WHEN standardized_answers IS NOT NULL 
-             THEN standardized_answers || jsonb_build_object('gender', $1)
-             ELSE NULL 
-           END
-       WHERE id = ANY($2)
+       SET answers = answers || jsonb_build_object('gender', $1::text)
+       WHERE id = ANY($2::text[])
        RETURNING id, invite_code`,
+      [gender, profileIds]
+    );
+
+    // 再更新standardized_answers（如果存在）
+    await sql.query(
+      `UPDATE profiles 
+       SET standardized_answers = standardized_answers || jsonb_build_object('gender', $1::text)
+       WHERE id = ANY($2::text[]) AND standardized_answers IS NOT NULL`,
       [gender, profileIds]
     );
 
