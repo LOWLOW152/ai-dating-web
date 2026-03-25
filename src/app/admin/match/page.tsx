@@ -360,7 +360,7 @@ function Level2Filter() {
 
         {topCandidates.length === 0 && stats && (
           <div className="text-center text-gray-500 py-8">
-            暂无通过第二层评分的候选人，点击"开始评分"运行AI初筛
+            暂无通过第二层评分的候选人，点击&ldquo;开始评分&rdquo;运行AI初筛
           </div>
         )}
       </div>
@@ -558,7 +558,7 @@ function Level3Match() {
 
         {reports.length === 0 && (
           <div className="text-center text-gray-500 py-8">
-            暂无深度匹配报告，请先完成第二层评分，然后点击"批量分析"
+            暂无深度匹配报告，请先完成第二层评分，然后点击&ldquo;批量分析&rdquo;
           </div>
         )}
       </div>
