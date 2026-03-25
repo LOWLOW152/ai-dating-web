@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         [
           profile.invite_code,
           profile.status,
-          profile.answers,
+          JSON.stringify(profile.answers),
           profile.ai_summary,
           JSON.stringify(profile.tags),
           profile.accept_age_min,
