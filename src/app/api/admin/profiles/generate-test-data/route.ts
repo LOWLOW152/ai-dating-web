@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
 import { sql } from '@/lib/db';
+import { NextRequest } from 'next/server';
 
 const MALE_NAMES = ['伟','强','磊','明','辉','杰','浩','宇','鑫','俊'];
 const FEMALE_NAMES = ['芳','娜','敏','静','丽','艳','娟','霞','秀兰','燕'];
@@ -11,7 +11,7 @@ function rand(arr: string[]) { return arr[Math.floor(Math.random() * arr.length)
 function randInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 // GET - 统计
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const res = await sql.query(
       `SELECT 
