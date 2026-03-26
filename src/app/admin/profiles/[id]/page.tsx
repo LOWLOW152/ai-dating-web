@@ -14,6 +14,55 @@ async function getProfileTags(id: string) {
   return result.rows[0]?.tags || null;
 }
 
+// 获取第一层匹配统计
+async function getLevel1Stats(id: string) {
+  const result = await sql.query(`
+    SELECT 
+      COUNT(*) as total_candidates,
+      COUNT(*) FILTER (WHERE passed_level_1 = true) as passed_candidates
+    FROM match_candidates 
+    WHERE profile_id = $1
+  `, [id]);
+  return result.rows[0];
+}
+
+// 获取第二层匹配结果
+async function getLevel2Results(id: string) {
+  const result = await sql.query(`
+    SELECT 
+      mc.candidate_id,
+      p.invite_code as candidate_invite_code,
+      mc.level_2_score,
+      mc.level_2_passed,
+      mc.level_2_reason
+    FROM match_candidates mc
+    JOIN profiles p ON p.id = mc.candidate_id
+    WHERE mc.profile_id = $1 
+      AND mc.passed_level_1 = true
+      AND mc.level_2_score IS NOT NULL
+    ORDER BY mc.level_2_score DESC
+  `, [id]);
+  return result.rows;
+}
+
+// 获取第三层匹配结果
+async function getLevel3Results(id: string) {
+  const result = await sql.query(`
+    SELECT 
+      mc.candidate_id,
+      p.invite_code as candidate_invite_code,
+      mc.level_3_score,
+      mc.level_3_report,
+      mc.level_3_calculated_at
+    FROM match_candidates mc
+    JOIN profiles p ON p.id = mc.candidate_id
+    WHERE mc.profile_id = $1 
+      AND mc.level_3_score IS NOT NULL
+    ORDER BY mc.level_3_score DESC
+  `, [id]);
+  return result.rows;
+}
+
 // 标签分类配置
 const TAG_CATEGORIES = [
   { key: '基础条件', color: 'bg-blue-50 text-blue-700' },
@@ -26,6 +75,9 @@ const TAG_CATEGORIES = [
 export default async function ProfileDetailPage({ params }: { params: { id: string } }) {
   const profile = await getProfile(params.id);
   const aiTags = await getProfileTags(params.id);
+  const level1Stats = await getLevel1Stats(params.id);
+  const level2Results = await getLevel2Results(params.id);
+  const level3Results = await getLevel3Results(params.id);
   
   if (!profile) {
     notFound();
@@ -129,6 +181,158 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
             </a>
           </div>
         )}
+      </div>
+
+      {/* 三层匹配结果 */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">匹配结果</h2>
+        
+        {/* 第一层 - 硬性条件筛选 */}
+        <div className="mb-6 pb-6 border-b">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">🎯</span>
+            <h3 className="font-medium">第一层：硬性条件筛选</h3>
+            {level1Stats.total_candidates > 0 ? (
+              <span className="text-sm text-green-600">
+                ✓ 已筛选 {level1Stats.total_candidates} 人，通过 {level1Stats.passed_candidates} 人
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">未进行</span>
+            )}
+          </div>
+          {level1Stats.total_candidates > 0 ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 p-3 rounded text-center">
+                <p className="text-xs text-gray-500">总候选人</p>
+                <p className="text-2xl font-bold text-blue-600">{level1Stats.total_candidates}</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded text-center">
+                <p className="text-xs text-gray-500">通过筛选</p>
+                <p className="text-2xl font-bold text-green-600">{level1Stats.passed_candidates}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded text-center">
+                <p className="text-xs text-gray-500">通过率</p>
+                <p className="text-2xl font-bold text-gray-600">
+                  {level1Stats.total_candidates > 0 
+                    ? Math.round((level1Stats.passed_candidates / level1Stats.total_candidates) * 100)
+                    : 0}%
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">该档案尚未进行第一层硬性条件筛选</p>
+          )}
+        </div>
+
+        {/* 第二层 - AI初筛 */}
+        <div className="mb-6 pb-6 border-b">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">🔍</span>
+            <h3 className="font-medium">第二层：AI初筛</h3>
+            {level2Results.length > 0 ? (
+              <span className="text-sm text-green-600">
+                ✓ 已评分 {level2Results.length} 人
+              </span>
+            ) : level1Stats.passed_candidates > 0 ? (
+              <span className="text-sm text-orange-500">待处理</span>
+            ) : (
+              <span className="text-sm text-gray-400">未进行</span>
+            )}
+          </div>
+          
+          {level2Results.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-auto">
+              <div className="grid grid-cols-4 gap-2 text-xs text-gray-500 px-2">
+                <span>档案ID</span>
+                <span>邀请码</span>
+                <span>分数</span>
+                <span>状态</span>
+              </div>
+              {level2Results.map((r) => (
+                <div key={r.candidate_id} className="grid grid-cols-4 gap-2 text-sm p-2 bg-gray-50 rounded">
+                  <Link 
+                    href={`/admin/profiles/${r.candidate_id}`}
+                    className="font-mono text-blue-600 hover:underline truncate"
+                  >
+                    {r.candidate_id.slice(0, 8)}...
+                  </Link>
+                  <span>{r.candidate_invite_code}</span>
+                  <span className={`font-bold ${
+                    r.level_2_score >= 79 ? 'text-green-600' : 
+                    r.level_2_score >= 50 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {r.level_2_score}
+                  </span>
+                  <span className={r.level_2_passed ? 'text-green-600' : 'text-gray-400'}>
+                    {r.level_2_passed ? '✓ 通过' : '未通过'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">
+              {level1Stats.passed_candidates > 0 
+                ? '第一层通过的候选人尚未进行第二层AI评分'
+                : '暂无第二层评分数据'}
+            </p>
+          )}
+        </div>
+
+        {/* 第三层 - 深度匹配 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">💕</span>
+            <h3 className="font-medium">第三层：AI深度匹配</h3>
+            {level3Results.length > 0 ? (
+              <span className="text-sm text-green-600">
+                ✓ 已生成 {level3Results.length} 份报告
+              </span>
+            ) : level2Results.filter(r => r.level_2_passed).length > 0 ? (
+              <span className="text-sm text-orange-500">待处理</span>
+            ) : (
+              <span className="text-sm text-gray-400">未进行</span>
+            )}
+          </div>
+          
+          {level3Results.length > 0 ? (
+            <div className="space-y-3 max-h-80 overflow-auto">
+              {level3Results.map((r) => (
+                <div key={r.candidate_id} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <Link 
+                        href={`/admin/profiles/${r.candidate_id}`}
+                        className="font-mono text-sm text-blue-600 hover:underline"
+                      >
+                        {r.candidate_id.slice(0, 8)}...
+                      </Link>
+                      <span className="text-sm text-gray-500">{r.candidate_invite_code}</span>
+                      <span className="text-lg font-bold text-pink-600">{r.level_3_score}分</span>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {r.level_3_calculated_at && new Date(r.level_3_calculated_at).toLocaleString()}
+                    </span>
+                  </div>
+                  {r.level_3_report && (
+                    <div className="bg-pink-50 p-3 rounded text-sm">
+                      <pre className="whitespace-pre-wrap font-sans text-gray-700">
+                        {typeof r.level_3_report === 'string' 
+                          ? r.level_3_report 
+                          : JSON.stringify(r.level_3_report, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">
+              {level2Results.filter(r => r.level_2_passed).length > 0
+                ? '第二层通过的候选人尚未进行第三层深度匹配'
+                : '暂无第三层匹配报告'}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 答题数据 */}
