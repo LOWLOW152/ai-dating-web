@@ -36,7 +36,7 @@ async function getLevel2Results(id: string) {
       mc.level_2_passed,
       mc.level_2_reason
     FROM match_candidates mc
-    JOIN profiles p ON p.id = mc.candidate_id
+    LEFT JOIN profiles p ON p.id = mc.candidate_id
     WHERE mc.profile_id = $1 
       AND mc.level_2_score IS NOT NULL
     ORDER BY mc.level_2_score DESC
@@ -54,7 +54,7 @@ async function getLevel3Results(id: string) {
       mc.level_3_report,
       mc.level_3_calculated_at
     FROM match_candidates mc
-    JOIN profiles p ON p.id = mc.candidate_id
+    LEFT JOIN profiles p ON p.id = mc.candidate_id
     WHERE mc.profile_id = $1 
       AND mc.level_3_score IS NOT NULL
     ORDER BY mc.level_3_score DESC
