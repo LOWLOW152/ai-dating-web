@@ -76,6 +76,7 @@ export default function ProfilesPage() {
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showMatchStatus, setShowMatchStatus] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // 加载档案列表
   async function loadProfiles() {
