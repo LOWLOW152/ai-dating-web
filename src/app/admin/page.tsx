@@ -3,6 +3,7 @@ import Link from 'next/link';
 export default function AdminHome() {
   const links = [
     { href: '/admin/questions', label: '题库管理', desc: '管理所有题目、配置AI提示词', color: 'blue' },
+    { href: '/admin/questions/order', label: '题库排序', desc: '拖拽调整题目顺序', color: 'sky' },
     { href: '/admin/dashboard', label: '流程卡控管理', desc: '总览邀请码、档案、AI评分、三层匹配进度', color: 'indigo' },
     { href: '/admin/match', label: '匹配测试', desc: '第一层筛选、两人匹配度测试', color: 'green' },
     { href: '/admin/profiles', label: '档案管理', desc: '查看所有用户档案', color: 'purple' },
@@ -14,6 +15,7 @@ export default function AdminHome() {
 
   const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
     blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
+    sky: { bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-100' },
     indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' },
     green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' },
     purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
