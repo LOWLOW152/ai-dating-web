@@ -1,8 +1,11 @@
--- AI相亲题库 V1.0 - 27题完整SQL
+-- AI相亲题库 V1.0 - 28题完整SQL
+-- 【更新】将 interests 拆分为 exercise_hobby、gaming_hobby、music_hobby 三道题
 -- 执行前请确保已备份现有数据
 
 -- 清空现有题库（可选，谨慎操作）
--- DELETE FROM questions WHERE id NOT IN ('nickname', 'gender', 'birth_year', 'city', 'interests');
+-- DELETE FROM questions WHERE id NOT IN ('nickname', 'gender', 'birth_year', 'city', 'exercise_hobby', 'gaming_hobby', 'music_hobby');
+
+-- 注：原 interests 和 exercise 题目已替换为新的三道兴趣题
 
 -- ============================================
 -- 【Auto】基础条件 (1-8)
@@ -37,15 +40,19 @@ ON CONFLICT (id) DO UPDATE SET
 -- ============================================
 
 INSERT INTO questions (id, category, type, "order", question_text, field_type, validation, options, ai_prompt, max_questions, use_closing_message, is_active, is_required) VALUES
-('interests', 'lifestyle', 'semi', 9, '平时有什么兴趣爱好？', 'multi_text', '{"required": true}', NULL, '追问类型和频率。类型深挖："你说喜欢运动，具体是什么运动？"频率确认："这个爱好一般多久做一次？每周几次？"情感连接："这个爱好对你来说意味着什么？是放松还是社交？"', 3, false, true, true),
-('weekend', 'lifestyle', 'semi', 10, '你理想的周末是怎么度过的？', 'textarea', '{"required": true}', NULL, '追问具体安排，挖掘生活方式偏好。"具体会做什么？能描述一下吗？""是一个人还是和朋友一起？""这种周末状态是你想要的吗？"', 3, false, true, true),
-('spending', 'lifestyle', 'semi', 11, '你的消费观念是？', 'select', '{"required": true}', '["节俭", "平衡", "享乐"]', '确认选项后追问原因。"能说说为什么吗？是什么经历让你这样看待消费？""在什么事情上你特别愿意花钱？""在什么事情上你特别舍不得花钱？"', 3, false, true, true),
-('sleep_schedule', 'lifestyle', 'semi', 12, '你的作息习惯是？', 'select', '{"required": true}', '["早睡早起", "夜猫子", "不规律"]', '确认选项后追问。"这个作息是工作导致的，还是你自己习惯？""如果放假不用上班，你会怎么安排作息？""你觉得作息对感情生活有影响吗？"', 6, false, true, true),
-('exercise', 'lifestyle', 'semi', 13, '你有运动习惯吗？', 'text', '{"required": true}', NULL, '如有，追问项目和频率；如无，追问原因。"具体做什么运动？""一周大概几次？""如果回答说没有运动习惯，追问"是没时间，还是不喜欢运动？"', 5, false, true, true),
-('diet', 'lifestyle', 'semi', 14, '你的饮食习惯是？', 'multi_select', '{"required": true}', '["清淡", "重口味", "素食", "无辣不欢", "其他"]', '选项后追问是否有忌口。"有忌口或者过敏的食物吗？""和伴侣吃饭，口味差异大你能接受吗？""你会为了对方改变饮食习惯吗？"', 5, false, true, true),
-('pets', 'lifestyle', 'semi', 15, '你喜欢宠物吗？现在养了吗？', 'text', '{"required": true}', NULL, '如养，追问品种和相处模式；如不养，追问态度。"养的是什么宠物？""平时怎么照顾它？""如果伴侣不喜欢你的宠物，你会怎么处理？"', 5, false, true, true),
-('travel', 'lifestyle', 'semi', 16, '你喜欢旅行吗？偏好哪种方式？', 'textarea', '{"required": true}', NULL, '追问目的地偏好、频次、旅行风格。"是特种兵式打卡，还是度假式慢慢体验？""一般喜欢去哪种类型的目的地？海边/山里/城市？""一年大概旅行几次？"', 3, false, true, true),
-('social', 'lifestyle', 'semi', 17, '你的社交模式是？', 'select', '{"required": true}', '["社牛", "一般", "社恐"]', '选项后追问具体场景表现。"在什么样的场合你会比较活跃？""和伴侣的朋友聚会，你通常是什么状态？""你觉得社交这件事消耗你还是给你能量？"', 3, false, true, true)
+-- 【兴趣爱好系列第1题】运动爱好
+('exercise_hobby', 'lifestyle', 'semi', 9, '你喜欢运动吗？平时做什么运动？', 'text', '{"required": true}', NULL, '【兴趣爱好系列第1题-运动】只聊运动，不要问游戏、音乐等其他爱好。如有运动习惯，追问项目和频率；如无，追问原因和态度。"具体做什么运动？一周几次？""是喜欢户外运动还是室内健身？""如果没有运动习惯，追问"是没时间，还是不喜欢运动？"运动话题结束后会单独聊其他兴趣。', 4, false, true, true),
+-- 【兴趣爱好系列第2题】游戏/动漫爱好
+('gaming_hobby', 'lifestyle', 'semi', 10, '你喜欢打游戏或者看动漫吗？', 'text', '{"required": true}', NULL, '【兴趣爱好系列第2题-游戏/动漫】只聊游戏和动漫，不要回头问运动。如有游戏/动漫爱好，追问类型和投入时间；如无，了解态度。"平时玩什么类型的游戏？手游/主机/Steam？""追哪些动漫？是资深二次元还是偶尔看看？""一周大概花多少时间在这上面？""如果回答说完全不接触，追问"是尝试过不喜欢，还是一直没机会了解？"', 4, false, true, true),
+-- 【兴趣爱好系列第3题】音乐/艺术爱好
+('music_hobby', 'lifestyle', 'semi', 11, '你喜欢音乐或者什么艺术形式吗？', 'text', '{"required": true}', NULL, '【兴趣爱好系列第3题-音乐/艺术】只聊音乐和艺术相关，不要重复问运动和游戏。了解音乐喜好和艺术兴趣。"平时听什么类型的音乐？流行/古典/摇滚/说唱？""会乐器吗？或者喜欢唱歌、看演唱会？""还有其他艺术爱好吗？绘画/摄影/看展/看剧？""音乐和 art 对你来说意味着什么？"', 4, false, true, true),
+('weekend', 'lifestyle', 'semi', 12, '你理想的周末是怎么度过的？', 'textarea', '{"required": true}', NULL, '追问具体安排，挖掘生活方式偏好。"具体会做什么？能描述一下吗？""是一个人还是和朋友一起？""这种周末状态是你想要的吗？"', 3, false, true, true),
+('spending', 'lifestyle', 'semi', 13, '你的消费观念是？', 'select', '{"required": true}', '["节俭", "平衡", "享乐"]', '确认选项后追问原因。"能说说为什么吗？是什么经历让你这样看待消费？""在什么事情上你特别愿意花钱？""在什么事情上你特别舍不得花钱？"', 3, false, true, true),
+('sleep_schedule', 'lifestyle', 'semi', 14, '你的作息习惯是？', 'select', '{"required": true}', '["早睡早起", "夜猫子", "不规律"]', '确认选项后追问。"这个作息是工作导致的，还是你自己习惯？""如果放假不用上班，你会怎么安排作息？""你觉得作息对感情生活有影响吗？"', 6, false, true, true),
+('diet', 'lifestyle', 'semi', 15, '你的饮食习惯是？', 'multi_select', '{"required": true}', '["清淡", "重口味", "素食", "无辣不欢", "其他"]', '选项后追问是否有忌口。"有忌口或者过敏的食物吗？""和伴侣吃饭，口味差异大你能接受吗？""你会为了对方改变饮食习惯吗？"', 5, false, true, true),
+('pets', 'lifestyle', 'semi', 16, '你喜欢宠物吗？现在养了吗？', 'text', '{"required": true}', NULL, '如养，追问品种和相处模式；如不养，追问态度。"养的是什么宠物？""平时怎么照顾它？""如果伴侣不喜欢你的宠物，你会怎么处理？"', 5, false, true, true),
+('travel', 'lifestyle', 'semi', 17, '你喜欢旅行吗？偏好哪种方式？', 'textarea', '{"required": true}', NULL, '追问目的地偏好、频次、旅行风格。"是特种兵式打卡，还是度假式慢慢体验？""一般喜欢去哪种类型的目的地？海边/山里/城市？""一年大概旅行几次？"', 3, false, true, true),
+('social', 'lifestyle', 'semi', 18, '你的社交模式是？', 'select', '{"required": true}', '["社牛", "一般", "社恐"]', '选项后追问具体场景表现。"在什么样的场合你会比较活跃？""和伴侣的朋友聚会，你通常是什么状态？""你觉得社交这件事消耗你还是给你能量？"', 3, false, true, true)
 ON CONFLICT (id) DO UPDATE SET
   category = EXCLUDED.category,
   type = EXCLUDED.type,
@@ -62,17 +69,17 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- ============================================
--- 【Dog】情感核心 (18-24)
+-- 【Dog】情感核心 (19-25)
 -- ============================================
 
 INSERT INTO questions (id, category, type, "order", question_text, field_type, validation, options, ai_prompt, max_questions, use_closing_message, is_active, is_required) VALUES
-('family_relationship', 'emotion', 'dog', 18, '你和父母的关系怎么样？', 'textarea', '{"required": true}', NULL, '深挖家庭关系。前4轮追问："平时联系多吗？多久见一次？""你觉得父母对你的性格/感情观有什么影响？""有没有什么事情让你觉得和他们有距离？""理想中的亲子关系是什么样的？"后续6轮由AI根据回答自由深挖：父母感情、家庭角色、隐瞒的事、被理解程度、带对象回家的预期、对组建家庭的期待/恐惧等。', 10, false, true, true),
-('current_status', 'emotion', 'dog', 19, '你现在的生活状态满意吗？', 'textarea', '{"required": true}', NULL, '深挖现状与焦虑。前4轮追问："如果10分满分，你给自己现在打几分？""扣分扣在哪里？具体是什么不满意？""这种不满意是一直都有，还是最近才有的？""如果改变现状，你最想改变什么？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
-('trust_point', 'emotion', 'dog', 20, '在朋友中，你最看重什么品质？', 'textarea', '{"required": true}', NULL, '深挖信任与经历。前4轮追问："能具体说说吗？为什么是这个品质？""有没有因为看重这个品质而被伤害过？""这种品质在感情中同样重要吗？""你自己具备这个品质吗？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
-('relationship_blindspot', 'emotion', 'dog', 21, '你在亲密关系中可能的盲点是什么？', 'textarea', '{"required": true}', NULL, '深挖自我认知。前4轮追问："朋友或前任有没有跟你提过这个问题？""你自己是怎么发现这个盲点的？""这个盲点在过去感情中造成过什么影响？""你有没有尝试去改变？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
-('core_needs', 'emotion', 'dog', 22, '在一段关系中，你最核心的需求是什么？', 'textarea', '{"required": true}', NULL, '深挖情感需求。前4轮追问："是陪伴？被理解？安全感？还是其他？""如果只能选一个，最不能少的是什么？""这种需求是怎么形成的？""过去有没有因为需求没被满足而结束关系？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
-('red_lines', 'emotion', 'dog', 23, '在感情中，你的红线是什么？', 'multi_text', '{"required": true}', NULL, '深挖底线与妥协。前4轮追问："能具体说说吗？是什么让你把这条设为红线？""有过触碰这条红线的经历吗？""如果对方不小心触碰了，你能给机会吗？""这条红线有商量的余地吗？什么情况可以妥协？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
-('relationship_expectation', 'emotion', 'dog', 24, '你对未来感情的期待是什么？', 'textarea', '{"required": true}', NULL, '深挖期待与焦虑。前4轮追问："你希望多久内进入一段稳定关系？""这种期待让你焦虑吗？""你为此做过什么准备或改变？""如果一直遇不到合适的人，你会怎么办？"后续6轮由AI根据回答自由深挖。', 10, false, true, true)
+('family_relationship', 'emotion', 'dog', 19, '你和父母的关系怎么样？', 'textarea', '{"required": true}', NULL, '深挖家庭关系。前4轮追问："平时联系多吗？多久见一次？""你觉得父母对你的性格/感情观有什么影响？""有没有什么事情让你觉得和他们有距离？""理想中的亲子关系是什么样的？"后续6轮由AI根据回答自由深挖：父母感情、家庭角色、隐瞒的事、被理解程度、带对象回家的预期、对组建家庭的期待/恐惧等。', 10, false, true, true),
+('current_status', 'emotion', 'dog', 20, '你现在的生活状态满意吗？', 'textarea', '{"required": true}', NULL, '深挖现状与焦虑。前4轮追问："如果10分满分，你给自己现在打几分？""扣分扣在哪里？具体是什么不满意？""这种不满意是一直都有，还是最近才有的？""如果改变现状，你最想改变什么？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
+('trust_point', 'emotion', 'dog', 21, '在朋友中，你最看重什么品质？', 'textarea', '{"required": true}', NULL, '深挖信任与经历。前4轮追问："能具体说说吗？为什么是这个品质？""有没有因为看重这个品质而被伤害过？""这种品质在感情中同样重要吗？""你自己具备这个品质吗？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
+('relationship_blindspot', 'emotion', 'dog', 22, '你在亲密关系中可能的盲点是什么？', 'textarea', '{"required": true}', NULL, '深挖自我认知。前4轮追问："朋友或前任有没有跟你提过这个问题？""你自己是怎么发现这个盲点的？""这个盲点在过去感情中造成过什么影响？""你有没有尝试去改变？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
+('core_needs', 'emotion', 'dog', 23, '在一段关系中，你最核心的需求是什么？', 'textarea', '{"required": true}', NULL, '深挖情感需求。前4轮追问："是陪伴？被理解？安全感？还是其他？""如果只能选一个，最不能少的是什么？""这种需求是怎么形成的？""过去有没有因为需求没被满足而结束关系？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
+('red_lines', 'emotion', 'dog', 24, '在感情中，你的红线是什么？', 'multi_text', '{"required": true}', NULL, '深挖底线与妥协。前4轮追问："能具体说说吗？是什么让你把这条设为红线？""有过触碰这条红线的经历吗？""如果对方不小心触碰了，你能给机会吗？""这条红线有商量的余地吗？什么情况可以妥协？"后续6轮由AI根据回答自由深挖。', 10, false, true, true),
+('relationship_expectation', 'emotion', 'dog', 25, '你对未来感情的期待是什么？', 'textarea', '{"required": true}', NULL, '深挖期待与焦虑。前4轮追问："你希望多久内进入一段稳定关系？""这种期待让你焦虑吗？""你为此做过什么准备或改变？""如果一直遇不到合适的人，你会怎么办？"后续6轮由AI根据回答自由深挖。', 10, false, true, true)
 ON CONFLICT (id) DO UPDATE SET
   category = EXCLUDED.category,
   type = EXCLUDED.type,
@@ -89,13 +96,13 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- ============================================
--- 【Semi】价值观 (25-27)
+-- 【Semi】价值观 (26-28)
 -- ============================================
 
 INSERT INTO questions (id, category, type, "order", question_text, field_type, validation, options, ai_prompt, max_questions, use_closing_message, is_active, is_required) VALUES
-('values_priority', 'values', 'semi', 25, '人生中最重要的是什么？', 'multi_text', '{"required": true}', NULL, '追问排序理由：事业/家庭/自由/稳定/金钱/成长。"如果只能选一个，最不能放弃的是什么？""这种价值观是怎么形成的？""如果伴侣的排序和你不一样，你能接受吗？"', 4, false, true, true),
-('life_goals', 'values', 'semi', 26, '你未来3-5年的规划是什么？', 'textarea', '{"required": true}', NULL, '追问是否与感情冲突、如何平衡。"这个规划里，感情/婚姻占什么位置？""如果规划和个人感情冲突，你会怎么选？""你希望伴侣在你的规划里扮演什么角色？"', 4, false, true, true),
-('deal_breakers', 'lifestyle', 'semi', 27, '有什么绝对无法接受的生活习惯？', 'multi_text', '{"required": true}', NULL, '追问原因、是否有妥协空间。"为什么这个习惯你绝对接受不了？""如果对方愿意改，你能给机会吗？""你有没有什么习惯是别人可能接受不了的？"', 4, false, true, true)
+('values_priority', 'values', 'semi', 26, '人生中最重要的是什么？', 'multi_text', '{"required": true}', NULL, '追问排序理由：事业/家庭/自由/稳定/金钱/成长。"如果只能选一个，最不能放弃的是什么？""这种价值观是怎么形成的？""如果伴侣的排序和你不一样，你能接受吗？"', 4, false, true, true),
+('life_goals', 'values', 'semi', 27, '你未来3-5年的规划是什么？', 'textarea', '{"required": true}', NULL, '追问是否与感情冲突、如何平衡。"这个规划里，感情/婚姻占什么位置？""如果规划和个人感情冲突，你会怎么选？""你希望伴侣在你的规划里扮演什么角色？"', 4, false, true, true),
+('deal_breakers', 'lifestyle', 'semi', 28, '有什么绝对无法接受的生活习惯？', 'multi_text', '{"required": true}', NULL, '追问原因、是否有妥协空间。"为什么这个习惯你绝对接受不了？""如果对方愿意改，你能给机会吗？""你有没有什么习惯是别人可能接受不了的？"', 4, false, true, true)
 ON CONFLICT (id) DO UPDATE SET
   category = EXCLUDED.category,
   type = EXCLUDED.type,
