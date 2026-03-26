@@ -15,11 +15,19 @@ interface MigrationResult {
   error?: string;
 }
 
+interface FixResult {
+  updatedCandidates: number;
+  updatedProfiles: number;
+  message: string;
+}
+
 export default function MigratePage() {
   const [status, setStatus] = useState<MigrationStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<MigrationResult[] | null>(null);
+  const [fixingScores, setFixingScores] = useState(false);
+  const [fixResult, setFixResult] = useState<FixResult | null>(null);
 
   async function fetchStatus() {
     setLoading(true);
@@ -55,6 +63,30 @@ export default function MigratePage() {
       alert('执行出错');
     }
     setRunning(false);
+  }
+
+  async function fixLevel2Scores() {
+    if (!confirm('确定要修复第二层分数吗？这会将所有小数分数转换为整数。')) {
+      return;
+    }
+    setFixingScores(true);
+    setFixResult(null);
+    try {
+      const res = await fetch('/api/admin/fix-level2-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFixResult(data.data);
+      } else {
+        alert('修复失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Fix scores error:', error);
+      alert('执行出错');
+    }
+    setFixingScores(false);
   }
 
   useEffect(() => {
@@ -155,6 +187,31 @@ export default function MigratePage() {
               </div>            
             </div>
           )}
+
+          {/* 数据修复工具 */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 mt-6">
+            <h2 className="font-semibold mb-2 text-orange-800">🛠️ 数据修复工具</h2>
+            <p className="text-sm text-orange-700 mb-4">
+              修复第二层评分分数类型（将小数转换为整数）
+            </p>
+            <button
+              onClick={fixLevel2Scores}
+              disabled={fixingScores}
+              className="bg-orange-600 text-white px-6 py-2 rounded-md hover:bg-orange-700 disabled:bg-gray-400"
+            >
+              {fixingScores ? '修复中...' : '修复第二层分数'}
+            </button>
+
+            {fixResult && (
+              <div className="mt-4 bg-white rounded p-4">
+                <p className="text-green-700 font-medium">✓ {fixResult.message}</p>
+                <div className="mt-2 text-sm text-gray-600">
+                  <p>更新的候选人记录: {fixResult.updatedCandidates} 条</p>
+                  <p>更新的档案记录: {fixResult.updatedProfiles} 条</p>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
