@@ -127,7 +127,8 @@ function buildPrompt(
   chatHistory: ChatMessage[],
   config: GlobalConfig | null,
   isNewQuestion: boolean,
-  currentRound: number = 1
+  currentRound: number = 1,
+  isRetry: boolean = false
 ): string {
   const cfg = config || DEFAULT_CONFIG;
   
@@ -155,8 +156,13 @@ function buildPrompt(
       ).join('\n')}\n`
     : '';
   
+  // 重新回答标记
+  const retryMarker = isRetry 
+    ? `【重要】这是用户要求重新回答本题。请先说一句"哎呀，刚才走神了，我们重新聊一下这个话题吧~"，然后自然地重新引入本题的问题。不要重复之前的追问，从头开始这个话题。\n`
+    : '';
+  
   // 新题目标记
-  const newQuestionMarker = isNewQuestion 
+  const newQuestionMarker = isNewQuestion && !isRetry
     ? `【重要】这是第 ${question.order} 题的首次对话。请基于上面的历史记录自然过渡，引入新话题。不要重复问历史记录中已问过的问题。\n`
     : '';
   
@@ -249,7 +255,7 @@ ${endInstruction}
 
 ${progressSection}
 
-${fullHistory}${newQuestionMarker}${followUpLogic}【当前题目策略】
+${fullHistory}${retryMarker}${newQuestionMarker}${followUpLogic}【当前题目策略】
 ${questionPrompt}
 
 ${formatTemplate}`;
@@ -265,7 +271,8 @@ export async function POST(request: NextRequest) {
       extractedData = {}, 
       isNewQuestion = false,
       totalQuestions = 30,
-      currentRound = 0 // 前端传来的当前轮数（0表示还没开始）
+      currentRound = 0, // 前端传来的当前轮数（0表示还没开始）
+      isRetry = false // 是否是重新回答
     } = body;
 
     if (!questionId) {
@@ -309,7 +316,8 @@ export async function POST(request: NextRequest) {
       chatHistory,
       config,
       isNewQuestion,
-      currentRound
+      currentRound,
+      isRetry
     );
 
     const apiKey = process.env.DOUBAO_API_KEY;

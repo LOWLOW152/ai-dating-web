@@ -76,7 +76,7 @@ export default function ChatPage() {
     }
   }, [questions, loading]);
 
-  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number) {
+  async function sendAiMessage(qIndex: number, chatHistory: ChatMessage[], isInitialLoad = false, currentRound?: number, isRetry = false) {
     setIsAiResponding(true);
     
     // 使用传入的 currentRound 或 state 中的 questionRound
@@ -95,7 +95,8 @@ export default function ChatPage() {
           extractedData,
           isNewQuestion: isInitialLoad,
           totalQuestions: questions.length,
-          currentRound: roundToCheck // 前端记录的当前轮数
+          currentRound: roundToCheck, // 前端记录的当前轮数
+          isRetry // 是否是重新回答
         }),
       });
 
@@ -236,7 +237,29 @@ export default function ChatPage() {
     }
   }
 
-  // 进入下一题并自动调用AI
+  // 重新回答当前题目
+  function handleRetryQuestion() {
+    // 1. 重置当前题目的轮数
+    setQuestionRound(0);
+    
+    // 2. 清空当前题目的对话历史（保留之前的题目数据）
+    // 找到当前题目相关的所有消息，只保留之前题目的
+    // 这里简单处理：清空所有消息，因为每道题是独立的对话流
+    setMessages([]);
+    
+    // 3. 重新发送AI消息，带上 isRetry 标记
+    // 先显示重新开始的提示
+    setMessages([{
+      role: 'ai',
+      content: '哎呀，刚才走神了，我们重新聊一下这个话题吧~',
+      timestamp: Date.now(),
+    }]);
+    
+    // 4. 延迟后发送当前题目的问题
+    setTimeout(() => {
+      sendAiMessage(currentIndex, [], true, 0, true);
+    }, 800);
+  }
   function handleNextQuestionWithAI() {
     if (currentIndex < questions.length - 1) {
       const nextIndex = currentIndex + 1;
@@ -378,9 +401,20 @@ export default function ChatPage() {
               </button>
             </div>
             <div className="flex justify-between items-center mt-2">
-              <p className="text-xs text-gray-400">
-                追问 {questionRound}/{currentQuestion?.max_questions || 3}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-400">
+                  追问 {questionRound}/{currentQuestion?.max_questions || 3}
+                </p>
+                {/* 重新回答按钮 */}
+                <button
+                  onClick={handleRetryQuestion}
+                  disabled={isAiResponding || messages.length === 0}
+                  className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="如果AI卡死或对话中断，点击重新开始这题"
+                >
+                  🔄 重新回答
+                </button>
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
