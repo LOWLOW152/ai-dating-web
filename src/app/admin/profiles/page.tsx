@@ -230,6 +230,14 @@ export default function ProfilesPage() {
       {/* 筛选栏 */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center flex-wrap">
+          {/* 调试信息 */}
+          <div className="w-full text-xs text-gray-400 mb-2">
+            调试: 共{profiles.length}条 | 筛选后{filteredProfiles.length}条 | 
+            进度筛选:{matchProgressFilter} | 
+            标签筛选:{tagFilter} | 
+            搜索:{searchCode || '(空)'}
+          </div>
+          
           {/* 匹配进度快速筛选 */}
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600 whitespace-nowrap">匹配进度:</label>
@@ -298,18 +306,16 @@ export default function ProfilesPage() {
           </div>
 
           {/* 清除筛选 */}
-          {(matchProgressFilter !== 'all' || tagFilter !== 'all' || searchCode) && (
-            <button
-              onClick={() => {
-                setMatchProgressFilter('all');
-                setTagFilter('all');
-                setSearchCode('');
-              }}
-              className="text-sm text-orange-600 hover:text-orange-800"
-            >
-              清除筛选
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setMatchProgressFilter('all');
+              setTagFilter('all');
+              setSearchCode('');
+            }}
+            className="text-sm text-orange-600 hover:text-orange-800 px-3 py-1 border border-orange-200 rounded"
+          >
+            清除筛选
+          </button>
         </div>
       </div>
 
