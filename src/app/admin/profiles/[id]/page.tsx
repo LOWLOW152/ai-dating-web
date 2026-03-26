@@ -38,7 +38,6 @@ async function getLevel2Results(id: string) {
     FROM match_candidates mc
     JOIN profiles p ON p.id = mc.candidate_id
     WHERE mc.profile_id = $1 
-      AND mc.passed_level_1 = true
       AND mc.level_2_score IS NOT NULL
     ORDER BY mc.level_2_score DESC
   `, [id]);
