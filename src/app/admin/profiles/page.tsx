@@ -72,6 +72,7 @@ export default function ProfilesPage() {
   const [loading, setLoading] = useState(true);
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [searchCode, setSearchCode] = useState<string>('');
+  const [matchProgressFilter, setMatchProgressFilter] = useState<string>('all');
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showMatchStatus, setShowMatchStatus] = useState(true);
@@ -96,7 +97,7 @@ export default function ProfilesPage() {
     loadProfiles();
   }, []);
 
-  // 筛选档案（支持标签和邀请码搜索）
+  // 筛选档案（支持标签、搜索和匹配进度）
   const filteredProfiles = profiles.filter(p => {
     // 标签筛选
     if (tagFilter !== 'all') {
@@ -106,6 +107,34 @@ export default function ProfilesPage() {
         return false;
       }
     }
+    
+    // 匹配进度筛选
+    if (matchProgressFilter !== 'all') {
+      switch (matchProgressFilter) {
+        case 'l1-pending':
+          if (p.match_level1_status === 'completed') return false;
+          break;
+        case 'l1-completed':
+          if (p.match_level1_status !== 'completed') return false;
+          break;
+        case 'l2-pending':
+          if (p.match_level2_status === 'completed') return false;
+          break;
+        case 'l2-completed':
+          if (p.match_level2_status !== 'completed') return false;
+          break;
+        case 'l2-low-success':
+          if ((p.l2_success_rate ?? 100) >= 20) return false;
+          break;
+        case 'l3-pending':
+          if (p.match_level3_status === 'completed') return false;
+          break;
+        case 'l3-completed':
+          if (p.match_level3_status !== 'completed') return false;
+          break;
+      }
+    }
+    
     // 邀请码或ID搜索
     if (searchCode.trim()) {
       const search = searchCode.toLowerCase();
@@ -164,8 +193,7 @@ export default function ProfilesPage() {
           <h1 className="text-2xl font-bold text-gray-800">档案管理</h1>
           <p className="text-sm text-gray-500 mt-1">
             共 {profiles.length} 条档案
-            {searchCode.trim() && `，搜索 "${searchCode}" 找到 ${filteredProfiles.length} 条`}
-            {!searchCode.trim() && tagFilter !== 'all' && '（已筛选）'}
+            {filteredProfiles.length !== profiles.length && `，显示 ${filteredProfiles.length} 条`}
           </p>
         </div>
         
@@ -190,15 +218,68 @@ export default function ProfilesPage() {
           >
             {loading ? '🔄 刷新中...' : '🔄 刷新'}
           </button>
-          
-          {/* 邀请码搜索 */}
+        </div>
+      </div>
+
+      {/* 筛选栏 */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center flex-wrap">
+          {/* 匹配进度快速筛选 */}
           <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 whitespace-nowrap">匹配进度:</label>
+            <select
+              value={matchProgressFilter}
+              onChange={(e) => setMatchProgressFilter(e.target.value)}
+              className="px-3 py-2 border rounded-md text-sm"
+            >
+              <option value="all">全部进度</option>
+              <optgroup label="第一层">
+                <option value="l1-pending">⏳ 第一层待处理</option>
+                <option value="l1-completed">✓ 第一层已完成</option>
+              </optgroup>
+              <optgroup label="第二层">
+                <option value="l2-pending">⏳ 第二层待处理</option>
+                <option value="l2-completed">✓ 第二层已完成</option>
+                <option value="l2-low-success">⚠️ 第二层成功率低(&lt;20%)</option>
+              </optgroup>
+              <optgroup label="第三层">
+                <option value="l3-pending">⏳ 第三层待处理</option>
+                <option value="l3-completed">✓ 第三层已完成</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
+
+          {/* 标签筛选 */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 whitespace-nowrap">标签:</label>
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="px-3 py-2 border rounded-md text-sm"
+            >
+              <option value="all">全部档案</option>
+              <option value="no-tags">无标签</option>
+              <option value="deleted">🗑️ 已删除</option>
+              <option value="vip">⭐ VIP</option>
+              <option value="suspicious">⚠️ 可疑</option>
+              <option value="completed">✅ 已完成</option>
+              <option value="pending">⏳ 待处理</option>
+              <option value="测试">🧪 测试</option>
+            </select>
+          </div>
+
+          <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
+
+          {/* 搜索框 */}
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <input
               type="text"
               value={searchCode}
               onChange={(e) => setSearchCode(e.target.value)}
               placeholder="搜索邀请码或ID..."
-              className="px-3 py-2 border rounded-md text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border rounded-md text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchCode && (
               <button
@@ -209,22 +290,20 @@ export default function ProfilesPage() {
               </button>
             )}
           </div>
-          
-          <span className="text-sm text-gray-600">筛选:</span>
-          <select
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md text-sm"
-          >
-            <option value="all">全部档案</option>
-            <option value="no-tags">无标签</option>
-            <option value="deleted">🗑️ 已删除</option>
-            <option value="vip">⭐ VIP</option>
-            <option value="suspicious">⚠️ 可疑</option>
-            <option value="completed">✅ 已完成</option>
-            <option value="pending">⏳ 待处理</option>
-            <option value="测试">🧪 测试</option>
-          </select>
+
+          {/* 清除筛选 */}
+          {(matchProgressFilter !== 'all' || tagFilter !== 'all' || searchCode) && (
+            <button
+              onClick={() => {
+                setMatchProgressFilter('all');
+                setTagFilter('all');
+                setSearchCode('');
+              }}
+              className="text-sm text-orange-600 hover:text-orange-800"
+            >
+              清除筛选
+            </button>
+          )}
         </div>
       </div>
 
