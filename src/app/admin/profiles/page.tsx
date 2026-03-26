@@ -15,6 +15,11 @@ interface Profile {
   match_level3_status?: string;
   match_error?: string;
   level2_max_score?: number;
+  // 第二层统计
+  l2_total_candidates?: number;
+  l2_scored_candidates?: number;
+  l2_passed_candidates?: number;
+  l2_success_rate?: number | null;
 }
 
 const PREDEFINED_TAGS = [
@@ -305,6 +310,17 @@ export default function ProfilesPage() {
                         {p.level2_max_score && p.level2_max_score > 0 && (
                           <div className="text-xs text-gray-500 mt-1">
                             第二层最高分: {p.level2_max_score}
+                          </div>
+                        )}
+                        {p.l2_success_rate !== null && p.l2_success_rate !== undefined && (
+                          <div className={`text-xs mt-1 ${p.l2_success_rate < 20 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                            第二层成功率: {p.l2_success_rate}%
+                            {p.l2_scored_candidates !== undefined && p.l2_total_candidates !== undefined && (
+                              <span className="text-gray-400"> ({p.l2_scored_candidates}/{p.l2_total_candidates})</span>
+                            )}
+                            {p.l2_success_rate < 20 && (
+                              <span className="ml-1">⚠️</span>
+                            )}
                           </div>
                         )}
                       </td>
