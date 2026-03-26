@@ -288,7 +288,7 @@ export default function QuestionOrderPage() {
         <ul className="list-disc list-inside mt-1 space-y-1">
           <li>拖拽题目可以调整顺序</li>
           <li>点击上下箭头可以微调位置</li>
-          <li>调整完成后点击"保存顺序"生效</li>
+          <li>调整完成后点击「保存顺序」生效</li>
           <li>禁用的题目（灰色）也会参与排序</li>
         </ul>
       </div>
