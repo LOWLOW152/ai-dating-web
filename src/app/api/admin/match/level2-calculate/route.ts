@@ -286,7 +286,8 @@ export async function POST(request: NextRequest) {
        WHERE profile_id = $1 AND passed_level_1 = true`,
       [profileId]
     );
-    const maxScore = maxScoreRes.rows[0]?.max_score || 0;
+    // 强制转换为整数，防止数据库返回 "75.00" 这种格式
+    const maxScore = Math.round(Number(maxScoreRes.rows[0]?.max_score || 0));
 
     await sql.query(
       `UPDATE profiles 
