@@ -67,7 +67,7 @@ export default function DashboardPage() {
       } else {
         setError(result.error || '加载失败');
       }
-    } catch (err) {
+    } catch {
       setError('网络请求失败');
     } finally {
       setLoading(false);
