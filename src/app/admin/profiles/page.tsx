@@ -73,7 +73,7 @@ export default function ProfilesPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/profiles');
+      const res = await fetch('/api/admin/profiles', { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setProfiles(data.profiles);
