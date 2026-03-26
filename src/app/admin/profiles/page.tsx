@@ -41,7 +41,14 @@ function getMatchStatusDisplay(profile: Profile) {
   ];
   
   return levels.map(level => {
-    const status = level.status || 'pending';
+    let status = level.status || 'pending';
+    
+    // 第二层特殊处理：如果有评分成功的候选人，显示为成功
+    if (level.key === 'match_level2_status' && status === 'failed' 
+        && profile.l2_scored_candidates && profile.l2_scored_candidates > 0) {
+      status = 'completed';
+    }
+    
     let color = 'bg-gray-100 text-gray-400'; // pending
     let icon = '○';
     
