@@ -76,7 +76,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
   const aiTags = await getProfileTags(params.id);
   
   // 获取匹配数据，带错误处理
-  let level1Stats = { total_candidates: 0, passed_candidates: 0 };
+  let level1Stats: { total_candidates: number; passed_candidates: number } = { total_candidates: 0, passed_candidates: 0 };
   let level2Results: Array<{
     candidate_id: string;
     candidate_invite_code: string;
@@ -93,7 +93,13 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
   }> = [];
   
   try {
-    level1Stats = await getLevel1Stats(params.id) || level1Stats;
+    const l1Result = await getLevel1Stats(params.id);
+    if (l1Result) {
+      level1Stats = {
+        total_candidates: Number(l1Result.total_candidates) || 0,
+        passed_candidates: Number(l1Result.passed_candidates) || 0
+      };
+    }
     level2Results = await getLevel2Results(params.id) || [];
     level3Results = await getLevel3Results(params.id) || [];
   } catch (err) {
