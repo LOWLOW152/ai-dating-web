@@ -242,22 +242,23 @@ export default function ChatPage() {
     // 1. 重置当前题目的轮数
     setQuestionRound(0);
     
-    // 2. 清空当前题目的对话历史（保留之前的题目数据）
-    // 找到当前题目相关的所有消息，只保留之前题目的
-    // 这里简单处理：清空所有消息，因为每道题是独立的对话流
-    setMessages([]);
+    // 2. 找到当前题目对话开始的位置（从后往前找到上一道题结束的地方）
+    // 由于我们不知道当前题目从哪里开始，简单处理：
+    // 保留消息，但添加一个系统提示表示重新开始
     
-    // 3. 重新发送AI消息，带上 isRetry 标记
-    // 先显示重新开始的提示
-    setMessages([{
+    // 3. 添加系统提示和AI重新开始的提示
+    const retryMessage: ChatMessage = {
       role: 'ai',
       content: '哎呀，刚才走神了，我们重新聊一下这个话题吧~',
       timestamp: Date.now(),
-    }]);
+    };
     
-    // 4. 延迟后发送当前题目的问题
+    setMessages(prev => [...prev, retryMessage]);
+    
+    // 4. 延迟后发送当前题目的问题，带上 isRetry 标记
+    // 注意：这里保留所有历史消息，让AI自己判断上下文
     setTimeout(() => {
-      sendAiMessage(currentIndex, [], true, 0, true);
+      sendAiMessage(currentIndex, [...messages, retryMessage], true, 0, true);
     }, 800);
   }
   function handleNextQuestionWithAI() {
