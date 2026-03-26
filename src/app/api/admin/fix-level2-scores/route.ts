@@ -8,11 +8,12 @@ import { sql } from '@/lib/db';
 export async function POST() {
   try {
     // 1. 修复 match_candidates 表中的分数
+    // 使用 ::text LIKE '%.%' 来检测小数
     const candidatesResult = await sql.query(`
       UPDATE match_candidates 
       SET level_2_score = ROUND(level_2_score::numeric)
       WHERE level_2_score IS NOT NULL 
-        AND level_2_score != ROUND(level_2_score::numeric)
+        AND level_2_score::text LIKE '%.%'
       RETURNING candidate_id
     `);
 
@@ -21,7 +22,7 @@ export async function POST() {
       UPDATE profiles 
       SET level2_max_score = ROUND(level2_max_score::numeric)
       WHERE level2_max_score IS NOT NULL 
-        AND level2_max_score != ROUND(level2_max_score::numeric)
+        AND level2_max_score::text LIKE '%.%'
       RETURNING id
     `);
 
