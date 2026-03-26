@@ -75,9 +75,31 @@ const TAG_CATEGORIES = [
 export default async function ProfileDetailPage({ params }: { params: { id: string } }) {
   const profile = await getProfile(params.id);
   const aiTags = await getProfileTags(params.id);
-  const level1Stats = await getLevel1Stats(params.id);
-  const level2Results = await getLevel2Results(params.id);
-  const level3Results = await getLevel3Results(params.id);
+  
+  // 获取匹配数据，带错误处理
+  let level1Stats = { total_candidates: 0, passed_candidates: 0 };
+  let level2Results: Array<{
+    candidate_id: string;
+    candidate_invite_code: string;
+    level_2_score: number;
+    level_2_passed: boolean;
+    level_2_reason?: string;
+  }> = [];
+  let level3Results: Array<{
+    candidate_id: string;
+    candidate_invite_code: string;
+    level_3_score: number;
+    level_3_report?: unknown;
+    level_3_calculated_at?: string;
+  }> = [];
+  
+  try {
+    level1Stats = await getLevel1Stats(params.id) || level1Stats;
+    level2Results = await getLevel2Results(params.id) || [];
+    level3Results = await getLevel3Results(params.id) || [];
+  } catch (err) {
+    console.error('获取匹配数据失败:', err);
+  }
   
   if (!profile) {
     notFound();
@@ -254,14 +276,14 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                     href={`/admin/profiles/${r.candidate_id}`}
                     className="font-mono text-blue-600 hover:underline truncate"
                   >
-                    {r.candidate_id.slice(0, 8)}...
+                    {r.candidate_id?.slice(0, 8)}...
                   </Link>
-                  <span>{r.candidate_invite_code}</span>
+                  <span>{r.candidate_invite_code || '-'}</span>
                   <span className={`font-bold ${
                     r.level_2_score >= 79 ? 'text-green-600' : 
                     r.level_2_score >= 50 ? 'text-yellow-600' : 'text-red-600'
                   }`}>
-                    {r.level_2_score}
+                    {r.level_2_score ?? '-'}
                   </span>
                   <span className={r.level_2_passed ? 'text-green-600' : 'text-gray-400'}>
                     {r.level_2_passed ? '✓ 通过' : '未通过'}
@@ -296,7 +318,13 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
           
           {level3Results.length > 0 ? (
             <div className="space-y-3 max-h-80 overflow-auto">
-              {level3Results.map((r) => (
+              {level3Results.map((r) => {
+                const reportContent = r.level_3_report 
+                  ? (typeof r.level_3_report === 'string' 
+                      ? r.level_3_report 
+                      : JSON.stringify(r.level_3_report, null, 2))
+                  : null;
+                return (
                 <div key={r.candidate_id} className="border rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
@@ -304,26 +332,25 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                         href={`/admin/profiles/${r.candidate_id}`}
                         className="font-mono text-sm text-blue-600 hover:underline"
                       >
-                        {r.candidate_id.slice(0, 8)}...
+                        {r.candidate_id?.slice(0, 8)}...
                       </Link>
-                      <span className="text-sm text-gray-500">{r.candidate_invite_code}</span>
-                      <span className="text-lg font-bold text-pink-600">{r.level_3_score}分</span>
+                      <span className="text-sm text-gray-500">{r.candidate_invite_code || '-'}</span>
+                      <span className="text-lg font-bold text-pink-600">{r.level_3_score ?? '-'}分</span>
                     </div>
                     <span className="text-xs text-gray-400">
                       {r.level_3_calculated_at && new Date(r.level_3_calculated_at).toLocaleString()}
                     </span>
                   </div>
-                  {r.level_3_report && (
+                  {reportContent && (
                     <div className="bg-pink-50 p-3 rounded text-sm">
                       <pre className="whitespace-pre-wrap font-sans text-gray-700">
-                        {typeof r.level_3_report === 'string' 
-                          ? r.level_3_report 
-                          : JSON.stringify(r.level_3_report, null, 2)}
+                        {reportContent}
                       </pre>
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-400 text-sm">
