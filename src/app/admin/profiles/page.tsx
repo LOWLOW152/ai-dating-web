@@ -44,7 +44,7 @@ function getMatchStatusDisplay(profile: Profile) {
     let status = level.status || 'pending';
     
     // 第二层特殊处理：如果有评分成功的候选人，显示为成功
-    if (level.key === 'match_level2_status' && status === 'failed' 
+    if (level.key === 'match_level2_status' 
         && profile.l2_scored_candidates && profile.l2_scored_candidates > 0) {
       status = 'completed';
     }
@@ -81,7 +81,13 @@ export default function ProfilesPage() {
   async function loadProfiles() {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/profiles', { cache: 'no-store' });
+      const res = await fetch('/api/admin/profiles?t=' + Date.now(), { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await res.json();
       if (data.success) {
         setProfiles(data.profiles);
