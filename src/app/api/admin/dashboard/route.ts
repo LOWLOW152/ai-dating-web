@@ -73,6 +73,31 @@ export async function GET() {
       FROM profiles
     `);
 
+    // 8. 失败档案详情（最近20个）
+    const failedProfilesRes = await sql.query(`
+      SELECT 
+        id,
+        nickname,
+        COALESCE(ai_evaluation_status = 'failed', false) as ai_failed,
+        COALESCE(match_level1_status = 'failed', false) as l1_failed,
+        COALESCE(match_level2_status = 'failed', false) as l2_failed,
+        COALESCE(match_level3_status = 'failed', false) as l3_failed,
+        match_error,
+        GREATEST(
+          CASE WHEN ai_evaluation_status = 'failed' THEN ai_evaluation_at END,
+          CASE WHEN match_level1_status = 'failed' THEN match_level1_at END,
+          CASE WHEN match_level2_status = 'failed' THEN match_level2_at END,
+          CASE WHEN match_level3_status = 'failed' THEN match_level3_at END
+        ) as failed_at
+      FROM profiles
+      WHERE ai_evaluation_status = 'failed'
+         OR match_level1_status = 'failed'
+         OR match_level2_status = 'failed'
+         OR match_level3_status = 'failed'
+      ORDER BY failed_at DESC NULLS LAST
+      LIMIT 20
+    `);
+
     return Response.json({
       success: true,
       data: {
@@ -82,7 +107,8 @@ export async function GET() {
         level1: level1Res.rows[0],
         level2: level2Res.rows[0],
         level3: level3Res.rows[0],
-        recentActivity: recentActivityRes.rows[0]
+        recentActivity: recentActivityRes.rows[0],
+        failedProfiles: failedProfilesRes.rows
       }
     }, {
       headers: {

@@ -43,6 +43,18 @@ interface DashboardData {
     l2_today: number;
     l3_today: number;
   };
+  failedProfiles: FailedProfile[];
+}
+
+interface FailedProfile {
+  id: string;
+  nickname: string | null;
+  ai_failed: boolean;
+  l1_failed: boolean;
+  l2_failed: boolean;
+  l3_failed: boolean;
+  match_error: string | null;
+  failed_at: string;
 }
 
 export default function DashboardPage() {
@@ -296,6 +308,68 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* 失败档案列表 */}
+      {data.failedProfiles && data.failedProfiles.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">⚠️ 失败档案列表（最近20个）</h2>
+            <span className="text-sm text-gray-500">共 {data.failedProfiles.length} 个</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">档案ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">昵称</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">失败环节</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">失败原因</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {data.failedProfiles.map((profile) => (
+                  <tr key={profile.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <Link 
+                        href={`/admin/profiles/${profile.id}`}
+                        className="text-blue-600 hover:text-blue-800 font-mono text-sm"
+                      >
+                        {profile.id.slice(0, 8)}...
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {profile.nickname || '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {profile.ai_failed && (
+                          <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">AI评价</span>
+                        )}
+                        {profile.l1_failed && (
+                          <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded">第一层</span>
+                        )}
+                        {profile.l2_failed && (
+                          <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">第二层</span>
+                        )}
+                        {profile.l3_failed && (
+                          <span className="px-2 py-0.5 text-xs bg-pink-100 text-pink-700 rounded">第三层</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate" title={profile.match_error || ''}>
+                      {profile.match_error || '未知错误'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {profile.failed_at ? new Date(profile.failed_at).toLocaleString('zh-CN') : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
