@@ -62,6 +62,8 @@ interface ErrorDetail {
   status?: number;
   statusText?: string;
   responseText?: string;
+  detail?: string;
+  errorType?: string;
   type: 'network' | 'http' | 'api' | 'unknown';
   timestamp: string;
 }
@@ -93,11 +95,12 @@ export default function DashboardPage() {
       }
       
       if (!res.ok) {
+        const errorDetail = result?.detail || res.statusText;
         setError({
           message: `HTTP ${res.status}: ${res.statusText}`,
           status: res.status,
           statusText: res.statusText,
-          responseText: responseText.slice(0, 500), // 限制长度
+          responseText: JSON.stringify(result, null, 2) || responseText.slice(0, 500),
           type: 'http',
           timestamp: new Date().toLocaleString('zh-CN')
         });
@@ -109,7 +112,9 @@ export default function DashboardPage() {
       } else {
         setError({
           message: result?.error || 'API返回失败状态',
-          responseText: responseText.slice(0, 500),
+          detail: result?.detail,
+          errorType: result?.type,
+          responseText: JSON.stringify(result, null, 2) || responseText.slice(0, 500),
           type: 'api',
           timestamp: new Date().toLocaleString('zh-CN')
         });
@@ -183,10 +188,25 @@ export default function DashboardPage() {
                     状态码: {error.status}
                   </span>
                 )}
+                {error.errorType && (
+                  <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded font-medium">
+                    异常类型: {error.errorType}
+                  </span>
+                )}
                 <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
                   时间: {error.timestamp}
                 </span>
               </div>
+
+              {/* 后端返回的详细错误信息 */}
+              {(error.detail || error.errorType) && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-1">📋 后端错误详情</h4>
+                  {error.detail && (
+                    <p className="text-sm text-yellow-700 font-mono break-all">{error.detail}</p>
+                  )}
+                </div>
+              )}
 
               {/* 排查建议 */}
               <div className="bg-white rounded-lg p-4 mb-4 border border-red-100">

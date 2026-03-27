@@ -120,8 +120,14 @@ export async function GET() {
 
   } catch (error) {
     console.error('Dashboard stats error:', error);
+    const errorMessage = error instanceof Error ? error.message : '未知数据库错误';
     return Response.json(
-      { success: false, error: '获取统计数据失败' },
+      { 
+        success: false, 
+        error: '获取统计数据失败',
+        detail: errorMessage,
+        type: error instanceof Error ? error.constructor.name : 'UnknownError'
+      },
       { status: 500 }
     );
   }
