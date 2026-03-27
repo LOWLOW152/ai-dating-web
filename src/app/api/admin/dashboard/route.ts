@@ -84,7 +84,7 @@ export async function GET() {
         COALESCE(match_level3_status = 'failed', false) as l3_failed,
         match_error,
         GREATEST(
-          CASE WHEN ai_evaluation_status = 'failed' THEN ai_evaluation_at END,
+          CASE WHEN ai_evaluation_status = 'failed' THEN updated_at END,
           CASE WHEN match_level1_status = 'failed' THEN match_level1_at END,
           CASE WHEN match_level2_status = 'failed' THEN match_level2_at END,
           CASE WHEN match_level3_status = 'failed' THEN match_level3_at END
