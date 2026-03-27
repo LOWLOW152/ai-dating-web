@@ -57,10 +57,19 @@ interface FailedProfile {
   failed_at: string;
 }
 
+interface ErrorDetail {
+  message: string;
+  status?: number;
+  statusText?: string;
+  responseText?: string;
+  type: 'network' | 'http' | 'api' | 'unknown';
+  timestamp: string;
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorDetail | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -73,14 +82,45 @@ export default function DashboardPage() {
           'Pragma': 'no-cache'
         }
       });
-      const result = await res.json();
-      if (result.success) {
+      
+      // 获取响应文本用于调试
+      const responseText = await res.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        result = null;
+      }
+      
+      if (!res.ok) {
+        setError({
+          message: `HTTP ${res.status}: ${res.statusText}`,
+          status: res.status,
+          statusText: res.statusText,
+          responseText: responseText.slice(0, 500), // 限制长度
+          type: 'http',
+          timestamp: new Date().toLocaleString('zh-CN')
+        });
+        return;
+      }
+      
+      if (result?.success) {
         setData(result.data);
       } else {
-        setError(result.error || '加载失败');
+        setError({
+          message: result?.error || 'API返回失败状态',
+          responseText: responseText.slice(0, 500),
+          type: 'api',
+          timestamp: new Date().toLocaleString('zh-CN')
+        });
       }
-    } catch {
-      setError('网络请求失败');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '未知网络错误';
+      setError({
+        message: errorMsg,
+        type: err instanceof TypeError ? 'network' : 'unknown',
+        timestamp: new Date().toLocaleString('zh-CN')
+      });
     } finally {
       setLoading(false);
     }
@@ -117,14 +157,97 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-800">流程卡控管理</h1>
           <Link href="/admin" className="text-blue-600 hover:underline">← 返回首页</Link>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600">{error}</p>
-          <button
-            onClick={loadData}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-          >
-            重试
-          </button>
+        
+        {/* 错误详情卡片 */}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <div className="text-4xl">⚠️</div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-red-800 mb-2">数据加载失败</h2>
+              <p className="text-red-600 mb-4">{error.message}</p>
+              
+              {/* 错误类型标签 */}
+              <div className="flex gap-2 mb-4">
+                <span className={`px-2 py-1 text-xs rounded font-medium ${
+                  error.type === 'network' ? 'bg-orange-100 text-orange-700' :
+                  error.type === 'http' ? 'bg-blue-100 text-blue-700' :
+                  error.type === 'api' ? 'bg-purple-100 text-purple-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  错误类型: {error.type === 'network' ? '网络错误' : 
+                           error.type === 'http' ? 'HTTP错误' :
+                           error.type === 'api' ? 'API错误' : '未知错误'}
+                </span>
+                {error.status && (
+                  <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded font-medium">
+                    状态码: {error.status}
+                  </span>
+                )}
+                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                  时间: {error.timestamp}
+                </span>
+              </div>
+
+              {/* 排查建议 */}
+              <div className="bg-white rounded-lg p-4 mb-4 border border-red-100">
+                <h3 className="font-medium text-gray-800 mb-2">🔧 排查建议</h3>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  {error.type === 'network' ? (
+                    <>
+                      <li>• 检查网络连接是否正常</li>
+                      <li>• 确认域名 www.ai-dating.top 可访问</li>
+                      <li>• 尝试刷新页面或清除缓存 (Ctrl+F5)</li>
+                    </>
+                  ) : error.type === 'http' && error.status === 401 ? (
+                    <>
+                      <li>• 登录会话可能已过期，请重新登录</li>
+                      <li>• 检查是否有访问权限</li>
+                    </>
+                  ) : error.type === 'http' && error.status === 500 ? (
+                    <>
+                      <li>• 服务器内部错误，可能是数据库连接问题</li>
+                      <li>• 检查 Vercel 函数日志</li>
+                      <li>• 等待几分钟后重试</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>• 刷新页面重试</li>
+                      <li>• 检查浏览器控制台(F12)查看详细错误</li>
+                      <li>• 如问题持续，请截图联系技术支持</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              {/* 响应内容（可展开） */}
+              {error.responseText && (
+                <details className="mb-4">
+                  <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+                    📄 查看原始响应内容（调试用）
+                  </summary>
+                  <pre className="mt-2 p-3 bg-gray-900 text-gray-100 rounded-lg text-xs overflow-auto max-h-48">
+                    {error.responseText}
+                  </pre>
+                </details>
+              )}
+
+              {/* 操作按钮 */}
+              <div className="flex gap-3">
+                <button
+                  onClick={loadData}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium"
+                >
+                  🔄 重新加载
+                </button>
+                <a
+                  href="/admin"
+                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  ← 返回首页
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
