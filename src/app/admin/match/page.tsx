@@ -51,9 +51,17 @@ function FailedProfilesChecker() {
     try {
       const res = await fetch('/api/admin/fix-level2-scores', { method: 'POST' });
       const data = await res.json();
-      alert(data.success ? `修复完成：${data.data.message}` : `修复失败：${data.error}`);
-      // 重新检查
-      checkFailedProfiles();
+      if (data.success) {
+        alert(`✅ 修复成功！\n\n` +
+          `• 修复候选人分数: ${data.data.updatedCandidates} 条\n` +
+          `• 修复档案最高分: ${data.data.updatedProfiles} 条\n` +
+          `• 重置失败档案: ${data.data.resetFailedProfiles} 个\n\n` +
+          `正在刷新...`);
+        // 重新检查
+        await checkFailedProfiles();
+      } else {
+        alert(`❌ 修复失败：${data.error}`);
+      }
     } catch (err) {
       alert('修复出错：' + String(err));
     } finally {
