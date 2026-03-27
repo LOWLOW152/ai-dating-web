@@ -92,6 +92,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
     level_3_report?: unknown;
     level_3_calculated_at?: string;
   }> = [];
+  let matchError: string | null = null;
   
   try {
     const l1Result = await getLevel1Stats(params.id);
@@ -105,6 +106,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
     level3Results = await getLevel3Results(params.id) || [];
   } catch (err) {
     console.error('获取匹配数据失败:', err);
+    matchError = String(err);
   }
   
   if (!profile) {
@@ -214,6 +216,12 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
       {/* 三层匹配结果 */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">匹配结果</h2>
+        
+        {matchError && (
+          <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+            <p className="text-sm text-red-600">查询匹配数据出错: {matchError}</p>
+          </div>
+        )}
         
         {/* 第一层 - 硬性条件筛选 */}
         <div className="mb-6 pb-6 border-b">
