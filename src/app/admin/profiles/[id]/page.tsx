@@ -32,7 +32,7 @@ async function getLevel2Results(id: string) {
     SELECT 
       mc.candidate_id,
       p.invite_code as candidate_invite_code,
-      mc.level_2_score,
+      mc.level_2_score::float as level_2_score,
       mc.level_2_passed,
       mc.level_2_reason
     FROM match_candidates mc
@@ -41,6 +41,7 @@ async function getLevel2Results(id: string) {
       AND mc.level_2_score IS NOT NULL
     ORDER BY mc.level_2_score DESC
   `, [id]);
+  console.log('Level2 query result:', result.rows); // 调试用
   return result.rows;
 }
 
