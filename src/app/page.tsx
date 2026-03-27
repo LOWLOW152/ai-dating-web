@@ -107,17 +107,21 @@ export default function InvitePage() {
               同一个邀请码可以用于两个功能
             </p>
 
-            {/* AI匹配开发中提示 */}
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-2">
-                <span className="text-blue-500 mt-0.5">🤖</span>
-                <div>
-                  <p className="text-sm text-blue-800 font-medium">AI 匹配正在开发中</p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    请找管理员帮你手动 AI 匹配
-                  </p>
+            {/* 查看AI匹配入口 */}
+            <div className="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+              <button
+                onClick={() => router.push('/my-matches')}
+                className="w-full flex items-center gap-3"
+              >
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <span className="text-2xl">💕</span>
                 </div>
-              </div>
+                <div className="text-left flex-1">
+                  <h3 className="font-semibold text-purple-800">查看我的AI匹配</h3>
+                  <p className="text-sm text-purple-600">输入邀请码，查看AI为你精选的3位匹配对象</p>
+                </div>
+                <span className="text-purple-400">→</span>
+              </button>
             </div>
 
             <p className="text-xs text-gray-400 text-center mt-6 mb-4">
