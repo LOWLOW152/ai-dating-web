@@ -33,8 +33,7 @@ async function getLevel2Results(id: string) {
       mc.candidate_id,
       p.invite_code as candidate_invite_code,
       mc.level_2_score::float as level_2_score,
-      mc.level_2_passed,
-      mc.level_2_reason
+      mc.level_2_passed
     FROM match_candidates mc
     LEFT JOIN profiles p ON p.id = mc.candidate_id
     WHERE mc.profile_id = $1 
@@ -83,7 +82,6 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
     candidate_invite_code: string;
     level_2_score: number;
     level_2_passed: boolean;
-    level_2_reason?: string;
   }> = [];
   let level3Results: Array<{
     candidate_id: string;
