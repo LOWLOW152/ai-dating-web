@@ -1,9 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
+// 主页面组件
 export default function MatchPage() {
+  return (
+    <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-8">加载中...</div>}>
+      <MatchPageContent />
+    </Suspense>
+  );
+}
+
+// 实际内容组件
+function MatchPageContent() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'level1' | 'level2' | 'level3' | 'pair'>('level1');
+
+  // 从URL参数读取tab
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'level1' || tab === 'level2' || tab === 'level3' || tab === 'pair') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="max-w-6xl mx-auto px-4">
@@ -64,7 +84,10 @@ export default function MatchPage() {
 
 // 第一层筛选组件
 function Level1Filter() {
-  const [profileId, setProfileId] = useState('');
+  const searchParams = useSearchParams();
+  const urlProfileId = searchParams.get('profileId');
+  
+  const [profileId, setProfileId] = useState(urlProfileId || '');
   const [candidates, setCandidates] = useState<Array<Record<string, string>> | null>(null);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,6 +100,17 @@ function Level1Filter() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; success: number; failed: number } | null>(null);
   const [batchResult, setBatchResult] = useState<{ success: string[]; failed: { id: string; error: string }[] } | null>(null);
+
+  // URL参数有profileId时自动加载
+  useEffect(() => {
+    if (urlProfileId) {
+      // 延迟一点等组件完全挂载
+      const timer = setTimeout(() => {
+        handleLoadCandidates();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [urlProfileId]);
 
   const handleCalculate = async () => {
     if (!profileId) return;
@@ -412,7 +446,10 @@ function Level1Filter() {
 
 // 第二层AI初筛组件
 function Level2Filter() {
-  const [profileId, setProfileId] = useState('');
+  const searchParams = useSearchParams();
+  const urlProfileId = searchParams.get('profileId');
+  
+  const [profileId, setProfileId] = useState(urlProfileId || '');
   const [stats, setStats] = useState<{ level1_passed: number; level2_calculated: number; level2_passed: number; avg_score: number } | null>(null);
   const [topCandidates, setTopCandidates] = useState<Array<{ candidate_id: string; level_2_score: number; invite_code: string; nickname: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -420,6 +457,16 @@ function Level2Filter() {
   const [result, setResult] = useState<{ processed: number; totalTokens: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<{ status: number; message: string; details?: string } | null>(null);
+
+  // URL参数有profileId时自动加载
+  useEffect(() => {
+    if (urlProfileId) {
+      const timer = setTimeout(() => {
+        handleLoadStatus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [urlProfileId]);
 
   // 批量匹配相关
   const [batchCount, setBatchCount] = useState(10);
