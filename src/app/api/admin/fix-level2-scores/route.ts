@@ -25,31 +25,82 @@ export async function POST() {
       RETURNING id
     `);
 
-    // 3. 重置因小数分数而失败的档案状态
-    const resetResult = await sql.query(`
+    // 3. 定义小数分数相关的错误关键词
+    const decimalErrorPatterns = `
+      match_error LIKE '%integer%' OR
+      match_error LIKE '%decimal%' OR
+      match_error LIKE '%.%' OR
+      match_error LIKE '%85.00%' OR
+      match_error LIKE '%numeric%' OR
+      match_error LIKE '%分数%' OR
+      match_error LIKE '%type%'
+    `;
+
+    // 4. 重置AI评价层因小数分数失败的档案
+    const resetAIResult = await sql.query(`
+      UPDATE profiles 
+      SET ai_evaluation_status = 'pending',
+          ai_evaluation_at = NULL,
+          match_error = NULL,
+          updated_at = NOW()
+      WHERE ai_evaluation_status = 'failed'
+        AND (${decimalErrorPatterns})
+      RETURNING id
+    `);
+
+    // 5. 重置第一层因小数分数失败的档案
+    const resetL1Result = await sql.query(`
+      UPDATE profiles 
+      SET match_level1_status = 'pending',
+          match_level1_at = NULL,
+          match_error = NULL,
+          updated_at = NOW()
+      WHERE match_level1_status = 'failed'
+        AND (${decimalErrorPatterns})
+      RETURNING id
+    `);
+
+    // 6. 重置第二层因小数分数失败的档案
+    const resetL2Result = await sql.query(`
       UPDATE profiles 
       SET match_level2_status = 'pending',
+          match_level2_at = NULL,
           match_error = NULL,
           updated_at = NOW()
       WHERE match_level2_status = 'failed'
-        AND (
-          match_error LIKE '%integer%'
-          OR match_error LIKE '%decimal%'
-          OR match_error LIKE '%.%'
-          OR match_error LIKE '%85.00%'
-          OR match_error LIKE '%numeric%'
-          OR match_error LIKE '%分数%'
-        )
+        AND (${decimalErrorPatterns})
       RETURNING id
     `);
+
+    // 7. 重置第三层因小数分数失败的档案
+    const resetL3Result = await sql.query(`
+      UPDATE profiles 
+      SET match_level3_status = 'pending',
+          match_level3_at = NULL,
+          match_error = NULL,
+          updated_at = NOW()
+      WHERE match_level3_status = 'failed'
+        AND (${decimalErrorPatterns})
+      RETURNING id
+    `);
+
+    const totalReset = 
+      (resetAIResult.rowCount || 0) + 
+      (resetL1Result.rowCount || 0) + 
+      (resetL2Result.rowCount || 0) + 
+      (resetL3Result.rowCount || 0);
 
     return Response.json({
       success: true,
       data: {
         updatedCandidates: candidatesResult.rowCount || 0,
         updatedProfiles: profilesResult.rowCount || 0,
-        resetFailedProfiles: resetResult.rowCount || 0,
-        message: `修复完成：更新了 ${candidatesResult.rowCount || 0} 条候选人记录，${profilesResult.rowCount || 0} 条档案记录，重置了 ${resetResult.rowCount || 0} 个失败档案状态`
+        resetAI: resetAIResult.rowCount || 0,
+        resetL1: resetL1Result.rowCount || 0,
+        resetL2: resetL2Result.rowCount || 0,
+        resetL3: resetL3Result.rowCount || 0,
+        totalReset,
+        message: `修复完成：更新 ${candidatesResult.rowCount || 0} 条候选人分数，重置 ${totalReset} 个失败档案（AI:${resetAIResult.rowCount || 0}, L1:${resetL1Result.rowCount || 0}, L2:${resetL2Result.rowCount || 0}, L3:${resetL3Result.rowCount || 0}）`
       }
     });
 

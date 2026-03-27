@@ -31,6 +31,8 @@ function FailedProfilesChecker() {
   } | null>(null);
   const [fixing, setFixing] = useState(false);
 
+  const [retryingAll, setRetryingAll] = useState(false);
+
   const checkFailedProfiles = async () => {
     setChecking(true);
     try {
@@ -55,7 +57,11 @@ function FailedProfilesChecker() {
         alert(`✅ 修复成功！\n\n` +
           `• 修复候选人分数: ${data.data.updatedCandidates} 条\n` +
           `• 修复档案最高分: ${data.data.updatedProfiles} 条\n` +
-          `• 重置失败档案: ${data.data.resetFailedProfiles} 个\n\n` +
+          `• 重置失败档案总计: ${data.data.totalReset} 个\n` +
+          `  - AI评价: ${data.data.resetAI} 个\n` +
+          `  - 第一层: ${data.data.resetL1} 个\n` +
+          `  - 第二层: ${data.data.resetL2} 个\n` +
+          `  - 第三层: ${data.data.resetL3} 个\n\n` +
           `正在刷新...`);
         // 重新检查
         await checkFailedProfiles();
@@ -66,6 +72,32 @@ function FailedProfilesChecker() {
       alert('修复出错：' + String(err));
     } finally {
       setFixing(false);
+    }
+  };
+
+  const retryAllFailed = async () => {
+    if (!confirm('确定要重试所有失败档案吗？这会将所有失败状态的档案重置为待处理。')) return;
+    
+    setRetryingAll(true);
+    try {
+      const res = await fetch('/api/admin/match/retry-all-failed', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ 重试成功！\n\n` +
+          `已重置 ${data.data.total} 个失败档案：\n` +
+          `• AI评价: ${data.data.ai} 个\n` +
+          `• 第一层: ${data.data.l1} 个\n` +
+          `• 第二层: ${data.data.l2} 个\n` +
+          `• 第三层: ${data.data.l3} 个\n\n` +
+          `系统将在下次自动任务时重新处理这些档案。`);
+        await checkFailedProfiles();
+      } else {
+        alert(`❌ 重试失败：${data.error}`);
+      }
+    } catch (err) {
+      alert('重试出错：' + String(err));
+    } finally {
+      setRetryingAll(false);
     }
   };
 
@@ -81,6 +113,15 @@ function FailedProfilesChecker() {
           >
             {checking ? '检查中...' : '检查失败档案'}
           </button>
+          {result && result.failedProfiles.length > 0 && (
+            <button
+              onClick={retryAllFailed}
+              disabled={retryingAll}
+              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              {retryingAll ? '重试中...' : `重试所有失败 (${result.failedProfiles.length})`}
+            </button>
+          )}
           {result && result.decimalScoresInCandidates > 0 && (
             <button
               onClick={fixDecimalScores}
