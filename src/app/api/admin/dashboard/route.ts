@@ -77,7 +77,7 @@ export async function GET() {
     const failedProfilesRes = await sql.query(`
       SELECT 
         id,
-        nickname,
+        answers->>'nickname' as nickname,
         COALESCE(ai_evaluation_status = 'failed', false) as ai_failed,
         COALESCE(match_level1_status = 'failed', false) as l1_failed,
         COALESCE(match_level2_status = 'failed', false) as l2_failed,
