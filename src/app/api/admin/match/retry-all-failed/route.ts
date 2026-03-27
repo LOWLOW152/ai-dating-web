@@ -11,7 +11,6 @@ export async function POST() {
     const aiResult = await sql.query(`
       UPDATE profiles 
       SET ai_evaluation_status = 'pending',
-          ai_evaluation_at = NULL,
           match_error = NULL,
           updated_at = NOW()
       WHERE ai_evaluation_status = 'failed'
