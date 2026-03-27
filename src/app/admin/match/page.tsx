@@ -12,6 +12,172 @@ export default function MatchPage() {
   );
 }
 
+// 失败档案检查组件
+function FailedProfilesChecker() {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<{
+    stats: { ai_failed: number; l1_failed: number; l2_failed: number; l3_failed: number; decimal_errors: number };
+    decimalScoresInCandidates: number;
+    decimalMaxScoresInProfiles: number;
+    failedProfiles: Array<{
+      id: string;
+      invite_code: string;
+      nickname: string;
+      failed_layers: string[];
+      error: string;
+      level2_max_score: number;
+      updated_at: string;
+    }>;
+  } | null>(null);
+  const [fixing, setFixing] = useState(false);
+
+  const checkFailedProfiles = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch('/api/admin/match/failed-profiles');
+      const data = await res.json();
+      if (data.success) {
+        setResult(data.data);
+      }
+    } catch (err) {
+      console.error('Check failed:', err);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const fixDecimalScores = async () => {
+    setFixing(true);
+    try {
+      const res = await fetch('/api/admin/fix-level2-scores', { method: 'POST' });
+      const data = await res.json();
+      alert(data.success ? `修复完成：${data.data.message}` : `修复失败：${data.error}`);
+      // 重新检查
+      checkFailedProfiles();
+    } catch (err) {
+      alert('修复出错：' + String(err));
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <div className="flex justify-between items-center">
+        <h3 className="font-medium text-gray-800">🔍 失败档案检查</h3>
+        <div className="flex gap-2">
+          <button
+            onClick={checkFailedProfiles}
+            disabled={checking}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {checking ? '检查中...' : '检查失败档案'}
+          </button>
+          {result && result.decimalScoresInCandidates > 0 && (
+            <button
+              onClick={fixDecimalScores}
+              disabled={fixing}
+              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+            >
+              {fixing ? '修复中...' : `修复小数分数 (${result.decimalScoresInCandidates})`}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {result && (
+        <div className="mt-4 space-y-4">
+          {/* 统计 */}
+          <div className="grid grid-cols-5 gap-3 text-center">
+            <div className="bg-red-50 p-2 rounded">
+              <div className="text-lg font-bold text-red-600">{result.stats.ai_failed}</div>
+              <div className="text-xs text-gray-600">AI评价失败</div>
+            </div>
+            <div className="bg-orange-50 p-2 rounded">
+              <div className="text-lg font-bold text-orange-600">{result.stats.l1_failed}</div>
+              <div className="text-xs text-gray-600">第一层失败</div>
+            </div>
+            <div className="bg-purple-50 p-2 rounded">
+              <div className="text-lg font-bold text-purple-600">{result.stats.l2_failed}</div>
+              <div className="text-xs text-gray-600">第二层失败</div>
+            </div>
+            <div className="bg-pink-50 p-2 rounded">
+              <div className="text-lg font-bold text-pink-600">{result.stats.l3_failed}</div>
+              <div className="text-xs text-gray-600">第三层失败</div>
+            </div>
+            <div className="bg-yellow-50 p-2 rounded">
+              <div className="text-lg font-bold text-yellow-600">{result.stats.decimal_errors}</div>
+              <div className="text-xs text-gray-600">小数分数错误</div>
+            </div>
+          </div>
+
+          {/* 小数分数警告 */}
+          {(result.decimalScoresInCandidates > 0 || result.decimalMaxScoresInProfiles > 0) && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+              <div className="text-sm text-yellow-800">
+                ⚠️ 发现小数分数：
+                match_candidates表有 {result.decimalScoresInCandidates} 条，
+                profiles表有 {result.decimalMaxScoresInProfiles} 条
+              </div>
+            </div>
+          )}
+
+          {/* 失败档案列表 */}
+          {result.failedProfiles.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">档案ID</th>
+                    <th className="px-3 py-2 text-left">昵称</th>
+                    <th className="px-3 py-2 text-left">失败环节</th>
+                    <th className="px-3 py-2 text-left">错误信息</th>
+                    <th className="px-3 py-2 text-left">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {result.failedProfiles.slice(0, 10).map((profile) => (
+                    <tr key={profile.id}>
+                      <td className="px-3 py-2 font-mono text-xs">{profile.id.slice(0, 8)}...</td>
+                      <td className="px-3 py-2">{profile.nickname || '-'}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1 flex-wrap">
+                          {profile.failed_layers.map((layer) => (
+                            <span key={layer} className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded">
+                              {layer}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={profile.error}>
+                        {profile.error || '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <a
+                          href={`/admin/profiles/${profile.id}`}
+                          target="_blank"
+                          className="text-blue-600 hover:underline text-xs"
+                        >
+                          查看详情
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {result.failedProfiles.length > 10 && (
+                <div className="text-center text-xs text-gray-500 mt-2">
+                  还有 {result.failedProfiles.length - 10} 个失败档案...
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 实际内容组件
 function MatchPageContent() {
   const searchParams = useSearchParams();
@@ -28,6 +194,9 @@ function MatchPageContent() {
   return (
     <div className="max-w-6xl mx-auto px-4">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">匹配测试</h1>
+
+      {/* 失败档案检查器 */}
+      <FailedProfilesChecker />
 
       {/* Tab 切换 */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">
