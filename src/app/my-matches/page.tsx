@@ -59,7 +59,7 @@ export default function MyMatchesPage() {
       } else {
         setError(data.error || '查询失败');
       }
-    } catch (err) {
+    } catch {
       setError('网络错误，请重试');
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export default function MyMatchesPage() {
       } else {
         alert(data.error || '选择失败');
       }
-    } catch (err) {
+    } catch {
       alert('提交失败，请重试');
     } finally {
       setSubmitting(false);
@@ -120,7 +120,7 @@ export default function MyMatchesPage() {
       } else {
         alert(data.error || '重新匹配失败');
       }
-    } catch (err) {
+    } catch {
       alert('请求失败，请重试');
     } finally {
       setLoading(false);
