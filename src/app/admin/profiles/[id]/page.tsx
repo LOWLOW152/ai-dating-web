@@ -17,10 +17,10 @@ async function getProfileTags(id: string) {
 // 获取第一层匹配统计
 async function getLevel1Stats(id: string) {
   const result = await sql.query(`
-    SELECT 
+    SELECT
       COUNT(*) as total_candidates,
       COUNT(*) FILTER (WHERE passed_level_1 = true) as passed_candidates
-    FROM match_candidates 
+    FROM match_candidates
     WHERE profile_id = $1
   `, [id]);
   return result.rows[0];
@@ -29,14 +29,14 @@ async function getLevel1Stats(id: string) {
 // 获取第二层匹配结果
 async function getLevel2Results(id: string) {
   const result = await sql.query(`
-    SELECT 
+    SELECT
       mc.candidate_id,
       p.invite_code as candidate_invite_code,
       mc.level_2_score::float as level_2_score,
       mc.level_2_passed
     FROM match_candidates mc
     LEFT JOIN profiles p ON p.id = mc.candidate_id
-    WHERE mc.profile_id = $1 
+    WHERE mc.profile_id = $1
       AND mc.level_2_score IS NOT NULL
     ORDER BY mc.level_2_score DESC
   `, [id]);
@@ -47,7 +47,7 @@ async function getLevel2Results(id: string) {
 // 获取第三层匹配结果
 async function getLevel3Results(id: string) {
   const result = await sql.query(`
-    SELECT 
+    SELECT
       mc.candidate_id,
       p.invite_code as candidate_invite_code,
       mc.level_3_score,
@@ -55,11 +55,51 @@ async function getLevel3Results(id: string) {
       mc.level_3_calculated_at
     FROM match_candidates mc
     LEFT JOIN profiles p ON p.id = mc.candidate_id
-    WHERE mc.profile_id = $1 
+    WHERE mc.profile_id = $1
       AND mc.level_3_score IS NOT NULL
     ORDER BY mc.level_3_score DESC
   `, [id]);
   return result.rows;
+}
+
+// 获取匹配选择信息
+async function getMatchSelections(id: string) {
+  const res = await sql.query(
+    `SELECT
+      s.selected_candidate_id,
+      s.selection_score,
+      s.status,
+      s.remake_count,
+      s.max_remake_count,
+      s.created_at,
+      p.invite_code as selected_invite_code,
+      p.answers->>'nickname' as selected_nickname
+    FROM user_match_selections s
+    JOIN profiles p ON p.id = s.selected_candidate_id
+    WHERE s.profile_id = $1
+    ORDER BY s.created_at DESC
+    LIMIT 1`,
+    [id]
+  );
+  return res.rows[0] || null;
+}
+
+// 获取被选择信息
+async function getSelectedBy(id: string) {
+  const res = await sql.query(
+    `SELECT
+      s.profile_id as selector_id,
+      s.selection_score,
+      s.created_at,
+      p.invite_code as selector_invite_code,
+      p.answers->>'nickname' as selector_nickname
+    FROM user_match_selections s
+    JOIN profiles p ON p.id = s.profile_id
+    WHERE s.selected_candidate_id = $1 AND s.status = 'active'
+    ORDER BY s.created_at DESC`,
+    [id]
+  );
+  return res.rows;
 }
 
 // 标签分类配置
@@ -74,7 +114,7 @@ const TAG_CATEGORIES = [
 export default async function ProfileDetailPage({ params }: { params: { id: string } }) {
   const profile = await getProfile(params.id);
   const aiTags = await getProfileTags(params.id);
-  
+
   // 获取匹配数据，带错误处理
   let level1Stats: { total_candidates: number; passed_candidates: number } = { total_candidates: 0, passed_candidates: 0 };
   let level2Results: Array<{
@@ -91,7 +131,23 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
     level_3_calculated_at?: string;
   }> = [];
   let matchError: string | null = null;
-  
+  let matchSelection: {
+    selected_candidate_id: string;
+    selected_invite_code: string;
+    selected_nickname: string;
+    selection_score: number;
+    remake_count: number;
+    max_remake_count: number;
+    created_at: string;
+  } | null = null;
+  let selectedBy: Array<{
+    selector_id: string;
+    selector_invite_code: string;
+    selector_nickname: string;
+    selection_score: number;
+    created_at: string;
+  }> = [];
+
   try {
     const l1Result = await getLevel1Stats(params.id);
     if (l1Result) {
@@ -102,18 +158,20 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
     }
     level2Results = await getLevel2Results(params.id) || [];
     level3Results = await getLevel3Results(params.id) || [];
+    matchSelection = await getMatchSelections(params.id);
+    selectedBy = await getSelectedBy(params.id);
   } catch (err) {
     console.error('获取匹配数据失败:', err);
     matchError = String(err);
   }
-  
+
   if (!profile) {
     notFound();
   }
 
   // 解析标签
   const tags = aiTags || profile.ai_evaluation?.tags || {};
-  
+
   // 按分类分组
   const groupedTags: Record<string, Record<string, string | string[]>> = {};
   Object.entries(tags).forEach(([key, value]) => {
@@ -147,7 +205,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
             {profile.status}
           </span>
         </div>
-        
+
         <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-sm text-gray-500">邀请码</p>
@@ -174,13 +232,13 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
             {Object.keys(tags).length > 0 ? `已提取 ${Object.keys(tags).length} 个标签` : '未提取'}
           </span>
         </div>
-        
+
         {Object.keys(tags).length > 0 ? (
           <div className="space-y-4">
             {TAG_CATEGORIES.map(({ key, color }) => {
               const categoryTags = groupedTags[key];
               if (!categoryTags) return null;
-              
+
               return (
                 <div key={key} className="border-b last:border-0 pb-4 last:pb-0">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">{key}</h3>
@@ -201,7 +259,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         ) : (
           <div className="text-center py-8">
             <p className="text-gray-500 mb-4">该档案尚未提取AI标签</p>
-            <a 
+            <a
               href={`/admin/evaluation?profile=${profile.id}`}
               className="inline-block px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
             >
@@ -214,13 +272,13 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
       {/* 三层匹配结果 */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">匹配结果</h2>
-        
+
         {matchError && (
           <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
             <p className="text-sm text-red-600">查询匹配数据出错: {matchError}</p>
           </div>
         )}
-        
+
         {/* 第一层 - 硬性条件筛选 */}
         <div className="mb-6 pb-6 border-b">
           <div className="flex items-center gap-2 mb-3">
@@ -247,7 +305,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
               <div className="bg-gray-50 p-3 rounded text-center">
                 <p className="text-xs text-gray-500">通过率</p>
                 <p className="text-2xl font-bold text-gray-600">
-                  {level1Stats.total_candidates > 0 
+                  {level1Stats.total_candidates > 0
                     ? Math.round((level1Stats.passed_candidates / level1Stats.total_candidates) * 100)
                     : 0}%
                 </p>
@@ -273,7 +331,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
               <span className="text-sm text-gray-400">未进行</span>
             )}
           </div>
-          
+
           {level2Results.length > 0 ? (
             <div className="space-y-2 max-h-64 overflow-auto">
               <div className="grid grid-cols-4 gap-2 text-xs text-gray-500 px-2">
@@ -284,7 +342,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
               </div>
               {level2Results.map((r) => (
                 <div key={r.candidate_id} className="grid grid-cols-4 gap-2 text-sm p-2 bg-gray-50 rounded">
-                  <Link 
+                  <Link
                     href={`/admin/profiles/${r.candidate_id}`}
                     className="font-mono text-blue-600 hover:underline truncate"
                   >
@@ -292,7 +350,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                   </Link>
                   <span>{r.candidate_invite_code || '-'}</span>
                   <span className={`font-bold ${
-                    r.level_2_score >= 79 ? 'text-green-600' : 
+                    r.level_2_score >= 79 ? 'text-green-600' :
                     r.level_2_score >= 50 ? 'text-yellow-600' : 'text-red-600'
                   }`}>
                     {r.level_2_score ?? '-'}
@@ -305,7 +363,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
             </div>
           ) : (
             <p className="text-gray-400 text-sm">
-              {level1Stats.passed_candidates > 0 
+              {level1Stats.passed_candidates > 0
                 ? '第一层通过的候选人尚未进行第二层AI评分'
                 : '暂无第二层评分数据'}
             </p>
@@ -327,20 +385,20 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
               <span className="text-sm text-gray-400">未进行</span>
             )}
           </div>
-          
+
           {level3Results.length > 0 ? (
             <div className="space-y-3 max-h-80 overflow-auto">
               {level3Results.map((r) => {
-                const reportContent = r.level_3_report 
-                  ? (typeof r.level_3_report === 'string' 
-                      ? r.level_3_report 
+                const reportContent = r.level_3_report
+                  ? (typeof r.level_3_report === 'string'
+                      ? r.level_3_report
                       : JSON.stringify(r.level_3_report, null, 2))
                   : null;
                 return (
                 <div key={r.candidate_id} className="border rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <Link 
+                      <Link
                         href={`/admin/profiles/${r.candidate_id}`}
                         className="font-mono text-sm text-blue-600 hover:underline"
                       >
@@ -374,6 +432,98 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
+      {/* 用户匹配选择 */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">用户匹配选择</h2>
+        
+        {/* 已选择 */}
+        <div className="mb-6 pb-6 border-b">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">✅</span>
+            <h3 className="font-medium">已选择</h3>
+            {matchSelection ? (
+              <span className="text-sm text-green-600">
+                已选择 {matchSelection.selected_nickname}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">未选择</span>
+            )}
+          </div>
+
+          {matchSelection ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">昵称</p>
+                  <p className="font-medium">{matchSelection.selected_nickname || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">邀请码</p>
+                  <p className="font-medium font-mono">{matchSelection.selected_invite_code}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">匹配分数</p>
+                  <p className="font-medium text-green-600">{matchSelection.selection_score}分</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">重新匹配次数</p>
+                  <p className="font-medium">{matchSelection.remake_count}/{matchSelection.max_remake_count}</p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-green-200">
+                <Link
+                  href={`/admin/profiles/${matchSelection.selected_candidate_id}`}
+                  className="text-sm text-green-700 hover:underline"
+                >
+                  查看选中档案详情 →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">该用户尚未做出匹配选择</p>
+          )}
+        </div>
+
+        {/* 被选择 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">💕</span>
+            <h3 className="font-medium">被选择</h3>
+            {selectedBy.length > 0 ? (
+              <span className="text-sm text-pink-600">
+                被 {selectedBy.length} 人选择
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">未被选择</span>
+            )}
+          </div>
+
+          {selectedBy.length > 0 ? (
+            <div className="space-y-3 max-h-60 overflow-auto">
+              {selectedBy.map((selector) => (
+                <div key={selector.selector_id} className="bg-pink-50 border border-pink-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="font-medium">{selector.selector_nickname || '未知'}</span>
+                      <span className="text-sm text-gray-500 font-mono">{selector.selector_invite_code}</span>
+                      <span className="text-sm text-pink-600">{selector.selection_score}分</span>
+                    </div>
+                    <Link
+                      href={`/admin/profiles/${selector.selector_id}`}
+                      className="text-sm text-pink-700 hover:underline"
+                    >
+                      查看详情 →
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">该用户尚未被其他人选择</p>
+          )}
+        </div>
+      </div>
+
       {/* 答题数据 */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">答题数据</h2>
@@ -390,14 +540,14 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">颜值评分</h2>
-          <Link 
+          <Link
             href={`/admin/beauty-score`}
             className="text-sm text-pink-600 hover:underline"
           >
             去评分 →
           </Link>
         </div>
-        
+
         {profile.beauty_score !== undefined ? (
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-4">
@@ -405,7 +555,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                 <p className="text-xs text-gray-500">P图程度</p>
                 <p className="text-xl font-bold text-orange-600">{profile.photoshop_level}</p>
                 <p className="text-xs text-gray-400">
-                  {profile.photoshop_level <= 3 ? '原生' : 
+                  {profile.photoshop_level <= 3 ? '原生' :
                    profile.photoshop_level <= 6 ? '微P' : '重P'}
                 </p>
               </div>
@@ -418,7 +568,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                 <p className="text-xl font-bold text-purple-600">{profile.beauty_score}</p>
               </div>
             </div>
-            
+
             {profile.beauty_evaluated_at && (
               <p className="text-xs text-gray-400">
                 评分时间: {new Date(profile.beauty_evaluated_at).toLocaleString()}
@@ -428,7 +578,7 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
         ) : (
           <div className="text-center py-6">
             <p className="text-gray-500 mb-4">该档案尚未颜值评分</p>
-            <Link 
+            <Link
               href={`/admin/beauty-score`}
               className="inline-block px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 text-sm"
             >
