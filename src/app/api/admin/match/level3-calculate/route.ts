@@ -255,9 +255,9 @@ export async function POST(request: NextRequest) {
         // 更新match_candidates
         await sql.query(
           `UPDATE match_candidates 
-           SET level_3_report = $1, level_3_calculated_at = NOW()
-           WHERE profile_id = $2 AND candidate_id = $3`,
-          [JSON.stringify(evalResult.result), profileId, profileB.id]
+           SET level_3_score = $1, level_3_report = $2, level_3_calculated_at = NOW()
+           WHERE profile_id = $3 AND candidate_id = $4`,
+          [evalResult.result.overall_score, JSON.stringify(evalResult.result), profileId, profileB.id]
         );
 
         if (evalResult.tokens) {
