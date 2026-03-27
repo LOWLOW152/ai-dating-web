@@ -95,7 +95,6 @@ export default function DashboardPage() {
       }
       
       if (!res.ok) {
-        const errorDetail = result?.detail || res.statusText;
         setError({
           message: `HTTP ${res.status}: ${res.statusText}`,
           status: res.status,
