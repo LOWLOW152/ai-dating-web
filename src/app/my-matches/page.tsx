@@ -51,6 +51,7 @@ export default function MyMatchesPage() {
     try {
       const res = await fetch(`/api/match/my-matches?inviteCode=${encodeURIComponent(inviteCode.trim())}`);
       const data = await res.json();
+      console.log('API response:', data);
 
       if (data.success) {
         setMatches(data.data.matches);
@@ -59,7 +60,8 @@ export default function MyMatchesPage() {
       } else {
         setError(data.error || '查询失败');
       }
-    } catch {
+    } catch (err) {
+      console.error('Fetch error:', err);
       setError('网络错误，请重试');
     } finally {
       setLoading(false);
@@ -177,6 +179,12 @@ export default function MyMatchesPage() {
         )}
 
         {/* 匹配结果 */}
+        {matches && (
+          <div className="bg-gray-100 p-2 mb-4 text-xs">
+            matches: {JSON.stringify(matches.length)} 条
+          </div>
+        )}
+        
         {submitted && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center mb-6">
             <div className="text-5xl mb-4">🎉</div>
