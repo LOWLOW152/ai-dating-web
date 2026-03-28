@@ -84,8 +84,11 @@ export default function CompletePage() {
             </div>
             
             <h2 className="text-xl font-bold text-gray-800 mb-2">等待AI评价中...</h2>            
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-500 mb-2">
               你的档案已提交，AI正在分析你的性格、需求和匹配标签
+            </p>
+            <p className="text-sm text-purple-600 font-medium mb-6">
+              由于AI正在阅读您的资料与匹配，请明天再来查看匹配结果吧~
             </p>
 
             {/* 邀请码卡片 */}
