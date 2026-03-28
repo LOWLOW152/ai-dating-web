@@ -25,14 +25,6 @@ interface Match {
   advice?: string;
 }
 
-interface DebugInfo {
-  url: string;
-  status: number;
-  statusText: string;
-  response: unknown;
-  error?: string;
-}
-
 export default function MyMatchesPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,7 +32,6 @@ export default function MyMatchesPage() {
   const [hasSelection, setHasSelection] = useState(false);
   const [canRemake, setCanRemake] = useState(false);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -56,50 +47,22 @@ export default function MyMatchesPage() {
     setMatches(null);
     setHasSelection(false);
     setSubmitted(false);
-    setDebugInfo(null);
 
     const url = `/api/match/my-matches?inviteCode=${encodeURIComponent(inviteCode.trim())}`;
-    console.log('Fetching URL:', url);
 
     try {
       const res = await fetch(url);
-      console.log('Response status:', res.status, res.statusText);
-      
-      let data;
-      const responseText = await res.text();
-      console.log('Raw response:', responseText);
-      
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        data = { raw: responseText };
-      }
-
-      setDebugInfo({
-        url,
-        status: res.status,
-        statusText: res.statusText,
-        response: data
-      });
+      const data = await res.json();
 
       if (res.ok && data.success) {
         setMatches(data.data.matches);
         setHasSelection(data.data.hasActiveSelection);
         setCanRemake(data.data.canRemake);
       } else {
-        setError(data.error || `HTTP ${res.status}: ${res.statusText}`);
+        setError(data.error || '查询失败');
       }
-    } catch (err) {
-      console.error('Fetch error:', err);
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`网络错误: ${errorMsg}`);
-      setDebugInfo(prev => prev ? { ...prev, error: errorMsg } : {
-        url,
-        status: 0,
-        statusText: 'Network Error',
-        response: null,
-        error: errorMsg
-      });
+    } catch {
+      setError('网络错误，请重试');
     } finally {
       setLoading(false);
     }
@@ -200,30 +163,6 @@ export default function MyMatchesPage() {
             </div>
           )}
         </div>
-
-        {/* 详细调试信息 */}
-        {debugInfo && (
-          <div className="bg-gray-900 text-green-400 rounded-lg p-4 mb-6 font-mono text-xs overflow-auto">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-400 font-bold">调试信息</span>
-              <button
-                onClick={() => setDebugInfo(null)}
-                className="text-gray-500 hover:text-gray-300"
-              >
-                隐藏
-              </button>
-            </div>
-            <div className="space-y-1">
-              <p><span className="text-gray-500">URL:</span> {debugInfo.url}</p>
-              <p><span className="text-gray-500">Status:</span> {debugInfo.status} {debugInfo.statusText}</p>
-              {debugInfo.error && (
-                <p><span className="text-gray-500">Error:</span> {debugInfo.error}</p>
-              )}
-              <p className="text-gray-500">Response:</p>
-              <pre className="text-green-300 overflow-x-auto">{JSON.stringify(debugInfo.response, null, 2)}</pre>
-            </div>
-          </div>
-        )}
 
         {/* 已选择提示 */}
         {hasSelection && !submitted && (
