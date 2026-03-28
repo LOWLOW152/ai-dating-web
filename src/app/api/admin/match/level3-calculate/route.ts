@@ -198,9 +198,12 @@ async function generateTop3Reports(profileId: string) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[Level3] Starting calculation...');
+  
   try {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { profileId, candidateId, templateId: _templateId } = await request.json();
+    console.log('[Level3] ProfileId:', profileId, 'CandidateId:', candidateId);
 
     if (!profileId) {
       return Response.json({ success: false, error: '缺少profileId' }, { status: 400 });
@@ -212,6 +215,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, error: '档案不存在' }, { status: 404 });
     }
     const profileA = profileRes.rows[0];
+    console.log('[Level3] Found profile:', profileA.invite_code);
 
     // 如果指定了candidateId，只分析这一个
     if (candidateId) {
@@ -262,9 +266,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 生成Top3报告（单个也需要更新）
+        console.log('[Level3] Generating Top3 reports for single candidate...');
         await generateTop3Reports(profileId);
 
         // 更新档案第三层状态
+        console.log('[Level3] Updating profile status to completed...');
         await sql.query(
           `UPDATE profiles 
            SET match_level3_status = 'completed',
@@ -272,6 +278,7 @@ export async function POST(request: NextRequest) {
            WHERE id = $1`,
           [profileId]
         );
+        console.log('[Level3] Status updated to completed');
 
         return Response.json({
           success: true,
@@ -286,6 +293,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 批量模式：分析所有第二层通过的候选人
+    console.log('[Level3] Querying candidates for batch mode...');
     const candidatesRes = await sql.query(
       `SELECT mc.candidate_id, p.*
        FROM match_candidates mc
@@ -299,9 +307,11 @@ export async function POST(request: NextRequest) {
     );
 
     const candidates = candidatesRes.rows;
+    console.log('[Level3] Found', candidates.length, 'candidates to process');
 
     if (candidates.length === 0) {
       // 检查是否已经有计算过的结果
+      console.log('[Level3] No new candidates, checking existing results...');
       const existingRes = await sql.query(
         `SELECT COUNT(*) as count 
          FROM match_candidates 
@@ -310,12 +320,15 @@ export async function POST(request: NextRequest) {
       );
       
       const existingCount = parseInt(existingRes.rows[0].count);
+      console.log('[Level3] Existing calculated:', existingCount);
       
       if (existingCount > 0) {
         // 已经有计算过的结果，直接生成 Top3 报告
+        console.log('[Level3] Generating Top3 from existing results...');
         await generateTop3Reports(profileId);
         
         // 更新状态为完成
+        console.log('[Level3] Updating status to completed...');
         await sql.query(
           `UPDATE profiles 
            SET match_level3_status = 'completed',
@@ -323,6 +336,7 @@ export async function POST(request: NextRequest) {
            WHERE id = $1`,
           [profileId]
         );
+        console.log('[Level3] Status updated to completed');
         
         return Response.json({
           success: true,
@@ -344,6 +358,7 @@ export async function POST(request: NextRequest) {
     let totalTokens = 0;
 
     for (const profileB of candidates) {
+      console.log('[Level3] Processing candidate:', profileB.id);
       const evalResult = await evaluateLevel3(profileA, profileB);
       
       if (evalResult.success && evalResult.result) {
@@ -390,12 +405,14 @@ export async function POST(request: NextRequest) {
           overallScore: evalResult.result.overall_score,
           status: 'success'
         });
+        console.log('[Level3] Candidate processed successfully:', profileB.id);
       } else {
         results.push({
           candidateId: profileB.id,
           status: 'failed',
           error: evalResult.error
         });
+        console.log('[Level3] Candidate processing failed:', profileB.id, evalResult.error);
       }
 
       // 间隔避免限流
@@ -403,10 +420,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成Top3报告
+    console.log('[Level3] Generating Top3 reports...');
     const top3Result = await generateTop3Reports(profileId);
     console.log('Generated Top3 reports:', top3Result);
 
     // 更新档案第三层状态
+    console.log('[Level3] Updating profile status to completed...');
     await sql.query(
       `UPDATE profiles 
        SET match_level3_status = 'completed',
@@ -414,6 +433,7 @@ export async function POST(request: NextRequest) {
        WHERE id = $1`,
       [profileId]
     );
+    console.log('[Level3] Status updated to completed');
 
     return Response.json({
       success: true,
@@ -426,7 +446,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Level3 calculate error:', error);
+    console.error('[Level3] Fatal error:', error);
     return Response.json(
       { success: false, error: String(error) },
       { status: 500 }

@@ -101,36 +101,37 @@ export async function POST(request: NextRequest) {
       [profileId]
     );
 
-    // 7. 同步触发第三层重新计算
-    let level3Result = null;
-    try {
-      const level3Res = await fetch(
-        `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ai-dating.top'}/api/admin/match/level3-calculate`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profileId })
-        }
-      );
-      level3Result = await level3Res.json();
-      console.log('Level3 recalculate result:', level3Result);
-    } catch (err) {
-      console.error('Level3 recalculate error:', err);
-    }
+    // 7. 触发第三层重新计算（异步，不等待结果）
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ai-dating.top';
+    
+    // 使用 setImmediate 确保在响应发送后再触发
+    setTimeout(async () => {
+      try {
+        console.log('[Remake] Triggering level3-calculate for profile:', profileId);
+        const level3Res = await fetch(
+          `${siteUrl}/api/admin/match/level3-calculate`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profileId })
+          }
+        );
+        const level3Result = await level3Res.json();
+        console.log('[Remake] level3-calculate result:', JSON.stringify(level3Result));
+      } catch (err) {
+        console.error('[Remake] level3-calculate error:', err);
+      }
+    }, 100);
 
     return Response.json({
       success: true,
       data: {
         message: hasLevel2Candidates 
-          ? '重新匹配已启动，请稍后再查看结果' 
+          ? '重新匹配已启动，请稍后再查看结果（约需30秒）' 
           : '重新匹配已启动，但第二层筛选尚未完成，请先完成第二层筛选',
         remakeCount: selection.remake_count + 1,
         maxRemakeCount: selection.max_remake_count,
-        hasLevel2Candidates,
-        level3Result: level3Result ? {
-          processed: level3Result.data?.processed,
-          success: level3Result.success
-        } : null
+        hasLevel2Candidates
       }
     });
 
