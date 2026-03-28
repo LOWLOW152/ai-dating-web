@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 /**
  * 获取用户的Top 3匹配报告（三选一展示）
  * GET /api/match/my-matches?inviteCode=xxx
+ * Cache-bust: v2
  */
 export async function GET(request: Request) {
   try {
