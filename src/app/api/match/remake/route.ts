@@ -58,6 +58,22 @@ export async function POST(request: NextRequest) {
       [profileId]
     );
 
+    // 4.5 重置候选人的第三层计算状态，允许重新分析
+    await sql.query(
+      `UPDATE match_candidates 
+       SET level_3_calculated_at = NULL, 
+           level_3_score = NULL, 
+           level_3_report = NULL
+       WHERE profile_id = $1`,
+      [profileId]
+    );
+
+    // 4.6 删除旧的 level3_reports
+    await sql.query(
+      'DELETE FROM level3_reports WHERE profile_id = $1',
+      [profileId]
+    );
+
     // 5. 重置第三层状态（让自动化任务重新处理）
     await sql.query(
       `UPDATE profiles 
