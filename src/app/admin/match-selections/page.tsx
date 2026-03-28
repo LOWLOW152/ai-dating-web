@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function MatchSelectionsPage() {
+function MatchSelectionsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const profileId = searchParams.get('profileId');
@@ -50,5 +50,17 @@ export default function MatchSelectionsPage() {
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-500">处理中...</p>
     </div>
+  );
+}
+
+export default function MatchSelectionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">加载中...</p>
+      </div>
+    }>
+      <MatchSelectionsContent />
+    </Suspense>
   );
 }
