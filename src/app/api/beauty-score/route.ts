@@ -282,18 +282,15 @@ export async function POST(request: NextRequest) {
 
     // 检查邀请码是否已使用
     const inviteCheckRes = await sql.query(
-      `SELECT project_usages->'beauty-score' as beauty_score_used, use_count 
+      `SELECT project_usages->'beauty-score' as beauty_score_used
        FROM invite_codes WHERE code = $1`,
       [inviteCode.toUpperCase()]
     );
     
     if (inviteCheckRes.rows.length > 0) {
       const beautyScoreUsed = inviteCheckRes.rows[0]?.beauty_score_used?.used === true;
-      const useCount = inviteCheckRes.rows[0]?.use_count || 0;
-      const hasProjectUsages = inviteCheckRes.rows[0]?.beauty_score_used !== null;
-      const alreadyUsed = hasProjectUsages ? beautyScoreUsed : (useCount >= 1);
       
-      if (alreadyUsed) {
+      if (beautyScoreUsed) {
         return NextResponse.json(
           { success: false, error: '该邀请码已经完成过颜值打分，不能重复评分' },
           { status: 403 }
