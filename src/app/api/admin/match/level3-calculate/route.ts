@@ -127,6 +127,76 @@ async function evaluateLevel3(
   }
 }
 
+// 从已有计算结果生成Top3报告
+async function generateTop3Reports(profileId: string) {
+  // 获取已计算的Top3结果
+  const top3Res = await sql.query(
+    `SELECT 
+      mc.candidate_id,
+      mc.level_3_score as overall_score,
+      mc.level_3_report,
+      p.invite_code as candidate_invite_code,
+      p.answers->>'nickname' as candidate_nickname,
+      p.answers->>'gender' as candidate_gender,
+      p.answers->>'birth_year' as candidate_birth_year,
+      p.answers->>'city' as candidate_city,
+      bs.beauty_score,
+      bs.photoshop_level,
+      bs.beauty_type
+    FROM match_candidates mc
+    JOIN profiles p ON mc.candidate_id = p.id
+    LEFT JOIN beauty_scores bs ON bs.profile_id = mc.candidate_id
+    WHERE mc.profile_id = $1 
+      AND mc.level_3_score IS NOT NULL
+    ORDER BY mc.level_3_score DESC
+    LIMIT 3`,
+    [profileId]
+  );
+
+  if (top3Res.rows.length === 0) {
+    return { success: false, error: '没有可用的计算结果' };
+  }
+
+  // 删除旧报告
+  await sql.query(
+    'DELETE FROM user_match_reports WHERE profile_id = $1',
+    [profileId]
+  );
+
+  // 插入新报告
+  for (let i = 0; i < top3Res.rows.length; i++) {
+    const row = top3Res.rows[i];
+    let report = row.level_3_report;
+    if (typeof report === 'string') {
+      try {
+        report = JSON.parse(report);
+      } catch {
+        report = {};
+      }
+    }
+
+    await sql.query(
+      `INSERT INTO user_match_reports 
+       (profile_id, candidate_id, rank, overall_score, similarity_score, complement_score, 
+        strengths_summary, risks_summary, full_report, is_top3, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())`,
+      [
+        profileId,
+        row.candidate_id,
+        i + 1,
+        row.overall_score,
+        report?.similarity_score || 0,
+        report?.complement_score || 0,
+        Array.isArray(report?.strengths) ? report.strengths.join('；') : '',
+        Array.isArray(report?.risks) ? report.risks.join('；') : '',
+        row.level_3_report
+      ]
+    );
+  }
+
+  return { success: true, count: top3Res.rows.length };
+}
+
 export async function POST(request: NextRequest) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -174,9 +244,9 @@ export async function POST(request: NextRequest) {
         // 更新match_candidates
         await sql.query(
           `UPDATE match_candidates 
-           SET level_3_report = $1, level_3_calculated_at = NOW()
-           WHERE profile_id = $2 AND candidate_id = $3`,
-          [JSON.stringify(evalResult.result), profileId, candidateId]
+           SET level_3_score = $1, level_3_report = $2, level_3_calculated_at = NOW()
+           WHERE profile_id = $3 AND candidate_id = $4`,
+          [evalResult.result.overall_score, JSON.stringify(evalResult.result), profileId, candidateId]
         );
 
         // 记录token
@@ -190,6 +260,18 @@ export async function POST(request: NextRequest) {
              evalResult.tokens.total, costCny]
           );
         }
+
+        // 生成Top3报告（单个也需要更新）
+        await generateTop3Reports(profileId);
+
+        // 更新档案第三层状态
+        await sql.query(
+          `UPDATE profiles 
+           SET match_level3_status = 'completed',
+               match_level3_at = NOW()
+           WHERE id = $1`,
+          [profileId]
+        );
 
         return Response.json({
           success: true,
@@ -219,11 +301,42 @@ export async function POST(request: NextRequest) {
     const candidates = candidatesRes.rows;
 
     if (candidates.length === 0) {
+      // 检查是否已经有计算过的结果
+      const existingRes = await sql.query(
+        `SELECT COUNT(*) as count 
+         FROM match_candidates 
+         WHERE profile_id = $1 AND level_3_calculated_at IS NOT NULL`,
+        [profileId]
+      );
+      
+      const existingCount = parseInt(existingRes.rows[0].count);
+      
+      if (existingCount > 0) {
+        // 已经有计算过的结果，直接生成 Top3 报告
+        await generateTop3Reports(profileId);
+        
+        // 更新状态为完成
+        await sql.query(
+          `UPDATE profiles 
+           SET match_level3_status = 'completed',
+               match_level3_at = NOW()
+           WHERE id = $1`,
+          [profileId]
+        );
+        
+        return Response.json({
+          success: true,
+          message: '使用已有计算结果生成Top3报告',
+          processed: 0,
+          existingCount
+        });
+      }
+      
       return Response.json({
-        success: true,
-        message: '没有待分析的候选人',
+        success: false,
+        error: '没有待分析的候选人，且没有历史计算结果',
         processed: 0
-      });
+      }, { status: 400 });
     }
 
     // 逐个分析
@@ -288,6 +401,10 @@ export async function POST(request: NextRequest) {
       // 间隔避免限流
       await new Promise(resolve => setTimeout(resolve, 500));
     }
+
+    // 生成Top3报告
+    const top3Result = await generateTop3Reports(profileId);
+    console.log('Generated Top3 reports:', top3Result);
 
     // 更新档案第三层状态
     await sql.query(
