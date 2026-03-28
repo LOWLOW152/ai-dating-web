@@ -28,10 +28,33 @@ export async function GET(request: Request) {
 
     // 检查是否完成第三层匹配
     if (profile.match_level3_status !== 'completed') {
+      // 获取第二层状态，方便诊断
+      const level2StatusRes = await sql.query(
+        `SELECT 
+          COUNT(*) FILTER (WHERE passed_level_1 = true) as level1_passed,
+          COUNT(*) FILTER (WHERE level_2_passed = true) as level2_passed,
+          COUNT(*) FILTER (WHERE level_2_passed = false) as level2_rejected,
+          COUNT(*) FILTER (WHERE level_3_calculated_at IS NOT NULL) as level3_calculated
+        FROM match_candidates 
+        WHERE profile_id = $1`,
+        [profile.id]
+      );
+      
+      const level2Status = level2StatusRes.rows[0];
+      
       return Response.json({ 
         success: false, 
-        error: '匹配报告尚未生成，请稍后再试',
-        status: profile.match_level3_status 
+        error: '匹配报告尚未生成',
+        status: profile.match_level3_status,
+        debug: {
+          level1Passed: parseInt(level2Status.level1_passed),
+          level2Passed: parseInt(level2Status.level2_passed),
+          level2Rejected: parseInt(level2Status.level2_rejected),
+          level3Calculated: parseInt(level2Status.level3_calculated),
+          message: parseInt(level2Status.level2_passed) === 0 
+            ? '第二层筛选尚未完成或没有通过候选人，请联系管理员'
+            : '第三层匹配计算中，请稍后再试'
+        }
       }, { status: 400 });
     }
 

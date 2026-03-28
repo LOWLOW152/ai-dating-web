@@ -74,6 +74,16 @@ export async function POST(request: NextRequest) {
       [profileId]
     );
 
+    // 4.7 检查第二层是否有通过的候选人
+    const level2Res = await sql.query(
+      `SELECT COUNT(*) as count 
+       FROM match_candidates 
+       WHERE profile_id = $1 AND level_2_passed = true`,
+      [profileId]
+    );
+    
+    const hasLevel2Candidates = parseInt(level2Res.rows[0].count) > 0;
+
     // 5. 重置第三层状态（让自动化任务重新处理）
     await sql.query(
       `UPDATE profiles 
@@ -92,7 +102,6 @@ export async function POST(request: NextRequest) {
     );
 
     // 7. 触发第三层重新计算（异步）
-    // 注意：这里不等待计算完成，让后台自动化任务处理
     fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ai-dating.top'}/api/admin/match/level3-calculate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,9 +111,12 @@ export async function POST(request: NextRequest) {
     return Response.json({
       success: true,
       data: {
-        message: '重新匹配已启动，请稍后再查看结果',
+        message: hasLevel2Candidates 
+          ? '重新匹配已启动，请稍后再查看结果' 
+          : '重新匹配已启动，但第二层筛选尚未完成，请先完成第二层筛选',
         remakeCount: selection.remake_count + 1,
-        maxRemakeCount: selection.max_remake_count
+        maxRemakeCount: selection.max_remake_count,
+        hasLevel2Candidates
       }
     });
 
