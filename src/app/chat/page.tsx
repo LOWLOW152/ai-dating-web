@@ -33,7 +33,6 @@ export default function ChatPage() {
   const [extractedData, setExtractedData] = useState<Record<string, unknown>>({});
   const [questionRound, setQuestionRound] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [currentPrompt, setCurrentPrompt] = useState<string>(''); // 当前传给AI的提示词
   // 调试面板已隐藏（生产环境不显示）
   const showPrompt = false;
   const requestLock = useRef(false); // 请求锁，防止重复发送
@@ -103,8 +102,6 @@ export default function ChatPage() {
       const data = await res.json();
       
       if (data.success) {
-        // 使用后端返回的实际提示词
-        setCurrentPrompt(data.prompt || '');
         const content = data.reply || '';
         processAiResponse(content, qIndex, roundToCheck, isInitialLoad);
       } else {
