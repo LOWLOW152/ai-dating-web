@@ -62,7 +62,7 @@ export async function GET(request: Request) {
         p.answers->>'gender' as candidate_gender,
         p.answers->>'birth_year' as candidate_birth_year,
         p.answers->>'city' as candidate_city,
-        bs.score as beauty_score,
+        bs.beauty_score as beauty_score,
         bs.photoshop_level,
         bs.beauty_type
       FROM user_match_reports r
