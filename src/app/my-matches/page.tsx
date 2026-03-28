@@ -25,6 +25,14 @@ interface Match {
   advice?: string;
 }
 
+interface DebugInfo {
+  url: string;
+  status: number;
+  statusText: string;
+  response: unknown;
+  error?: string;
+}
+
 export default function MyMatchesPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,6 +40,7 @@ export default function MyMatchesPage() {
   const [hasSelection, setHasSelection] = useState(false);
   const [canRemake, setCanRemake] = useState(false);
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -47,26 +56,50 @@ export default function MyMatchesPage() {
     setMatches(null);
     setHasSelection(false);
     setSubmitted(false);
+    setDebugInfo(null);
 
     const url = `/api/match/my-matches?inviteCode=${encodeURIComponent(inviteCode.trim())}`;
     console.log('Fetching URL:', url);
 
     try {
       const res = await fetch(url);
-      console.log('Response status:', res.status);
-      const data = await res.json();
-      console.log('API response:', data);
+      console.log('Response status:', res.status, res.statusText);
+      
+      let data;
+      const responseText = await res.text();
+      console.log('Raw response:', responseText);
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { raw: responseText };
+      }
 
-      if (data.success) {
+      setDebugInfo({
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        response: data
+      });
+
+      if (res.ok && data.success) {
         setMatches(data.data.matches);
         setHasSelection(data.data.hasActiveSelection);
         setCanRemake(data.data.canRemake);
       } else {
-        setError(data.error || '查询失败');
+        setError(data.error || `HTTP ${res.status}: ${res.statusText}`);
       }
     } catch (err) {
       console.error('Fetch error:', err);
-      setError('网络错误，请重试');
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`网络错误: ${errorMsg}`);
+      setDebugInfo(prev => prev ? { ...prev, error: errorMsg } : {
+        url,
+        status: 0,
+        statusText: 'Network Error',
+        response: null,
+        error: errorMsg
+      });
     } finally {
       setLoading(false);
     }
@@ -162,9 +195,35 @@ export default function MyMatchesPage() {
             </button>
           </div>
           {error && (
-            <p className="mt-3 text-red-600 text-sm">{error}</p>
+            <div className="mt-3">
+              <p className="text-red-600 text-sm font-medium">❌ {error}</p>
+            </div>
           )}
         </div>
+
+        {/* 详细调试信息 */}
+        {debugInfo && (
+          <div className="bg-gray-900 text-green-400 rounded-lg p-4 mb-6 font-mono text-xs overflow-auto">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400 font-bold">调试信息</span>
+              <button
+                onClick={() => setDebugInfo(null)}
+                className="text-gray-500 hover:text-gray-300"
+              >
+                隐藏
+              </button>
+            </div>
+            <div className="space-y-1">
+              <p><span className="text-gray-500">URL:</span> {debugInfo.url}</p>
+              <p><span className="text-gray-500">Status:</span> {debugInfo.status} {debugInfo.statusText}</p>
+              {debugInfo.error && (
+                <p><span className="text-gray-500">Error:</span> {debugInfo.error}</p>
+              )}
+              <p className="text-gray-500">Response:</p>
+              <pre className="text-green-300 overflow-x-auto">{JSON.stringify(debugInfo.response, null, 2)}</pre>
+            </div>
+          </div>
+        )}
 
         {/* 已选择提示 */}
         {hasSelection && !submitted && (
@@ -183,22 +242,6 @@ export default function MyMatchesPage() {
         )}
 
         {/* 匹配结果 */}
-        {matches && (
-          <div className="bg-gray-100 p-2 mb-4 text-xs">
-            matches: {JSON.stringify(matches.length)} 条
-          </div>
-        )}
-        
-        {submitted && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center mb-6">
-            <div className="text-5xl mb-4">🎉</div>
-            <h2 className="text-xl font-bold text-green-800 mb-2">选择成功！</h2>
-            <p className="text-green-700">
-              我们已经收到你的选择，工作人员会尽快与你联系。
-            </p>
-          </div>
-        )}
-
         {matches && matches.length > 0 && !submitted && (
           <div className="space-y-6">
             <div className="text-center mb-4">
@@ -307,6 +350,17 @@ export default function MyMatchesPage() {
             <div className="text-center text-sm text-gray-500 mt-6">
               💡 提示：请仔细阅读每位匹配对象的分析报告，理性选择最适合你的人
             </div>
+          </div>
+        )}
+
+        {/* 选择成功 */}
+        {submitted && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+            <div className="text-5xl mb-4">🎉</div>
+            <h2 className="text-xl font-bold text-green-800 mb-2">选择成功！</h2>
+            <p className="text-green-700">
+              我们已经收到你的选择，工作人员会尽快与你联系。
+            </p>
           </div>
         )}
       </div>
