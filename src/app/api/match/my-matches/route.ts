@@ -14,9 +14,9 @@ export async function GET(request: Request) {
       return Response.json({ success: false, error: '缺少邀请码' }, { status: 400 });
     }
 
-    // 1. 查找用户档案
+    // 1. 查找用户档案（不区分大小写）
     const profileRes = await sql.query(
-      'SELECT id, status, match_level3_status FROM profiles WHERE invite_code = $1',
+      'SELECT id, status, match_level3_status FROM profiles WHERE LOWER(invite_code) = LOWER($1)',
       [inviteCode]
     );
 

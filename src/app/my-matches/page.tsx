@@ -181,7 +181,7 @@ export default function MyMatchesPage() {
             <input
               type="text"
               value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              onChange={(e) => setInviteCode(e.target.value)}
               placeholder="请输入你的邀请码"
               className="flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
