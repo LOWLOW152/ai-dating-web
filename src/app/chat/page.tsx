@@ -34,8 +34,8 @@ export default function ChatPage() {
   const [questionRound, setQuestionRound] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPrompt, setCurrentPrompt] = useState<string>(''); // 当前传给AI的提示词
-  const [showPrompt, setShowPrompt] = useState(false); // 是否显示右侧面板
-  const [rightPanelTab, setRightPanelTab] = useState<'prompt' | 'data'>('prompt'); // 右侧面板当前标签
+  // 调试面板已隐藏（生产环境不显示）
+  const showPrompt = false;
   const requestLock = useRef(false); // 请求锁，防止重复发送
 
   useEffect(() => {
@@ -315,17 +315,6 @@ export default function ChatPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* 调试面板切换按钮 */}
-          <button
-            onClick={() => setShowPrompt(!showPrompt)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              showPrompt 
-                ? 'bg-gray-800 text-white border-gray-800' 
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {showPrompt ? '隐藏调试' : '显示调试'}
-          </button>
           <div className="text-right">
             <div className="text-xs text-gray-500 mb-1">{progress}%</div>
             <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -438,63 +427,6 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
-
-        {/* 右侧提示词/数据面板 */}
-        {showPrompt && (
-          <div className="w-1/3 border-l bg-gray-50 flex flex-col">
-            {/* 标签切换 */}
-            <div className="bg-white border-b flex">
-              <button
-                onClick={() => setRightPanelTab('prompt')}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  rightPanelTab === 'prompt'
-                    ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                提示词
-              </button>
-              <button
-                onClick={() => setRightPanelTab('data')}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  rightPanelTab === 'data'
-                    ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                已收集数据
-              </button>
-            </div>
-            
-            {/* 面板内容 */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {rightPanelTab === 'prompt' ? (
-                <pre className="text-xs whitespace-pre-wrap font-mono bg-gray-800 text-green-400 p-4 rounded-lg overflow-x-auto">
-                  {currentPrompt || '提示词加载中...'}
-                </pre>
-              ) : (
-                <div className="space-y-3">
-                  {Object.keys(extractedData).length === 0 ? (
-                    <div className="text-center text-gray-400 py-8 text-sm">
-                      暂无收集到的数据
-                    </div>
-                  ) : (
-                    Object.entries(extractedData).map(([key, value]) => (
-                      <div key={key} className="bg-white rounded-lg p-3 shadow-sm border">
-                        <div className="text-xs font-semibold text-gray-600 mb-1">{key}</div>
-                        <div className="text-sm text-gray-800 break-all">
-                          {typeof value === 'object' 
-                            ? JSON.stringify(value, null, 2) 
-                            : String(value)}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
