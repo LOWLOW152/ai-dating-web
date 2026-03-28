@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
       const evalResult = await evaluateLevel2(profileA, profileB, config);
       
       if (evalResult.success && evalResult.score !== undefined) {
-        // 更新match_candidates表
+        // 更新match_candidates表（正向 A→B）
         await sql.query(
           `UPDATE match_candidates 
            SET level_2_score = $1,
@@ -226,6 +226,23 @@ export async function POST(request: NextRequest) {
            WHERE profile_id = $2 AND candidate_id = $3`,
           [evalResult.score, profileId, profileB.id]
         );
+
+        // 同步更新反向（B→A），确保双向分数一致
+        // 先检查反向记录是否存在
+        const reverseExists = await sql.query(
+          `SELECT 1 FROM match_candidates WHERE profile_id = $1 AND candidate_id = $2`,
+          [profileB.id, profileId]
+        );
+        
+        if (reverseExists.rows.length > 0) {
+          await sql.query(
+            `UPDATE match_candidates 
+             SET level_2_score = $1,
+                 level_2_calculated_at = NOW()
+             WHERE profile_id = $2 AND candidate_id = $3`,
+            [evalResult.score, profileB.id, profileId]
+          );
+        }
 
         // 记录token使用
         if (evalResult.tokens) {
@@ -257,11 +274,22 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // 标记 >= 79分通过第二层
+    // 标记 >= 79分通过第二层（正向 A→B）
     await sql.query(
       `UPDATE match_candidates
        SET level_2_passed = true
        WHERE profile_id = $1 
+         AND passed_level_1 = true
+         AND level_2_score IS NOT NULL
+         AND level_2_score >= 79`,
+      [profileId]
+    );
+
+    // 同步标记反向通过（B→A），确保双向状态一致
+    await sql.query(
+      `UPDATE match_candidates
+       SET level_2_passed = true
+       WHERE candidate_id = $1 
          AND passed_level_1 = true
          AND level_2_score IS NOT NULL
          AND level_2_score >= 79`,
