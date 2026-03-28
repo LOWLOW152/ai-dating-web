@@ -229,10 +229,11 @@ export default function MyMatchesPage() {
 
                     {/* 颜值打分 */}
                     <div className="mb-4">
+                      <h4 className="text-sm font-medium text-pink-700 mb-2">📸 颜值评分</h4>
                       {match.beauty ? (
                         <div className="bg-pink-50 rounded p-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">颜值评分</span>
+                            <span className="text-sm text-gray-600">综合评分</span>
                             <span className="font-bold text-pink-600">{match.beauty.score}分</span>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
@@ -242,8 +243,9 @@ export default function MyMatchesPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-100 rounded p-3 text-center text-sm text-gray-500">
-                          对方暂未打分
+                        <div className="bg-gray-100 rounded p-3 text-center">
+                          <p className="text-sm text-gray-500">该用户尚未上传照片进行颜值打分</p>
+                          <p className="text-xs text-gray-400 mt-1">颜值评分仅供娱乐参考</p>
                         </div>
                       )}
                     </div>
