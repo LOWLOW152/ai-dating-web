@@ -93,20 +93,30 @@ export async function POST(request: NextRequest) {
       [profileId]
     );
 
-    // 6. 将当前选择标记为 replaced
+    // 6. 将当前选择标记为 replaced，同时增加 remake_count
     await sql.query(
       `UPDATE user_match_selections 
-       SET status = 'replaced', updated_at = NOW()
+       SET status = 'replaced', updated_at = NOW(), remake_count = remake_count + 1
        WHERE profile_id = $1 AND status = 'active'`,
       [profileId]
     );
 
-    // 7. 触发第三层重新计算（异步）
-    fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ai-dating.top'}/api/admin/match/level3-calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profileId })
-    }).catch(err => console.error('Trigger level3 recalculate error:', err));
+    // 7. 同步触发第三层重新计算
+    let level3Result = null;
+    try {
+      const level3Res = await fetch(
+        `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ai-dating.top'}/api/admin/match/level3-calculate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profileId })
+        }
+      );
+      level3Result = await level3Res.json();
+      console.log('Level3 recalculate result:', level3Result);
+    } catch (err) {
+      console.error('Level3 recalculate error:', err);
+    }
 
     return Response.json({
       success: true,
@@ -116,7 +126,11 @@ export async function POST(request: NextRequest) {
           : '重新匹配已启动，但第二层筛选尚未完成，请先完成第二层筛选',
         remakeCount: selection.remake_count + 1,
         maxRemakeCount: selection.max_remake_count,
-        hasLevel2Candidates
+        hasLevel2Candidates,
+        level3Result: level3Result ? {
+          processed: level3Result.data?.processed,
+          success: level3Result.success
+        } : null
       }
     });
 
