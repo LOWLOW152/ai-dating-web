@@ -25,6 +25,15 @@ interface Match {
   advice?: string;
 }
 
+interface DebugInfo {
+  url: string;
+  status: number;
+  statusText: string;
+  response: unknown;
+  error?: string;
+  timestamp: string;
+}
+
 export default function MyMatchesPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,9 +41,12 @@ export default function MyMatchesPage() {
   const [hasSelection, setHasSelection] = useState(false);
   const [canRemake, setCanRemake] = useState(false);
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [showDebug, setShowDebug] = useState(true); // 默认显示调试信息
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [remakeDebug, setRemakeDebug] = useState<DebugInfo | null>(null);
 
   const handleSearch = async () => {
     if (!inviteCode.trim()) {
@@ -47,22 +59,52 @@ export default function MyMatchesPage() {
     setMatches(null);
     setHasSelection(false);
     setSubmitted(false);
+    setDebugInfo(null);
 
     const url = `/api/match/my-matches?inviteCode=${encodeURIComponent(inviteCode.trim())}`;
+    console.log('Fetching URL:', url);
 
     try {
       const res = await fetch(url);
-      const data = await res.json();
+      console.log('Response status:', res.status, res.statusText);
+      
+      let data;
+      const responseText = await res.text();
+      console.log('Raw response:', responseText);
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { raw: responseText };
+      }
+
+      setDebugInfo({
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        response: data,
+        timestamp: new Date().toISOString()
+      });
 
       if (res.ok && data.success) {
         setMatches(data.data.matches);
         setHasSelection(data.data.hasActiveSelection);
         setCanRemake(data.data.canRemake);
       } else {
-        setError(data.error || '查询失败');
+        setError(data.error || `HTTP ${res.status}: ${res.statusText}`);
       }
-    } catch {
-      setError('网络错误，请重试');
+    } catch (err) {
+      console.error('Fetch error:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`网络错误: ${errorMsg}`);
+      setDebugInfo({
+        url,
+        status: 0,
+        statusText: 'Network Error',
+        response: null,
+        error: errorMsg,
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setLoading(false);
     }
@@ -106,24 +148,52 @@ export default function MyMatchesPage() {
     }
 
     setLoading(true);
+    setRemakeDebug(null);
+    
+    const url = '/api/match/remake';
+    const body = { inviteCode: inviteCode.trim() };
+    
     try {
-      const res = await fetch('/api/match/remake', {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode: inviteCode.trim() })
+        body: JSON.stringify(body)
       });
 
-      const data = await res.json();
+      let data;
+      const responseText = await res.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { raw: responseText };
+      }
 
-      if (data.success) {
+      setRemakeDebug({
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        response: data,
+        timestamp: new Date().toISOString()
+      });
+
+      if (res.ok && data.success) {
         alert(data.data.message);
         setMatches(null);
         setHasSelection(false);
       } else {
         alert(data.error || '重新匹配失败');
       }
-    } catch {
-      alert('请求失败，请重试');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setRemakeDebug({
+        url,
+        status: 0,
+        statusText: 'Network Error',
+        response: null,
+        error: errorMsg,
+        timestamp: new Date().toISOString()
+      });
+      alert('请求失败: ' + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -163,6 +233,52 @@ export default function MyMatchesPage() {
             </div>
           )}
         </div>
+
+        {/* 调试信息开关 */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            {showDebug ? '隐藏调试信息' : '显示调试信息'}
+          </button>
+        </div>
+
+        {/* 查询调试信息 */}
+        {showDebug && debugInfo && (
+          <div className="bg-gray-900 text-green-400 rounded-lg p-4 mb-6 font-mono text-xs overflow-auto">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400 font-bold">查询调试信息 ({debugInfo.timestamp})</span>
+            </div>
+            <div className="space-y-1">
+              <p><span className="text-gray-500">URL:</span> {debugInfo.url}</p>
+              <p><span className="text-gray-500">Status:</span> {debugInfo.status} {debugInfo.statusText}</p>
+              {debugInfo.error && (
+                <p><span className="text-gray-500">Error:</span> <span className="text-red-400">{debugInfo.error}</span></p>
+              )}
+              <p className="text-gray-500">Response:</p>
+              <pre className="text-green-300 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(debugInfo.response, null, 2)}</pre>
+            </div>
+          </div>
+        )}
+
+        {/* 重新匹配调试信息 */}
+        {showDebug && remakeDebug && (
+          <div className="bg-gray-900 text-blue-400 rounded-lg p-4 mb-6 font-mono text-xs overflow-auto">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400 font-bold">重新匹配调试信息 ({remakeDebug.timestamp})</span>
+            </div>
+            <div className="space-y-1">
+              <p><span className="text-gray-500">URL:</span> {remakeDebug.url}</p>
+              <p><span className="text-gray-500">Status:</span> {remakeDebug.status} {remakeDebug.statusText}</p>
+              {remakeDebug.error && (
+                <p><span className="text-gray-500">Error:</span> <span className="text-red-400">{remakeDebug.error}</span></p>
+              )}
+              <p className="text-gray-500">Response:</p>
+              <pre className="text-blue-300 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(remakeDebug.response, null, 2)}</pre>
+            </div>
+          </div>
+        )}
 
         {/* 已选择提示 */}
         {hasSelection && !submitted && (
