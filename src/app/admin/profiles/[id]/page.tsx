@@ -470,13 +470,19 @@ export default async function ProfileDetailPage({ params }: { params: { id: stri
                   <p className="font-medium">{matchSelection.remake_count}/{matchSelection.max_remake_count}</p>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-green-200">
+              <div className="mt-3 pt-3 border-t border-green-200 flex justify-between items-center">
                 <Link
                   href={`/admin/profiles/${matchSelection.selected_candidate_id}`}
                   className="text-sm text-green-700 hover:underline"
                 >
                   查看选中档案详情 →
                 </Link>
+                <a
+                  href={`/admin/match-selections?profileId=${params.id}&add=1`}
+                  className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                >
+                  +增加次数
+                </a>
               </div>
             </div>
           ) : (
