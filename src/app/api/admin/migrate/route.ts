@@ -234,6 +234,73 @@ WHERE id IN (
 )
 AND (match_level3_status IS NULL OR match_level3_status = 'pending');
     `
+  },
+  {
+    name: '009_user_match_selections',
+    description: '用户匹配选择表和报告缓存表',
+    sql: `
+-- 用户匹配选择表
+CREATE TABLE IF NOT EXISTS user_match_selections (
+  id SERIAL PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  selected_candidate_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  selection_score INTEGER,
+  selection_report JSONB,
+  status TEXT DEFAULT 'active',
+  remake_count INTEGER DEFAULT 0,
+  max_remake_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(profile_id, status)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ums_profile ON user_match_selections(profile_id);
+CREATE INDEX IF NOT EXISTS idx_ums_candidate ON user_match_selections(selected_candidate_id);
+CREATE INDEX IF NOT EXISTS idx_ums_status ON user_match_selections(status);
+
+-- 更新时间戳触发器
+CREATE OR REPLACE FUNCTION update_user_match_selections_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_ums_updated_at ON user_match_selections;
+CREATE TRIGGER trg_update_ums_updated_at
+BEFORE UPDATE ON user_match_selections
+FOR EACH ROW
+EXECUTE FUNCTION update_user_match_selections_updated_at();
+
+-- 用户匹配报告缓存表
+CREATE TABLE IF NOT EXISTS user_match_reports (
+  id SERIAL PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  candidate_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  overall_score INTEGER,
+  similarity_score INTEGER,
+  complement_score INTEGER,
+  strengths_summary TEXT,
+  risks_summary TEXT,
+  full_report JSONB,
+  is_top3 BOOLEAN DEFAULT false,
+  rank INTEGER,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(profile_id, candidate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_umr_profile ON user_match_reports(profile_id);
+CREATE INDEX IF NOT EXISTS idx_umr_candidate ON user_match_reports(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_umr_top3 ON user_match_reports(profile_id, is_top3, rank);
+
+DROP TRIGGER IF EXISTS trg_update_umr_updated_at ON user_match_reports;
+CREATE TRIGGER trg_update_umr_updated_at
+BEFORE UPDATE ON user_match_reports
+FOR EACH ROW
+EXECUTE FUNCTION update_user_match_selections_updated_at();
+    `
   }
 ];
 
@@ -405,6 +472,26 @@ export async function GET() {
         applied: false
       });
     }
+
+    // 检查 user_match_selections 表
+    const umsTableRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_match_selections')"
+    );
+    status.push({
+      name: '表: user_match_selections',
+      description: '用户匹配选择表',
+      applied: umsTableRes.rows[0].exists
+    });
+
+    // 检查 user_match_reports 表
+    const umrTableRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_match_reports')"
+    );
+    status.push({
+      name: '表: user_match_reports',
+      description: '用户匹配报告缓存表',
+      applied: umrTableRes.rows[0].exists
+    });
 
     return NextResponse.json({ success: true, status });
 
