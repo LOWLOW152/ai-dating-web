@@ -19,21 +19,22 @@ async function runLevel1(profileId: string): Promise<{ success: boolean; error?:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profileId })
     });
-    
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Level1 failed: ${error}`);
+
+    const data = await res.json().catch(() => ({ success: false, error: 'Invalid JSON response' }));
+
+    if (!res.ok || !data.success) {
+      const errorMsg = data.error || `HTTP ${res.status}`;
+      throw new Error(`Level1 failed: ${errorMsg}`);
     }
-    
-    const data = await res.json();
-    return { 
-      success: true, 
-      candidatesCount: data.data?.candidates?.length || 0 
+
+    return {
+      success: true,
+      candidatesCount: data?.data?.candidates?.length || 0
     };
   } catch (error) {
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : String(error) 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }
@@ -46,21 +47,22 @@ async function runLevel2(profileId: string): Promise<{ success: boolean; error?:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profileId, templateId: 'v1_default' })
     });
-    
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Level2 failed: ${error}`);
+
+    const data = await res.json().catch(() => ({ success: false, error: 'Invalid JSON response' }));
+
+    if (!res.ok || !data.success) {
+      const errorMsg = data.error || `HTTP ${res.status}`;
+      throw new Error(`Level2 failed: ${errorMsg}`);
     }
-    
-    const data = await res.json();
-    return { 
-      success: true, 
-      processed: data.data?.processed || 0
+
+    return {
+      success: true,
+      processed: data?.data?.processed || 0
     };
   } catch (error) {
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : String(error) 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }
@@ -74,15 +76,16 @@ async function runLevel3(profileId: string): Promise<{ success: boolean; error?:
       body: JSON.stringify({ profileId })
     });
     
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Level3 failed: ${error}`);
+    const data = await res.json().catch(() => ({ success: false, error: 'Invalid JSON response' }));
+    
+    if (!res.ok || !data.success) {
+      const errorMsg = data.error || `HTTP ${res.status}`;
+      throw new Error(`Level3 failed: ${errorMsg}`);
     }
     
-    const data = await res.json();
     return { 
       success: true, 
-      processed: data.data?.processed || 0
+      processed: data?.data?.processed || 0
     };
   } catch (error) {
     return { 
