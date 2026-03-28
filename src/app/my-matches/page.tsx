@@ -48,8 +48,12 @@ export default function MyMatchesPage() {
     setHasSelection(false);
     setSubmitted(false);
 
+    const url = `/api/match/my-matches?inviteCode=${encodeURIComponent(inviteCode.trim())}`;
+    console.log('Fetching URL:', url);
+
     try {
-      const res = await fetch(`/api/match/my-matches?inviteCode=${encodeURIComponent(inviteCode.trim())}`);
+      const res = await fetch(url);
+      console.log('Response status:', res.status);
       const data = await res.json();
       console.log('API response:', data);
 
