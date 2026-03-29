@@ -53,13 +53,12 @@ export async function GET(request: NextRequest) {
         break;
         
       case 3:
-        // 第三层：第二层已完成，有候选人通过且未计算第三层
+        // 第三层：有L2通过但未计算L3的候选人（无论状态是pending还是completed）
         query = `
           SELECT DISTINCT ON (p.id) p.id 
           FROM profiles p
           JOIN match_candidates mc ON p.id = mc.profile_id
           WHERE p.match_level2_status = 'completed'
-            AND (p.match_level3_status IS NULL OR match_level3_status = 'pending')
             AND mc.level_2_passed = true
             AND mc.level_3_calculated_at IS NULL
           ORDER BY p.id, mc.level_2_score DESC
