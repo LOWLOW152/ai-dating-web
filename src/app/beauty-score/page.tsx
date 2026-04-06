@@ -459,6 +459,7 @@ export default function BeautyScoreUserPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="bg-white rounded-xl shadow p-6">
+                  <p className="text-sm text-pink-600 font-medium mb-3">📸 请上传正脸照片</p>
                   <input type="file" name="photo" accept="image/*" required className="w-full" />
                   <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG，最大 5MB</p>
                 </div>
