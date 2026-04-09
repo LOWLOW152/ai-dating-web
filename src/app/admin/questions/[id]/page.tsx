@@ -201,7 +201,7 @@ function generateAiPrompt(
     high: '【敏感度】对任何模糊回答都要追问到底',
   };
 
-  let prompt = `你正在帮用户完成一道相亲档案题目。
+  let prompt = `你正在帮用户完成一道交友档案题目。
 
 【题号】${question.id}（第 ${question.order} 题）
 【题目】${question.question_text}

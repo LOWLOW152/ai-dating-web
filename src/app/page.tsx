@@ -56,7 +56,7 @@ export default function InvitePage() {
       <div className="min-h-screen bg-gray-100 flex flex-col">
         {/* 顶部 */}
         <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
-          <h1 className="text-lg font-semibold">狗蛋相亲实验室</h1>
+          <h1 className="text-lg font-semibold">狗蛋交友实验室</h1>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -83,7 +83,7 @@ export default function InvitePage() {
                 </div>
                 <div className="text-left flex-1">
                   <h3 className="font-semibold text-gray-800">开始答题</h3>
-                  <p className="text-sm text-gray-500">30题深入了解你，生成相亲档案</p>
+                  <p className="text-sm text-gray-500">30题深入了解你，生成交友档案</p>
                 </div>
                 <span className="text-gray-300">→</span>
               </button>
@@ -153,7 +153,7 @@ export default function InvitePage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* 顶部 */}
       <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
-        <h1 className="text-lg font-semibold">狗蛋相亲实验室</h1>
+        <h1 className="text-lg font-semibold">狗蛋交友实验室</h1>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">

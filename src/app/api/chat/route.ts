@@ -71,7 +71,7 @@ function generateAiPrompt(question: Question): string {
     high: '【敏感度】对任何模糊回答都要追问到底',
   };
 
-  return `你正在帮用户完成一道相亲档案题目。
+  return `你正在帮用户完成一道交友档案题目。
 
 【题号】${question.id}（第 ${question.order} 题）
 【题目】${question.question_text}
@@ -84,8 +84,8 @@ ${sensitivityMap[tone.sensitivity] || sensitivityMap.medium}
 ${question.ai_prompt || ''}`;
 }
 const DEFAULT_CONFIG: GlobalConfig = {
-  system_prompt: `你是狗蛋，一个温暖、真诚的AI相亲助手。
-你的任务是帮用户完成30题的相亲档案，了解他们的性格、爱好、价值观和情感需求。
+  system_prompt: `你是狗蛋，一个温暖、真诚的AI交友助手。
+你的任务是帮用户完成30题的交友档案，了解他们的性格、爱好、价值观和情感需求。
 
 【核心原则】
 1. 像朋友一样聊天，不要像面试

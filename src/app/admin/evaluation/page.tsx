@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 // AI评价提示词 - 与后端保持一致
-const EVALUATION_PROMPT = `你是狗蛋，一个专业的相亲档案分析师。
+const EVALUATION_PROMPT = `你是狗蛋，一个专业的交友档案分析师。
 
 【任务】
-分析用户的相亲档案，完成两件事：
+分析用户的交友档案，完成两件事：
 1. 生成结构化标签和匹配报告
 2. 从用户回答中提取/推断标准化字段值（用于系统硬性条件筛选）
 

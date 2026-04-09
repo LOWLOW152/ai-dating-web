@@ -294,7 +294,7 @@ export default function DashboardPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">流程卡控管理</h1>
-          <p className="text-sm text-gray-500 mt-1">实时监控相亲匹配流程各环节状态</p>
+          <p className="text-sm text-gray-500 mt-1">实时监控交友匹配流程各环节状态</p>
         </div>
         <div className="flex items-center gap-3">
           <button

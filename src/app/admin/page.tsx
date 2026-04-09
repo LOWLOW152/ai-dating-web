@@ -30,8 +30,8 @@ export default function AdminHome() {
       <div className="max-w-5xl mx-auto">
         {/* 头部 */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold mb-3 text-gray-800">AI相亲管理后台</h1>
-          <p className="text-gray-500 text-lg">狗蛋相亲实验室 · 全流程管理系统</p>
+          <h1 className="text-4xl font-bold mb-3 text-gray-800">AI交友管理后台</h1>
+          <p className="text-gray-500 text-lg">狗蛋交友实验室 · 全流程管理系统</p>
         </div>
 
         {/* 功能卡片 */}

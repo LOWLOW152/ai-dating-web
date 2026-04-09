@@ -24,7 +24,7 @@ export default function AdminLayout({
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex items-center h-14">
             <Link href="/admin" className="font-bold text-lg text-blue-600 mr-8">
-              AI相亲后台
+              AI交友后台
             </Link>
             <div className="flex gap-1">
               {navItems.map((item) => (
