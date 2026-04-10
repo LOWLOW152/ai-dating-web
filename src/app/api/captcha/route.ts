@@ -3,8 +3,8 @@ import { generateCaptcha, generateCaptchaSVG } from '@/lib/captcha';
 // GET /api/captcha - 生成验证码
 export async function GET() {
   try {
-    const { id: captchaId } = generateCaptcha();
-    const svg = generateCaptchaSVG(generateCaptcha().code);
+    const { id: captchaId, code } = generateCaptcha();
+    const svg = generateCaptchaSVG(code);
     
     return new Response(svg, {
       headers: {
