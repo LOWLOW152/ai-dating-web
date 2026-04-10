@@ -53,7 +53,7 @@ export default function ClaimPage() {
         return;
       }
       setCaptchaUrl(newUrl);
-    } catch (err) {
+    } catch {
       setCaptchaError('验证码加载失败，请检查网络');
     } finally {
       setCaptchaLoading(false);
@@ -103,10 +103,10 @@ export default function ClaimPage() {
         // 刷新验证码
         refreshCaptcha();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('提交错误:', err);
       setError('网络错误，请重试');
-      setErrorDetail(String(err));
+      setErrorDetail(err?.message || String(err));
       refreshCaptcha();
     } finally {
       setLoading(false);
