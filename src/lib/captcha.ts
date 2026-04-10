@@ -7,11 +7,11 @@ const captchaStore = new Map<string, { code: string; expires: number }>();
 // 清理过期验证码（每小时）
 setInterval(() => {
   const now = Date.now();
-  for (const [key, value] of captchaStore.entries()) {
+  captchaStore.forEach((value, key) => {
     if (value.expires < now) {
       captchaStore.delete(key);
     }
-  }
+  });
 }, 3600000);
 
 // 验证验证码（供其他 API 调用）
