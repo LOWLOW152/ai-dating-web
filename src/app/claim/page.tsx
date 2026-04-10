@@ -103,10 +103,10 @@ export default function ClaimPage() {
         // 刷新验证码
         refreshCaptcha();
       }
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error('提交错误:', err);
       setError('网络错误，请重试');
-      setErrorDetail(err?.message || String(err));
+      setErrorDetail(err instanceof Error ? err.message : String(err));
       refreshCaptcha();
     } finally {
       setLoading(false);
