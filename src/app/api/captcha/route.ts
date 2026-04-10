@@ -1,15 +1,16 @@
-import { generateCaptcha, generateCaptchaSVG } from '@/lib/captcha';
+import { generateCaptcha, signCaptcha, generateCaptchaSVG } from '@/lib/captcha';
 
 // GET /api/captcha - 生成验证码
 export async function GET() {
   try {
     const { id: captchaId, code } = generateCaptcha();
+    const signedData = signCaptcha(captchaId, code);
     const svg = generateCaptchaSVG(code);
     
     return new Response(svg, {
       headers: {
         'Content-Type': 'image/svg+xml',
-        'Set-Cookie': `captcha_id=${captchaId}; Path=/; Max-Age=300; HttpOnly; SameSite=Strict`
+        'Set-Cookie': `captcha_data=${signedData}; Path=/; Max-Age=300; HttpOnly; SameSite=Strict`
       }
     });
     

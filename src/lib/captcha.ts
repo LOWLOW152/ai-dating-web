@@ -1,45 +1,56 @@
-// 图形验证码生成和验证
-import { randomBytes } from 'crypto';
+// 图形验证码 - 使用 Cookie 加密存储（适配 Serverless 环境）
+import { createHmac } from 'crypto';
 
-// 内存存储验证码（生产环境建议用 Redis）
-const captchaStore = new Map<string, { code: string; expires: number }>();
+// 简单的验证码签名密钥（生产环境建议用环境变量）
+const CAPTCHA_SECRET = process.env.CAPTCHA_SECRET || 'ai-dating-captcha-secret-key-2024';
 
-// 清理过期验证码（每小时）
-setInterval(() => {
-  const now = Date.now();
-  captchaStore.forEach((value, key) => {
-    if (value.expires < now) {
-      captchaStore.delete(key);
-    }
-  });
-}, 3600000);
-
-// 验证验证码（供其他 API 调用）
-export function verifyCaptcha(captchaId: string, code: string): boolean {
-  const stored = captchaStore.get(captchaId);
-  if (!stored) return false;
-  if (stored.expires < Date.now()) {
-    captchaStore.delete(captchaId);
-    return false;
-  }
-  const valid = stored.code.toLowerCase() === code.toLowerCase();
-  if (valid) {
-    captchaStore.delete(captchaId); // 验证成功后删除
-  }
-  return valid;
-}
-
-// 生成并存储验证码
+// 生成验证码
 export function generateCaptcha(): { id: string; code: string } {
   const code = Math.floor(1000 + Math.random() * 9000).toString();
-  const captchaId = randomBytes(16).toString('hex');
-  
-  captchaStore.set(captchaId, {
-    code,
-    expires: Date.now() + 5 * 60 * 1000
-  });
+  const captchaId = generateId();
   
   return { id: captchaId, code };
+}
+
+// 对验证码进行签名（存储在 cookie 中）
+export function signCaptcha(captchaId: string, code: string): string {
+  const data = `${captchaId}:${code}`;
+  const signature = createHmac('sha256', CAPTCHA_SECRET)
+    .update(data)
+    .digest('hex')
+    .slice(0, 16);
+  return `${data}:${signature}`;
+}
+
+// 验证验证码
+export function verifyCaptcha(signedData: string, inputCode: string): boolean {
+  try {
+    const parts = signedData.split(':');
+    if (parts.length !== 3) return false;
+    
+    const [captchaId, code, signature] = parts;
+    
+    // 验证签名
+    const expectedSignature = createHmac('sha256', CAPTCHA_SECRET)
+      .update(`${captchaId}:${code}`)
+      .digest('hex')
+      .slice(0, 16);
+    
+    if (signature !== expectedSignature) {
+      return false;
+    }
+    
+    // 验证输入的验证码（不区分大小写）
+    return code.toLowerCase() === inputCode.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+// 生成唯一 ID
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
 }
 
 // 生成 SVG 验证码图片

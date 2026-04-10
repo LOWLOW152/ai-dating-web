@@ -3,7 +3,7 @@ import { verifyCaptcha } from '@/lib/captcha';
 
 // POST /api/invite/claim
 // Body: { phone: string, captcha: string }
-// Cookie: captcha_id
+// Cookie: captcha_data
 export async function POST(request: Request) {
   try {
     const { phone, captcha } = await request.json();
@@ -24,12 +24,12 @@ export async function POST(request: Request) {
       );
     }
     
-    // 2. 验证图形验证码
+    // 2. 验证图形验证码（从 cookie 读取签名数据）
     const cookieHeader = request.headers.get('cookie') || '';
-    const captchaIdMatch = cookieHeader.match(/captcha_id=([^;]+)/);
-    const captchaId = captchaIdMatch ? captchaIdMatch[1] : null;
+    const captchaMatch = cookieHeader.match(/captcha_data=([^;]+)/);
+    const signedData = captchaMatch ? decodeURIComponent(captchaMatch[1]) : null;
     
-    if (!captchaId || !verifyCaptcha(captchaId, captcha)) {
+    if (!signedData || !verifyCaptcha(signedData, captcha)) {
       return Response.json(
         { success: false, error: '验证码错误或已过期', code: 'INVALID_CAPTCHA' },
         { status: 400 }
