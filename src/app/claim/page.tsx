@@ -175,16 +175,10 @@ export default function ClaimPage() {
             {/* 操作按钮 */}
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/invite-code')}
+                onClick={() => router.push('/')}
                 className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
               >
-                去使用邀请码 →
-              </button>
-              <button
-                onClick={() => router.push('/')}
-                className="w-full bg-white text-gray-700 py-3 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                返回首页
+                返回首页 →
               </button>
             </div>
           </div>
