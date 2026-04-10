@@ -1,5 +1,5 @@
 import { sql } from '@/lib/db';
-import { verifyCaptcha, generateCaptcha } from '@/lib/captcha';
+import { verifyCaptcha } from '@/lib/captcha';
 
 // POST /api/invite/claim
 // Body: { phone: string, captcha: string }
