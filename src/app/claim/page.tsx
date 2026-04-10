@@ -8,8 +8,11 @@ export default function ClaimPage() {
   const [phone, setPhone] = useState('');
   const [captcha, setCaptcha] = useState('');
   const [captchaUrl, setCaptchaUrl] = useState('/api/captcha');
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  const [captchaError, setCaptchaError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorDetail, setErrorDetail] = useState('');
   const [quota, setQuota] = useState({ total: 100, claimed: 0, remaining: 100 });
   const [success, setSuccess] = useState<{ code: string; remaining: number; total: number } | null>(null);
 
@@ -24,22 +27,44 @@ export default function ClaimPage() {
       const data = await res.json();
       if (data.success) {
         setQuota(data);
+      } else {
+        console.error('获取配额失败:', data);
       }
-    } catch {
-      // 静默失败，使用默认值
+    } catch (err) {
+      console.error('获取配额错误:', err);
     }
   };
 
   // 刷新验证码
-  const refreshCaptcha = useCallback(() => {
-    setCaptchaUrl(`/api/captcha?t=${Date.now()}`);
+  const refreshCaptcha = useCallback(async () => {
+    setCaptchaLoading(true);
+    setCaptchaError('');
     setCaptcha('');
+    
+    const newUrl = `/api/captcha?t=${Date.now()}`;
+    
+    // 预加载图片，检查是否能正常获取
+    try {
+      const res = await fetch(newUrl);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setCaptchaError(`验证码加载失败: ${res.status} ${errorData.error || ''}`);
+        setCaptchaLoading(false);
+        return;
+      }
+      setCaptchaUrl(newUrl);
+    } catch (err) {
+      setCaptchaError('验证码加载失败，请检查网络');
+    } finally {
+      setCaptchaLoading(false);
+    }
   }, []);
 
   // 提交领取
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setErrorDetail('');
 
     // 验证手机号
     if (!/^1[3-9]\d{9}$/.test(phone)) {
@@ -72,11 +97,16 @@ export default function ClaimPage() {
         });
       } else {
         setError(data.error || '领取失败');
+        if (data.code) {
+          setErrorDetail(`错误代码: ${data.code}`);
+        }
         // 刷新验证码
         refreshCaptcha();
       }
-    } catch {
+    } catch (err) {
+      console.error('提交错误:', err);
       setError('网络错误，请重试');
+      setErrorDetail(String(err));
       refreshCaptcha();
     } finally {
       setLoading(false);
@@ -213,6 +243,21 @@ export default function ClaimPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 图形验证码
               </label>
+              
+              {/* 验证码错误提示 */}
+              {captchaError && (
+                <div className="bg-red-50 text-red-600 text-xs py-2 px-3 rounded-lg mb-2">
+                  {captchaError}
+                  <button
+                    type="button"
+                    onClick={refreshCaptcha}
+                    className="ml-2 text-purple-600 underline"
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
+              
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -223,25 +268,36 @@ export default function ClaimPage() {
                   }}
                   placeholder="输入4位验证码"
                   maxLength={4}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-center tracking-widest"
+                  disabled={captchaLoading}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-center tracking-widest disabled:bg-gray-100"
                 />
                 <button
                   type="button"
                   onClick={refreshCaptcha}
-                  className="flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden hover:bg-gray-200 transition-colors"
+                  disabled={captchaLoading}
+                  className="flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden hover:bg-gray-200 transition-colors disabled:opacity-50"
                 >
-                  <img
-                    src={captchaUrl}
-                    alt="验证码"
-                    className="w-28 h-11 object-cover"
-                    onError={() => setCaptchaUrl('/api/captcha')}
-                  />
+                  {captchaLoading ? (
+                    <div className="w-28 h-11 flex items-center justify-center text-xs text-gray-500">
+                      加载中...
+                    </div>
+                  ) : (
+                    <img
+                      src={captchaUrl}
+                      alt="验证码"
+                      className="w-28 h-11 object-cover"
+                      onError={() => {
+                        setCaptchaError('验证码图片加载失败');
+                      }}
+                    />
+                  )}
                 </button>
               </div>
               <button
                 type="button"
                 onClick={refreshCaptcha}
-                className="text-xs text-gray-500 mt-1 hover:text-purple-600"
+                disabled={captchaLoading}
+                className="text-xs text-gray-500 mt-1 hover:text-purple-600 disabled:opacity-50"
               >
                 看不清？换一张
               </button>
@@ -251,6 +307,9 @@ export default function ClaimPage() {
             {error && (
               <div className="bg-red-50 text-red-600 text-sm py-2 px-3 rounded-lg">
                 {error}
+                {errorDetail && (
+                  <div className="text-xs text-red-400 mt-1">{errorDetail}</div>
+                )}
               </div>
             )}
 
