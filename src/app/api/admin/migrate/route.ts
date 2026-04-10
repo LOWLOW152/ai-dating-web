@@ -301,6 +301,24 @@ BEFORE UPDATE ON user_match_reports
 FOR EACH ROW
 EXECUTE FUNCTION update_user_match_selections_updated_at();
     `
+  },
+  {
+    name: '010_add_phone_claim',
+    description: '邀请码用户领取功能（source/phone字段+每日配额）',
+    sql: `
+-- 新增 source 字段区分管理员生成 vs 用户自助领取
+ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'admin';
+ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS phone TEXT;
+
+-- 索引优化查询
+CREATE INDEX IF NOT EXISTS idx_invite_codes_source ON invite_codes(source);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_phone ON invite_codes(phone);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_created_at ON invite_codes(created_at);
+
+-- 初始化每日配额配置（默认100个）
+INSERT INTO system_configs (key, value) VALUES ('daily_invite_quota', '100')
+ON CONFLICT (key) DO NOTHING;
+    `
   }
 ];
 
@@ -492,6 +510,44 @@ export async function GET() {
       description: '用户匹配报告缓存表',
       applied: umrTableRes.rows[0].exists
     });
+
+    // 检查 invite_codes 的 source 字段
+    const inviteSourceColRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'invite_codes' AND column_name = 'source')"
+    );
+    status.push({
+      name: '字段: invite_codes.source',
+      description: '邀请码来源（admin/user_claim）',
+      applied: inviteSourceColRes.rows[0].exists
+    });
+
+    // 检查 invite_codes 的 phone 字段
+    const invitePhoneColRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'invite_codes' AND column_name = 'phone')"
+    );
+    status.push({
+      name: '字段: invite_codes.phone',
+      description: '用户领取手机号',
+      applied: invitePhoneColRes.rows[0].exists
+    });
+
+    // 检查每日配额配置
+    try {
+      const quotaRes = await sql.query(
+        "SELECT EXISTS (SELECT FROM system_configs WHERE key = 'daily_invite_quota')"
+      );
+      status.push({
+        name: '配置: daily_invite_quota',
+        description: '每日邀请码配额（默认100）',
+        applied: quotaRes.rows[0].exists
+      });
+    } catch {
+      status.push({
+        name: '配置: daily_invite_quota',
+        description: '每日邀请码配额（默认100）',
+        applied: false
+      });
+    }
 
     return NextResponse.json({ success: true, status });
 

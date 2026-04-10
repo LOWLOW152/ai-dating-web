@@ -55,8 +55,16 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
         {/* 顶部 */}
-        <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
+        <div className="bg-white px-4 py-4 flex items-center justify-between border-b">
           <h1 className="text-lg font-semibold">狗蛋交友实验室</h1>
+          {/* 领取邀请码按钮 */}
+          <button
+            onClick={() => router.push('/claim')}
+            className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 transition-colors flex items-center gap-1"
+          >
+            <span>🎫</span>
+            <span>领邀请码</span>
+          </button>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -142,6 +150,23 @@ export default function InvitePage() {
               </div>
               <span className="text-gray-300">→</span>
             </button>
+
+            {/* 领取邀请码入口（移动端更明显） */}
+            <div className="mt-6 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4">
+              <button
+                onClick={() => router.push('/claim')}
+                className="w-full flex items-center gap-3"
+              >
+                <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <span className="text-2xl">🎫</span>
+                </div>
+                <div className="text-left flex-1">
+                  <h3 className="font-semibold text-orange-800">没有邀请码？</h3>
+                  <p className="text-sm text-orange-600">点击领取今日邀请码（每日限100个）</p>
+                </div>
+                <span className="text-orange-400">→</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -152,8 +177,16 @@ export default function InvitePage() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* 顶部 */}
-      <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
+      <div className="bg-white px-4 py-4 flex items-center justify-between border-b">
         <h1 className="text-lg font-semibold">狗蛋交友实验室</h1>
+        {/* 领取邀请码按钮 */}
+        <button
+          onClick={() => router.push('/claim')}
+          className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 transition-colors flex items-center gap-1"
+        >
+          <span>🎫</span>
+          <span>领邀请码</span>
+        </button>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -211,9 +244,16 @@ export default function InvitePage() {
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 text-center mt-6">
-            邀请码由管理员提供，可重复使用
-          </p>
+          {/* 没有邀请码提示 */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500 mb-2">没有邀请码？</p>
+            <button
+              onClick={() => router.push('/claim')}
+              className="text-purple-600 text-sm font-medium hover:text-purple-700 underline"
+            >
+              点击领取今日邀请码 →
+            </button>
+          </div>
         </div>
       </div>
     </div>
