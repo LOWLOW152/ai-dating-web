@@ -3,6 +3,20 @@ import { sql } from '@/lib/db';
 
 const MIGRATIONS = [
   {
+    name: '011_preset_options',
+    description: '题目快捷选项字段',
+    sql: `
+-- 为 questions 表添加 preset_options 字段
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'questions' AND column_name = 'preset_options') THEN
+    ALTER TABLE questions ADD COLUMN preset_options JSONB DEFAULT NULL;
+  END IF;
+END $$;
+    `
+  },
+  {
     name: '004_level1_filter',
     description: '第一层筛选相关表',
     sql: `
@@ -548,6 +562,16 @@ export async function GET() {
         applied: false
       });
     }
+
+    // 检查 questions 表的 preset_options 字段
+    const presetOptionsColRes = await sql.query(
+      "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'preset_options')"
+    );
+    status.push({
+      name: '字段: preset_options',
+      description: '题目快捷选项字段',
+      applied: presetOptionsColRes.rows[0].exists
+    });
 
     return NextResponse.json({ success: true, status });
 
