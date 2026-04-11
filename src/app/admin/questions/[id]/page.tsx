@@ -24,6 +24,7 @@ interface Question {
   hierarchy: HierarchyNode[] | null;
   is_active: boolean;
   is_required: boolean;
+  preset_options: string[] | null;
 }
 
 interface AiToneConfig {
@@ -41,6 +42,116 @@ interface ChatMessage {
 // 提取的数据结构
 interface ExtractedData {
   [key: string]: string | ExtractedData | (string | ExtractedData)[];
+}
+
+// 快捷选项编辑器组件
+function PresetOptionsEditor({
+  value,
+  onChange
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+}) {
+  const [options, setOptions] = useState<string[]>(value || []);
+  const [newOption, setNewOption] = useState('');
+
+  useEffect(() => {
+    onChange(options);
+  }, [options, onChange]);
+
+  function addOption() {
+    if (newOption.trim() && !options.includes(newOption.trim())) {
+      setOptions([...options, newOption.trim()]);
+      setNewOption('');
+    }
+  }
+
+  function removeOption(index: number) {
+    setOptions(options.filter((_, i) => i !== index));
+  }
+
+  function moveOption(index: number, direction: 'up' | 'down') {
+    if (direction === 'up' && index > 0) {
+      const newOptions = [...options];
+      [newOptions[index], newOptions[index - 1]] = [newOptions[index - 1], newOptions[index]];
+      setOptions(newOptions);
+    } else if (direction === 'down' && index < options.length - 1) {
+      const newOptions = [...options];
+      [newOptions[index], newOptions[index + 1]] = [newOptions[index + 1], newOptions[index]];
+      setOptions(newOptions);
+    }
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+      {/* 已添加的选项 */}
+      <div className="space-y-2 mb-3">
+        {options.length === 0 ? (
+          <div className="text-center py-4 text-gray-400 text-xs">
+            暂无快捷选项，用户只能手动输入
+          </div>
+        ) : (
+          options.map((opt, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-white rounded px-3 py-2">
+              <span className="text-xs text-gray-400 w-6">{idx + 1}</span>
+              <span className="flex-1 text-sm">{opt}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveOption(idx, 'up')}
+                  disabled={idx === 0}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30 px-1"
+                  title="上移"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveOption(idx, 'down')}
+                  disabled={idx === options.length - 1}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30 px-1"
+                  title="下移"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeOption(idx)}
+                  className="text-red-400 hover:text-red-600 px-1"
+                  title="删除"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 添加新选项 */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newOption}
+          onChange={(e) => setNewOption(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addOption()}
+          placeholder="输入选项文字，如：喜欢、不喜欢、偶尔"
+          className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+        />
+        <button
+          type="button"
+          onClick={addOption}
+          disabled={!newOption.trim()}
+          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-300"
+        >
+          添加
+        </button>
+      </div>
+      <p className="text-xs text-gray-400 mt-2">
+        配置后，用户聊天时会看到这些选项按钮，点击后自动填入输入框（可修改后发送）
+      </p>
+    </div>
+  );
 }
 
 // 层级编辑器组件
@@ -688,6 +799,18 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
                 ? '已禁用结束语，AI将直接结束本题不输出结束语。'
                 : '留空则使用默认提示词。AI会根据此提示词在结束本话题时给出回应（总结+不提问，或直接结束）。'}
             </p>
+          </div>
+
+          {/* 快捷选项配置 */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="font-semibold text-gray-800">快捷选项</h2>
+              <span className="text-xs text-gray-400">用户端显示的快捷回复按钮</span>
+            </div>
+            <PresetOptionsEditor
+              value={question.preset_options || []}
+              onChange={(preset_options) => setQuestion({ ...question, preset_options })}
+            />
           </div>
 
           {/* 深度追问层级 */}

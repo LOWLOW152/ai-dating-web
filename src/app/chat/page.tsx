@@ -17,6 +17,7 @@ interface Question {
   closing_message: string | null;
   max_questions: number;
   use_closing_message: boolean; // 结束语开关
+  preset_options: string[] | null; // 快捷选项
 }
 
 export default function ChatPage() {
@@ -369,6 +370,23 @@ export default function ChatPage() {
 
           {/* 底部输入 */}
           <div className="bg-white border-t px-4 py-3">
+            {/* 快捷选项 - 横向滚动 */}
+            {currentQuestion?.preset_options && currentQuestion.preset_options.length > 0 && (
+              <div className="mb-3 -mx-4 px-4 overflow-x-auto">
+                <div className="flex gap-2 whitespace-nowrap pb-1">
+                  {currentQuestion.preset_options.map((option, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setInputMessage(option)}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm border border-blue-200 hover:bg-blue-100 transition-colors"
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="flex gap-2">
               <input
                 type="text"
