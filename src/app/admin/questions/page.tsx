@@ -146,7 +146,22 @@ export default function QuestionsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  <Link href={`/admin/questions/${q.id}`} className="text-blue-600 hover:underline">编辑</Link>
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      href={`/admin/questions/${q.id}`} 
+                      className="text-blue-600 hover:underline"
+                    >
+                      编辑
+                    </Link>
+                    <span className="text-gray-300">|</span>
+                    <Link 
+                      href={`/admin/questions/${q.id}#preset-options`}
+                      className="text-purple-600 hover:underline"
+                      title="配置快捷回复选项"
+                    >
+                      快捷选项
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
