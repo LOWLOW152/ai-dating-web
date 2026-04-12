@@ -79,9 +79,8 @@ function PresetOptionsEditor({
       return;
     }
     
-    console.log('添加选项:', trimmed, '当前选项:', options);
     const newOptions = [...options, trimmed];
-    console.log('新选项数组:', newOptions);
+    alert('添加选项: ' + trimmed + '\n新数组: ' + JSON.stringify(newOptions)); // 临时弹窗调试
     onChange(newOptions);
     setNewOption('');
   }
@@ -881,7 +880,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
             <PresetOptionsEditor
               value={question.preset_options || []}
               onChange={(preset_options) => {
-                console.log('快捷选项变化:', preset_options);
+                alert('父组件收到: ' + JSON.stringify(preset_options)); // 临时调试
                 setQuestion(prev => prev ? { ...prev, preset_options } : null);
               }}
             />
