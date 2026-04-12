@@ -53,18 +53,41 @@ function PresetOptionsEditor({
   onChange: (value: string[]) => void;
 }) {
   const [newOption, setNewOption] = useState('');
+  const [error, setError] = useState('');
+  const [showDebug, setShowDebug] = useState(false);
   
   // 处理 value 可能是字符串的情况
-  const options = (typeof value === 'string' ? JSON.parse(value) : value) || [];
+  let options: string[] = [];
+  try {
+    options = (typeof value === 'string' ? JSON.parse(value) : value) || [];
+  } catch (e) {
+    console.error('解析 preset_options 失败:', e, '原始值:', value);
+    options = [];
+  }
 
   function addOption() {
-    if (newOption.trim() && !options.includes(newOption.trim())) {
-      onChange([...options, newOption.trim()]);
-      setNewOption('');
+    setError('');
+    const trimmed = newOption.trim();
+    
+    if (!trimmed) {
+      setError('选项内容不能为空');
+      return;
     }
+    
+    if (options.includes(trimmed)) {
+      setError(`"${trimmed}" 已存在`);
+      return;
+    }
+    
+    console.log('添加选项:', trimmed, '当前选项:', options);
+    const newOptions = [...options, trimmed];
+    console.log('新选项数组:', newOptions);
+    onChange(newOptions);
+    setNewOption('');
   }
 
   function removeOption(index: number) {
+    console.log('删除选项索引:', index);
     onChange(options.filter((_: string, i: number) => i !== index));
   }
 
@@ -82,15 +105,43 @@ function PresetOptionsEditor({
 
   return (
     <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+      {/* 调试信息开关 */}
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={() => setShowDebug(!showDebug)}
+          className="text-xs text-gray-400 hover:text-gray-600 underline"
+        >
+          {showDebug ? '隐藏调试' : '显示调试'}
+        </button>
+      </div>
+      
+      {/* 调试信息面板 */}
+      {showDebug && (
+        <div className="bg-gray-800 text-green-400 rounded p-2 mb-3 text-xs font-mono">
+          <div>选项数量: {options.length}</div>
+          <div>原始值类型: {typeof value}</div>
+          <div>原始值: {JSON.stringify(value)}</div>
+          <div>解析后: {JSON.stringify(options)}</div>
+        </div>
+      )}
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="bg-red-100 border border-red-300 text-red-700 rounded p-2 mb-3 text-sm">
+          ⚠️ {error}
+        </div>
+      )}
+
       {/* 已添加的选项 */}
       <div className="space-y-2 mb-3">
         {options.length === 0 ? (
-          <div className="text-center py-4 text-gray-400 text-xs">
+          <div className="text-center py-4 text-gray-400 text-xs border border-dashed border-gray-300 rounded">
             暂无快捷选项，用户只能手动输入
           </div>
         ) : (
           options.map((opt: string, idx: number) => (
-            <div key={idx} className="flex items-center gap-2 bg-white rounded px-3 py-2">
+            <div key={idx} className="flex items-center gap-2 bg-white rounded px-3 py-2 border border-gray-200">
               <span className="text-xs text-gray-400 w-6">{idx + 1}</span>
               <span className="flex-1 text-sm">{opt}</span>
               <div className="flex items-center gap-1">
@@ -131,10 +182,13 @@ function PresetOptionsEditor({
         <input
           type="text"
           value={newOption}
-          onChange={(e) => setNewOption(e.target.value)}
+          onChange={(e) => {
+            setNewOption(e.target.value);
+            setError('');
+          }}
           onKeyDown={(e) => e.key === 'Enter' && addOption()}
           placeholder="输入选项文字，如：喜欢、不喜欢、偶尔"
-          className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+          className={`flex-1 border rounded px-2 py-1.5 text-sm ${error ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
         />
         <button
           type="button"
@@ -813,11 +867,23 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-center mb-3">
               <h2 className="font-semibold text-gray-800">快捷选项</h2>
-              <span className="text-xs text-gray-400">用户端显示的快捷回复按钮</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded ${
+                  (question.preset_options?.length || 0) > 0 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {(question.preset_options?.length || 0)} 个选项
+                </span>
+                <span className="text-xs text-gray-400">用户端显示的快捷回复按钮</span>
+              </div>
             </div>
             <PresetOptionsEditor
               value={question.preset_options || []}
-              onChange={(preset_options) => setQuestion({ ...question, preset_options })}
+              onChange={(preset_options) => {
+                console.log('快捷选项变化:', preset_options);
+                setQuestion({ ...question, preset_options });
+              }}
             />
           </div>
 
