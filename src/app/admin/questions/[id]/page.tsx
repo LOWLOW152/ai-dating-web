@@ -699,8 +699,6 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
     setIsComplete(false);
   }
 
-  const aiPrompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage, maxQuestions);
-
   // 稳定数组引用，避免无限渲染 - 必须在所有 return 之前
   const presetOptionsValue = useMemo(() => question?.preset_options || [], [question?.preset_options]);
   const hierarchyValue = useMemo(() => question?.hierarchy || [], [question?.hierarchy]);
@@ -721,6 +719,8 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       </div>
     );
   }
+
+  const aiPrompt = generateAiPrompt(question, toneConfig, questionCount, extractedData, closingMessage, maxQuestions);
 
   return (
     <div className="h-screen flex flex-col">
