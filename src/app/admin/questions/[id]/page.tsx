@@ -80,7 +80,6 @@ function PresetOptionsEditor({
     }
     
     const newOptions = [...options, trimmed];
-    alert('添加选项: ' + trimmed + '\n新数组: ' + JSON.stringify(newOptions)); // 临时弹窗调试
     onChange(newOptions);
     setNewOption('');
   }
@@ -877,10 +876,18 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
                 <span className="text-xs text-gray-400">用户端显示的快捷回复按钮</span>
               </div>
             </div>
+            
+            {/* 父组件调试信息 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mb-3 text-xs">
+              <div className="font-medium text-yellow-800 mb-1">父组件状态：</div>
+              <div>preset_options 类型: {typeof question.preset_options}</div>
+              <div>preset_options 值: {JSON.stringify(question.preset_options)}</div>
+              <div>数组长度: {question.preset_options?.length || 0}</div>
+            </div>
+
             <PresetOptionsEditor
               value={question.preset_options || []}
               onChange={(preset_options) => {
-                alert('父组件收到: ' + JSON.stringify(preset_options)); // 临时调试
                 setQuestion(prev => prev ? { ...prev, preset_options } : null);
               }}
             />
