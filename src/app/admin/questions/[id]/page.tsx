@@ -522,12 +522,18 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       const res = await fetch(`/api/questions/${params.id}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.data) {
-        // 处理 preset_options 可能是字符串的情况
+        // 处理 preset_options 可能是字符串或 null 的情况
+        const rawPresetOptions = data.data.preset_options;
+        let parsedPresetOptions: string[] = [];
+        if (typeof rawPresetOptions === 'string') {
+          parsedPresetOptions = JSON.parse(rawPresetOptions);
+        } else if (Array.isArray(rawPresetOptions)) {
+          parsedPresetOptions = rawPresetOptions;
+        } // 其他情况（null/undefined）保持空数组
+        
         const questionData = {
           ...data.data,
-          preset_options: typeof data.data.preset_options === 'string' 
-            ? JSON.parse(data.data.preset_options) 
-            : data.data.preset_options
+          preset_options: parsedPresetOptions
         };
         setQuestion(questionData);
         setClosingMessage(data.data.closing_message || '');
