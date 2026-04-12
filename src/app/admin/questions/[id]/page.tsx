@@ -52,8 +52,16 @@ function PresetOptionsEditor({
   value: string[];
   onChange: (value: string[]) => void;
 }) {
-  const [options, setOptions] = useState<string[]>(value || []);
+  // 处理 value 可能是字符串的情况（从数据库返回的 JSONB）
+  const parsedValue = typeof value === 'string' ? JSON.parse(value) : value;
+  const [options, setOptions] = useState<string[]>(parsedValue || []);
   const [newOption, setNewOption] = useState('');
+
+  // 当外部 value 变化时同步更新内部状态
+  useEffect(() => {
+    const newParsedValue = typeof value === 'string' ? JSON.parse(value) : value;
+    setOptions(newParsedValue || []);
+  }, [value]);
 
   useEffect(() => {
     onChange(options);
@@ -472,12 +480,22 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
       const res = await fetch(`/api/questions/${params.id}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.data) {
-        setQuestion(data.data);
+        // 处理 preset_options 可能是字符串的情况
+        const questionData = {
+          ...data.data,
+          preset_options: typeof data.data.preset_options === 'string' 
+            ? JSON.parse(data.data.preset_options) 
+            : data.data.preset_options
+        };
+        setQuestion(questionData);
         setClosingMessage(data.data.closing_message || '');
         setMaxQuestions(data.data.max_questions || 3);
         // 读取 tone_config，如果没有则使用默认值
         if (data.data.tone_config) {
-          setToneConfig(data.data.tone_config);
+          setToneConfig(typeof data.data.tone_config === 'string'
+            ? JSON.parse(data.data.tone_config)
+            : data.data.tone_config
+          );
         }
       } else {
         setError(data.error || '题目不存在');
