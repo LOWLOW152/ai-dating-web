@@ -882,7 +882,7 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
               value={question.preset_options || []}
               onChange={(preset_options) => {
                 console.log('快捷选项变化:', preset_options);
-                setQuestion(prev => ({ ...prev, preset_options }));
+                setQuestion(prev => prev ? { ...prev, preset_options } : null);
               }}
             />
           </div>
