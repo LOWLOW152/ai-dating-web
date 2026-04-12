@@ -89,7 +89,7 @@ function PresetOptionsEditor({
             暂无快捷选项，用户只能手动输入
           </div>
         ) : (
-          options.map((opt, idx) => (
+          options.map((opt: string, idx: number) => (
             <div key={idx} className="flex items-center gap-2 bg-white rounded px-3 py-2">
               <span className="text-xs text-gray-400 w-6">{idx + 1}</span>
               <span className="flex-1 text-sm">{opt}</span>
