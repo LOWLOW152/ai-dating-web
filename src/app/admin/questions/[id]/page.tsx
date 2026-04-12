@@ -52,41 +52,31 @@ function PresetOptionsEditor({
   value: string[];
   onChange: (value: string[]) => void;
 }) {
-  // 处理 value 可能是字符串的情况（从数据库返回的 JSONB）
-  const parsedValue = typeof value === 'string' ? JSON.parse(value) : value;
-  const [options, setOptions] = useState<string[]>(parsedValue || []);
   const [newOption, setNewOption] = useState('');
-
-  // 当外部 value 变化时同步更新内部状态
-  useEffect(() => {
-    const newParsedValue = typeof value === 'string' ? JSON.parse(value) : value;
-    setOptions(newParsedValue || []);
-  }, [value]);
-
-  useEffect(() => {
-    onChange(options);
-  }, [options, onChange]);
+  
+  // 处理 value 可能是字符串的情况
+  const options = (typeof value === 'string' ? JSON.parse(value) : value) || [];
 
   function addOption() {
     if (newOption.trim() && !options.includes(newOption.trim())) {
-      setOptions([...options, newOption.trim()]);
+      onChange([...options, newOption.trim()]);
       setNewOption('');
     }
   }
 
   function removeOption(index: number) {
-    setOptions(options.filter((_, i) => i !== index));
+    onChange(options.filter((_: string, i: number) => i !== index));
   }
 
   function moveOption(index: number, direction: 'up' | 'down') {
     if (direction === 'up' && index > 0) {
       const newOptions = [...options];
       [newOptions[index], newOptions[index - 1]] = [newOptions[index - 1], newOptions[index]];
-      setOptions(newOptions);
+      onChange(newOptions);
     } else if (direction === 'down' && index < options.length - 1) {
       const newOptions = [...options];
       [newOptions[index], newOptions[index + 1]] = [newOptions[index + 1], newOptions[index]];
-      setOptions(newOptions);
+      onChange(newOptions);
     }
   }
 
