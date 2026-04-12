@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface HierarchyNode {
@@ -56,6 +56,10 @@ function PresetOptionsEditor({
   const [error, setError] = useState('');
   const [showDebug, setShowDebug] = useState(false);
   
+  // 渲染计数器
+  const renderCount = useRef(0);
+  renderCount.current++;
+  
   // 处理 value 可能是字符串的情况
   let options: string[] = [];
   try {
@@ -64,6 +68,8 @@ function PresetOptionsEditor({
     console.error('解析 preset_options 失败:', e, '原始值:', value);
     options = [];
   }
+  
+  console.log(`>>> PresetOptionsEditor 渲染 #${renderCount.current}, value:`, value, '解析后:', options);
 
   function addOption() {
     setError('');
@@ -894,7 +900,11 @@ export default function EditQuestionPage({ params }: { params: { id: string } })
             <PresetOptionsEditor
               value={question.preset_options || []}
               onChange={(preset_options) => {
-                setQuestion(prev => prev ? { ...prev, preset_options } : null);
+                console.log('>>> onChange 被调用:', preset_options);
+                setQuestion(prev => {
+                  console.log('>>> setQuestion 回调执行, prev:', prev);
+                  return prev ? { ...prev, preset_options } : null;
+                });
               }}
             />
           </div>
