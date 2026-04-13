@@ -118,7 +118,7 @@ export default function Home() {
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
     } else {
-      router.push("/invite");
+      router.push("/claim");
     }
   };
 
@@ -138,7 +138,7 @@ export default function Home() {
               </div>
             </Link>
             <div className="flex items-center gap-6">
-              <Link href="/invite" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+              <Link href="/claim" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 验证邀请码
               </Link>
               <Link href="/about" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
@@ -371,7 +371,7 @@ export default function Home() {
           </h2>
           
           <button 
-            onClick={() => router.push("/invite")}
+            onClick={() => router.push("/claim")}
             className="w-full sm:w-auto px-10 py-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:shadow-xl hover:shadow-amber-500/25 hover:-translate-y-1 transition-all text-xl mb-6"
           >
             免费领取今日邀请码
