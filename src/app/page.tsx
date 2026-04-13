@@ -187,13 +187,21 @@ export default function Home() {
               免费领取今日邀请码，开始匹配
             </button>
             <Link 
-              href="/demo" 
+              href="/chat" 
               className="w-full sm:w-auto px-8 py-4 text-gray-600 hover:text-gray-900 font-medium transition-colors flex items-center justify-center gap-2"
             >
-              先看看AI会聊些什么
+              已有邀请码，直接开始
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
+            </Link>
+          </div>
+
+          {/* 已有邀请码快速入口 */}
+          <div className="mt-6 text-sm text-gray-500">
+            已经有邀请码？
+            <Link href="/chat" className="text-amber-600 hover:text-amber-700 font-medium ml-1">
+              直接开始AI问卷 →
             </Link>
           </div>
 
