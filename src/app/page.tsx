@@ -196,6 +196,14 @@ export default function Home() {
               </svg>
             </Link>
           </div>
+
+          {/* 已有邀请码入口 */}
+          <p className="mt-6 text-sm text-gray-500">
+            已有邀请码？
+            <Link href="/chat" className="text-amber-600 hover:text-amber-700 font-medium underline decoration-amber-300 underline-offset-4">
+              直接开始答题 →
+            </Link>
+          </p>
         </div>
       </section>
 

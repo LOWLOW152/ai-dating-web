@@ -95,6 +95,8 @@ export default function ClaimPage() {
           remaining: data.remaining,
           total: data.total,
         });
+        // 将邀请码保存到 localStorage，方便后续进入答题页面
+        localStorage.setItem('inviteCode', data.code);
       } else {
         setError(data.error || '领取失败');
         if (data.code) {
@@ -137,7 +139,7 @@ export default function ClaimPage() {
       <div className="min-h-screen bg-gray-100 flex flex-col">
         {/* 顶部 */}
         <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
-          <h1 className="text-lg font-semibold">狗蛋交友实验室</h1>
+          <h1 className="text-lg font-semibold">狗蛋AI相亲</h1>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -175,10 +177,22 @@ export default function ClaimPage() {
             {/* 操作按钮 */}
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/')}
-                className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                onClick={() => router.push('/chat')}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-medium hover:shadow-lg hover:shadow-amber-500/25 transition-all"
               >
-                返回首页 →
+                🚀 开始AI问卷（30题）
+              </button>
+              <button
+                onClick={() => router.push('/beauty-score')}
+                className="w-full bg-white border-2 border-purple-200 text-purple-700 py-3 rounded-lg font-medium hover:bg-purple-50 transition-colors"
+              >
+                📸 颜值打分（可选）
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="w-full text-gray-500 py-3 rounded-lg font-medium hover:text-gray-700 transition-colors"
+              >
+                ← 返回首页
               </button>
             </div>
           </div>
@@ -192,7 +206,7 @@ export default function ClaimPage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* 顶部 */}
       <div className="bg-white px-4 py-4 flex items-center justify-center border-b">
-        <h1 className="text-lg font-semibold">狗蛋交友实验室</h1>
+        <h1 className="text-lg font-semibold">狗蛋AI相亲</h1>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
