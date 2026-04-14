@@ -187,7 +187,7 @@ export default function Home() {
               免费领取今日邀请码，开始匹配
             </button>
             <Link 
-              href="/chat" 
+              href="/verify" 
               className="w-full sm:w-auto px-8 py-4 text-gray-600 hover:text-gray-900 font-medium transition-colors flex items-center justify-center gap-2"
             >
               已有邀请码，直接开始
@@ -200,7 +200,7 @@ export default function Home() {
           {/* 已有邀请码快速入口 */}
           <div className="mt-6 text-sm text-gray-500">
             已经有邀请码？
-            <Link href="/chat" className="text-amber-600 hover:text-amber-700 font-medium ml-1">
+            <Link href="/verify" className="text-amber-600 hover:text-amber-700 font-medium ml-1">
               直接开始AI问卷 →
             </Link>
           </div>
