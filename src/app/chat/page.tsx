@@ -184,10 +184,10 @@ export default function ChatPage() {
           }, isSilentEnd ? 300 : 1500);
         } else {
           // 最后一题已完成，跳转完成页面
-          console.log('Last question completed, redirecting to complete page');
+          console.log('Last question completed, redirecting to soul report page');
           setTimeout(() => {
             localStorage.setItem('profileData', JSON.stringify(extractedData));
-            router.push('/complete');
+            router.push('/soul-report');
           }, isSilentEnd ? 300 : 1500);
         }
       }
@@ -273,7 +273,7 @@ export default function ChatPage() {
     } else {
       // 完成所有题目
       localStorage.setItem('profileData', JSON.stringify(extractedData));
-      router.push('/complete');
+      router.push('/soul-report');
     }
   }
 

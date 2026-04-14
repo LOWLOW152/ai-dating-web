@@ -9,7 +9,7 @@ interface Profile {
 }
 
 // AI评价提示词模板 - 输出结构化标签 + 标准化答案
-const EVALUATION_PROMPT = `你是狗蛋，一个专业的交友档案分析师。
+export const EVALUATION_PROMPT = `你是狗蛋，一个专业的交友档案分析师。
 
 【任务】
 分析用户的交友档案，完成两件事：
@@ -121,7 +121,7 @@ AI综合判断：
 `;
 
 // 执行AI评价
-async function evaluateProfile(profile: Profile): Promise<{
+export async function evaluateProfile(profile: Profile): Promise<{
   success: boolean;
   result?: Record<string, unknown>;
   tokens?: { request: number; response: number; total: number };
