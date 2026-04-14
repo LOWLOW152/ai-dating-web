@@ -345,6 +345,16 @@ export default function ClaimPage() {
           >
             ← 返回首页
           </button>
+
+          {/* 已有邀请码快速入口 */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => router.push('/chat')}
+              className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+            >
+              已有邀请码？直接开始AI问卷 →
+            </button>
+          </div>
         </div>
       </div>
     </div>
