@@ -1,5 +1,5 @@
 import { sql } from '@/lib/db';
-import { evaluateProfile } from '../admin/evaluation/run/route';
+import { evaluateProfile, saveEvaluationResult } from '@/lib/evaluation';
 
 // POST /api/profile/submit
 export async function POST(request: Request) {
@@ -48,53 +48,12 @@ export async function POST(request: Request) {
     try {
       const profile = { id: profileId, invite_code: upperCode, answers: data, ai_summary: null };
       const evalRes = await evaluateProfile(profile);
+      const saveRes = await saveEvaluationResult(profileId, evalRes);
       
-      if (evalRes.success && evalRes.result && evalRes.tokens) {
-        const costCny = (evalRes.tokens.total / 1000) * 0.008;
-        await sql.query(
-          `INSERT INTO token_usage (profile_id, api_endpoint, request_tokens, response_tokens, total_tokens, cost_cny)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [profileId, '/api/profile/submit-auto-eval', evalRes.tokens.request, evalRes.tokens.response, evalRes.tokens.total, costCny]
-        );
-        
-        const standardizedAnswers = evalRes.result.standardized_answers || {};
-        await sql.query(
-          `UPDATE profiles 
-           SET ai_evaluation = $1, 
-               ai_evaluated_at = NOW(),
-               ai_evaluation_status = $2,
-               standardized_answers = $3
-           WHERE id = $4`,
-          [JSON.stringify(evalRes.result), 'completed', JSON.stringify(standardizedAnswers), profileId]
-        );
-        
-        const tags = evalRes.result.tags || {};
-        await sql.query(
-          `INSERT INTO profile_ai_tags (profile_id, tags, created_at, updated_at)
-           VALUES ($1, $2, NOW(), NOW())
-           ON CONFLICT (profile_id) 
-           DO UPDATE SET tags = $2, updated_at = NOW()`,
-          [profileId, JSON.stringify(tags)]
-        );
-        
-        await sql.query(
-          `INSERT INTO evaluation_logs (profile_id, status, evaluation_result)
-           VALUES ($1, $2, $3)`,
-          [profileId, 'success', JSON.stringify(evalRes.result)]
-        );
-        
+      if (saveRes.success) {
         evaluationResult = evalRes.result;
       } else {
-        evaluationError = evalRes.error;
-        await sql.query(
-          `UPDATE profiles SET ai_evaluation_status = $1 WHERE id = $2`,
-          ['failed', profileId]
-        );
-        await sql.query(
-          `INSERT INTO evaluation_logs (profile_id, status, error_message)
-           VALUES ($1, $2, $3)`,
-          [profileId, 'failed', evalRes.error]
-        );
+        evaluationError = saveRes.error;
       }
     } catch (evalErr) {
       console.error('自动AI评价失败:', evalErr);
